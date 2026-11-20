@@ -55,10 +55,10 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
 export async function POST(req,{params}){try{originGuard(req);const {action}=await params;const x=await body(req,120000);
  if(action.startsWith('admin-')){const u=await requireRole(req,adminRoles);
   if(action==='admin-invite'){
-   const mail=email(x.email);ensure(/^\S+@\S+\.\S+$/.test(mail),'E-mail inválido.');const token=randomToken();
-   await sql("INSERT INTO supplier_invites(email,token_hash,created_by,expires_at) VALUES($1,$2,$3,now()+interval '7 days')",[mail,sha256(token),u.id]);
-   await audit(u.id,'supplier.invite','supplier_invite',null,null,{email:mail});
-   const site=(process.env.SITE_URL||new URL(req.url).origin).replace(/\/$/,'');return ok({invite_url:site+'/fornecedor/cadastro?token='+encodeURIComponent(token),expires_days:7},201)
+   const token=randomToken();
+   await sql("INSERT INTO supplier_invites(email,token_hash,created_by,expires_at) VALUES($1,$2,$3,now()+interval '7 days')",['',sha256(token),u.id]);
+   await audit(u.id,'supplier.invite','supplier_invite',null,null,{delivery:'manual_link'});
+   const invitePath='/fornecedor/cadastro?token='+encodeURIComponent(token);return ok({invite_path:invitePath,invite_url:new URL(invitePath,new URL(req.url).origin).href,expires_days:7},201)
   }
   if(action==='admin-invite-revoke'){ensure(uuid(x.id),'Convite inválido.');await sql('UPDATE supplier_invites SET revoked_at=now() WHERE id=$1 AND used_at IS NULL',[x.id]);await audit(u.id,'supplier.invite_revoke','supplier_invite',x.id);return ok({revoked:true})}
   if(action==='admin-suspend'){ensure(uuid(x.id),'Fornecedor inválido.');const status=x.suspended?'suspended':'active';const r=await sql('UPDATE suppliers SET status=$1,updated_at=now() WHERE id=$2 RETURNING user_id',[status,x.id]);ensure(r.rowCount,'Fornecedor inexistente.',404);await sql('UPDATE users SET suspended_at=$1 WHERE id=$2',[x.suspended?new Date():null,r.rows[0].user_id]);if(x.suspended)await sql('DELETE FROM sessions WHERE user_id=$1',[r.rows[0].user_id]);await audit(u.id,'supplier.status','supplier',x.id,null,{status});return ok({status})}

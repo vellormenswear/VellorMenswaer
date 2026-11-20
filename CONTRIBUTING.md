@@ -2,7 +2,7 @@
 
 ## Organização recomendada
 
-- Repositório **público** e branch `main` estável, sem segredos nem informações de clientes.
+- Repositório **privado** e branch `main` estável.
 - Uma branch por tarefa: `feat/fornecedor-cadastro`, `fix/painel-financeiro`, `feat/split-checkout`.
 - Cada alteração entra via **Pull Request**, revisada por outro programador antes de mesclar na `main`.
 - Nunca editar diretamente código de produção, banco Neon ou variáveis Vercel sem coordenação.
@@ -25,4 +25,4 @@
 
 ## Acesso do segundo programador
 
-Na página do repositório oficial: `Settings → Collaborators → Add people`; conceder permissão **Write** (sem necessidade de Admin). Habilitar proteção da branch `main`, revisão por PR e checks quando disponíveis.
+Na página do repositório privado: `Settings → Collaborators → Add people`; conceder permissão **Write** (sem necessidade de Admin). Habilitar proteção da branch `main`, revisão por PR e checks quando disponíveis.

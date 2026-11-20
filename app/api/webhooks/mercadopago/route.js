@@ -1,4 +1,4 @@
-import {sql,transaction} from '@/lib/db';import {ok,fail,ensure,HttpError} from '@/lib/http';import {sha256,verifyMPWebhook} from '@/lib/security';import {fetchMPOrder} from '@/lib/mercadopago';
+import {sql,transaction} from '@/lib/db';import {ok,fail,ensure,HttpError,uuid} from '@/lib/http';import {sha256,verifyMPWebhook} from '@/lib/security';import {fetchMPOrder} from '@/lib/mercadopago';
 import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {reconcilePayment} from '@/lib/split-reconcile';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -8,13 +8,23 @@ export async function POST(req){try{
  if(type==='payment'){
    const id=String(dataId||'');ensure(/^\d{5,30}$/.test(id),'Pagamento inválido.',400);
    const legit=verifyMPWebhook({secret:process.env.MP_WEBHOOK_SECRET,signature:req.headers.get('x-signature'),requestId:req.headers.get('x-request-id'),dataId:id});ensure(legit,'Assinatura inválida.',401);
-   const sellerId=String(body.user_id||'');const r=await sql('SELECT supplier_id FROM supplier_mp_connections WHERE provider_user_id=$1',[sellerId]);
+   const groupId=url.searchParams.get('group'),sellerId=String(body.user_id||'');
+   // O parâmetro group não aprova pagamentos: apenas identifica com qual token consultar a API oficial.
+   // O pagamento retornado pela API ainda precisa casar com grupo, vendedor, valor e moeda.
+   const r=uuid(groupId)?await sql(`SELECT g.supplier_id,mp.provider_user_id FROM supplier_order_groups g
+     JOIN supplier_mp_connections mp ON mp.supplier_id=g.supplier_id WHERE g.id=$1`,[groupId]):
+     await sql('SELECT supplier_id,provider_user_id FROM supplier_mp_connections WHERE provider_user_id=$1',[sellerId]);
    if(!r.rowCount)return ok({ignored:'unrelated_payment'});
+   const expectedSeller=String(r.rows[0].provider_user_id);
+
    const live=process.env.MP_MODE==='production';ensure(body.live_mode===live,'Ambiente divergente.',403);
    const token=await supplierAccessToken(r.rows[0].supplier_id);const payment=await mpRequest('/v1/payments/'+encodeURIComponent(id),token);
-   const result=await reconcilePayment(payment,sellerId);return ok({accepted:true,...result});
+   if(payment.live_mode!==undefined)ensure(payment.live_mode===live,'Pagamento de outro ambiente.',403);
+   if(uuid(groupId))ensure(String(payment.external_reference)===groupId,'Grupo informado não corresponde ao pagamento.',403);
+   const result=await reconcilePayment(payment,expectedSeller);return ok({accepted:true,...result});
  }
- ensure(type==='order','Tópico ignorado.',400);
+ if(type!=='order')return ok({ignored:'other_event'});
+ if(process.env.MP_MODE!=='sandbox')return ok({ignored:'legacy_orders_disabled'});
  ensure(body.live_mode===false,'Notificação de ambiente de produção bloqueada.',403);
  const verified=verifyMPWebhook({secret:process.env.MP_WEBHOOK_SECRET,signature:req.headers.get('x-signature'),requestId:req.headers.get('x-request-id'),dataId});ensure(verified,'Assinatura do webhook inválida.',401);
  const evId=sha256(`${body.id||''}|${body.action||''}|${dataId}`);

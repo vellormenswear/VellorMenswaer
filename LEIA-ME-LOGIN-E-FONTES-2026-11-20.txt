@@ -1,0 +1,35 @@
+VELLOR MENSWEAR — atualização do fluxo de compra e tipografia — 20/11/2026
+
+BASE: ZIP completo VELLOR_MENSWEAR_LOGO_MAIOR_VERDE_ORIGINAL_VERCEL.zip.
+Mantidos o logotipo maior, a textura verde original, o catálogo, o carrinho, os painéis,
+o banco Neon, as APIs e a configuração de pagamentos existentes.
+
+1) COMPRA COM LOGIN
+- O botão "Finalizar compra" verifica a sessão via /api/auth/me.
+- O botão "Comprar agora" também inicia a finalização com a mesma verificação.
+- Clientes não autenticados são enviados para /conta?next=%2Ffinalizar.
+- Depois de login ou cadastro bem-sucedido, contas Cliente retornam automaticamente a /finalizar.
+- O carrinho continua armazenado no navegador, sem ser apagado durante login/cadastro.
+- O acesso direto a /finalizar também redireciona usuários não autenticados.
+- A autorização real para criar o pedido permanece garantida no servidor (requireUser e role customer).
+- Contas de administrador/fornecedor continuam sem poder comprar usando esse perfil.
+
+2) FONTES
+- Agora a vitrine e as telas internas carregam Inter em pesos variáveis pela fonte oficial do Google Fonts.
+- CSS ajustado para permitir renderização nativa do navegador e fonte com tamanho óptico automático.
+- Nenhum valor font-size existente foi modificado. Os títulos com fonte Georgia também foram preservados.
+- A fonte depende da disponibilidade de fonts.googleapis.com e fonts.gstatic.com;
+  se estiverem bloqueados, o site usa as fontes substitutas configuradas.
+- A nitidez final também depende do monitor, da escala do sistema e do navegador.
+
+PUBLICAÇÃO VERCEL:
+- Extraia o ZIP completo e publique a pasta que contém package.json como projeto Next.js.
+- Preserve as variáveis de ambiente existentes. Não insira segredos no código ou ZIP.
+- Nenhuma migração do banco foi necessária nesta atualização.
+
+VALIDAÇÕES LOCAIS:
+- 28 testes automatizados aprovados com npm test.
+- Sintaxe de JavaScript da vitrine aprovada com node --check.
+- Sintaxe JSX das páginas alteradas aprovada com tsc (sem emissão).
+- Declarações de font-size das páginas original e atualizada idênticas.
+- Não foi feita uma compra/pagamento em produção nem um build Next.js completo sem dependências instaladas.

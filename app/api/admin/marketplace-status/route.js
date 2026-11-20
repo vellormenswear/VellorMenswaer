@@ -10,7 +10,7 @@ export const dynamic='force-dynamic';
 const requiredTables=[
   'suppliers','supplier_invites','supplier_submissions','supplier_mp_connections',
   'supplier_order_groups','supplier_cancel_events','supplier_price_requests',
-  'finance_adjustments','supplier_stock_reservations'
+  'finance_adjustments','supplier_stock_reservations','checkout_coupon_redemptions'
 ];
 
 async function diagnostic(){
@@ -23,16 +23,17 @@ async function diagnostic(){
       SELECT table_name,column_name FROM information_schema.columns
        WHERE table_schema='public'
          AND ((table_name='products' AND column_name='supplier_id')
-          OR (table_name='product_variants' AND column_name='supplier_cost_cents'))`);
+          OR (table_name='product_variants' AND column_name='supplier_cost_cents')
+          OR (table_name='supplier_order_groups' AND column_name='checkout_batch_id'))`);
     const foundColumns=new Set(columns.rows.map(x=>x.table_name+'.'+x.column_name));
-    const requiredColumns=['products.supplier_id','product_variants.supplier_cost_cents'];
+    const requiredColumns=['products.supplier_id','product_variants.supplier_cost_cents','supplier_order_groups.checkout_batch_id'];
     const missingColumns=requiredColumns.filter(x=>!foundColumns.has(x));
     const migrationsTable=await sql("SELECT to_regclass('public.schema_migrations') AS table_ref");
     const versions=migrationsTable.rows[0]?.table_ref
       ? (await sql(`SELECT version FROM schema_migrations
-          WHERE version IN ('002_marketplace.sql','003_supplier_changes.sql')
+          WHERE version IN ('002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql')
           ORDER BY version`)).rows.map(x=>x.version) : [];
-    const missingMigrations=['002_marketplace.sql','003_supplier_changes.sql'].filter(x=>!versions.includes(x));
+    const missingMigrations=['002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql'].filter(x=>!versions.includes(x));
     return {ready:missingTables.length===0&&missingColumns.length===0&&missingMigrations.length===0,
        missing_tables:missingTables,missing_columns:missingColumns,missing_migrations:missingMigrations};
 }

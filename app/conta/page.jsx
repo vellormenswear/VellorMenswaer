@@ -7,7 +7,8 @@ export default function Conta(){const [user,setUser]=useState(null),[loaded,setL
  const [auth,setAuth]=useState({name:'',email:'',password:'',token:''}),[profile,setProfile]=useState({name:'',phone:''}),[password,setPassword]=useState({current:'',next:''});
  const [addresses,setAddresses]=useState([]),[address,setAddress]=useState(initial),[orders,setOrders]=useState([]),[selected,setSelected]=useState(null),[reqType,setReqType]=useState('cancel'),[reason,setReason]=useState('');
  const message=(s)=>setNotice(s);
- async function load(){try{const r=await api('auth/me');setUser(r.user);if(r.user){setProfile({name:r.user.name,phone:r.user.phone||''});await Promise.all([loadAddresses(),loadOrders()])}}catch(e){message(e.message)}finally{setLoaded(true)}}
+ const returnToCheckout=()=>new URLSearchParams(window.location.search).get('next')==='/finalizar';
+ async function load(){try{const r=await api('auth/me');setUser(r.user);if(r.user){if(returnToCheckout()&&r.user.role==='customer'){window.location.replace('/finalizar');return;}setProfile({name:r.user.name,phone:r.user.phone||''});await Promise.all([loadAddresses(),loadOrders()])}}catch(e){message(e.message)}finally{setLoaded(true)}}
  async function loadAddresses(){const r=await api('account/addresses');setAddresses(r.addresses)}
  async function loadOrders(){const r=await api('account/orders');setOrders(r.orders)}
  useEffect(()=>{const token=new URLSearchParams(window.location.search).get('reset');if(token){setView('reset');setAuth(a=>({...a,token}))}load()},[]);
@@ -20,7 +21,7 @@ export default function Conta(){const [user,setUser]=useState(null),[loaded,setL
  async function detail(id){try{const r=await api('account/order?id='+id);setSelected(r)}catch(e){message(e.message)}}
  async function customerRequest(){try{await api('account/request','POST',{orderId:selected.order.id,type:reqType,reason});message('Solicitação registrada.');await detail(selected.order.id)}catch(e){message(e.message)}}
  return <Frame user={user} logout={logout}><main className="page"><h1>Minha conta · Vellor Menswear</h1>{notice&&<div role="status" className="notice">{notice}</div>}
- {!loaded?<p>Carregando...</p>:!user?<div className="card" style={{maxWidth:520,margin:'auto'}}><div className="navtabs">{[['login','Entrar'],['register','Cadastrar'],['forgot','Esqueci a senha']].map(([v,t])=><button key={v} className={view===v?'active':''} onClick={()=>{setView(v);setNotice('')}}>{t}</button>)}</div>
+ {!loaded?<p>Carregando...</p>:!user?<div className="card" style={{maxWidth:520,margin:'auto'}}>{new URLSearchParams(typeof window==='undefined'?'':window.location.search).get('next')==='/finalizar'&&<p className="help">Entre ou cadastre-se para continuar sua compra. Seu carrinho será preservado.</p>}<div className="navtabs">{[['login','Entrar'],['register','Cadastrar'],['forgot','Esqueci a senha']].map(([v,t])=><button key={v} className={view===v?'active':''} onClick={()=>{setView(v);setNotice('')}}>{t}</button>)}</div>
  <form onSubmit={authSubmit}>
  {view==='register'&&<Field label="Nome completo" name="name" required value={auth.name} onChange={v=>setAuth(a=>({...a,name:v}))}/>}
  {!['reset'].includes(view)&&<Field label="E-mail" name="email" type="email" value={auth.email} onChange={v=>setAuth(a=>({...a,email:v}))} required/>}

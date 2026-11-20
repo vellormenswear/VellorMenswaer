@@ -1,0 +1,33 @@
+VELLOR MENSWEAR — Atualização visual aprovada — 20/11/2026
+
+Este pacote contém o projeto Next.js completo recuperado do Google Drive,
+com a vitrine atualizada a partir do HTML aprovado pelo proprietário.
+
+Principais alterações:
+- Cabeçalho verde, logotipo oficial centralizado;
+- Categorias discretas em barra branca;
+- Produtos e filtros com a apresentação visual aprovada;
+- Carrinho em página própria (/vitrine.html#carrinho), com preço unitário,
+  quantidade, total e prazo informado pelo fornecedor;
+- Catálogo dinâmico pela API /api/catalog, preservando fotos e SKUs;
+- Checkout continua em /finalizar e utiliza a API /api/checkout/quote;
+- Nenhum banner de 'coleção nacional' ou texto de prévia de demonstração.
+
+PUBLICAÇÃO NA VERCEL:
+1. Extraia o ZIP; o diretório que contém package.json é a raiz do projeto.
+2. Importe essa raiz na Vercel com framework Next.js.
+3. Mantenha as variáveis de ambiente já configuradas no projeto,
+   incluindo as conexões do Neon e provedores de pagamento. Não substitua
+   as configurações de produção por valores do .env.example.
+4. Faça o deploy. A Vercel instalará as dependências de package.json.
+
+Não é necessário criar novo banco de dados ou substituir as tabelas.
+As rotas e APIs originais de pedidos, fornecedores e administração foram
+preservadas. O estado real da conexão e pagamentos deve ser verificado
+no ambiente publicado.
+
+Testes locais (npm test): 22 aprovados, 0 falhas.
+Validação de sintaxe JS da vitrine: aprovada.
+Detalhes técnicos adicionais em docs/VISUAL_APROVADO_2026-11-20.md.
+
+AJUSTE PONTUAL 20/11/2026 - Logo ligeiramente maior e fundo verde com textura e cor extraidas da arte oficial fornecida. As integracoes e demais telas foram preservadas.
