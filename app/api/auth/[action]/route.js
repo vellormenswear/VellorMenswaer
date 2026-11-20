@@ -9,9 +9,15 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  if(action==='login'){
  const mail=email(x.email),password=String(x.password||''),key=sha256(mail+'|'+(req.headers.get('x-forwarded-for')||'').split(',')[0]);
- const attempts=await sql('SELECT failures,locked_until FROM auth_attempts WHERE key_hash=$1',[key]);if(attempts.rows[0]?.locked_until&&new Date(attempts.rows[0].locked_until)>new Date())throw new HttpError(429,'Muitas tentativas. Tente mais tarde.');
+ // Sem limite de tentativas ou bloqueio temporal da conta. Atrasos progressivos e curtos
+ // desaceleram tentativas automatizadas sem impedir novos logins legítimos.
+ const attempts=await sql('SELECT failures,updated_at FROM auth_attempts WHERE key_hash=$1',[key]);
+ const previous=attempts.rows[0];
+ const recent=previous&&Date.now()-new Date(previous.updated_at).getTime()<15*60*1000;
+ const failedCount=recent?Math.max(0,Number(previous.failures)||0):0;
+ if(failedCount>=4)await new Promise(resolve=>setTimeout(resolve,Math.min(1600,200*Math.pow(2,Math.min(3,failedCount-4)))));
  const r=await sql('SELECT * FROM users WHERE email=$1',[mail]);const u=r.rows[0];const valid=u&&!u.suspended_at&&await passwordVerify(password,u.password_hash);
- if(!valid){await sql(`INSERT INTO auth_attempts(key_hash,failures,locked_until) VALUES($1,1,NULL) ON CONFLICT(key_hash) DO UPDATE SET failures=CASE WHEN auth_attempts.updated_at<now()-interval'15 minutes' THEN 1 ELSE auth_attempts.failures+1 END, updated_at=now(),locked_until=CASE WHEN auth_attempts.failures>=5 THEN now()+interval'15 minutes' ELSE NULL END`,[key]);throw new HttpError(401,'Credenciais inválidas.');}
+ if(!valid){await sql(`INSERT INTO auth_attempts(key_hash,failures,locked_until) VALUES($1,1,NULL) ON CONFLICT(key_hash) DO UPDATE SET failures=CASE WHEN auth_attempts.updated_at<now()-interval'15 minutes' THEN 1 ELSE auth_attempts.failures+1 END, updated_at=now(),locked_until=NULL`,[key]);throw new HttpError(401,'Credenciais inválidas.');}
  await sql('DELETE FROM auth_attempts WHERE key_hash=$1',[key]);const res=ok({user:publicUser(u)});return await issueSession(u.id,res,req.headers.get('user-agent')||'');
  }
  if(action==='logout'){const res=ok({ok:true});await revoke(req,res);return res}
