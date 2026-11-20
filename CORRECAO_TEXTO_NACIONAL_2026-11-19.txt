@@ -1,0 +1,7 @@
+VELLOR MENSWEAR — CORREÇÃO DO TEXTO DO SITE
+Removido 'COLEÇÃO NACIONAL' do topo da vitrine, substituído por 'ELEGÂNCIA MASCULINA'.
+Removido 'Frete nacional' da descrição de itens financeiros, substituído por 'Frete'.
+No painel administrativo, 'Produtos e variações nacionais' mudou para 'Produtos e variações'.
+Informações internas 'shipping=nacional' preservadas para controle e elegibilidade dos anúncios.
+Favicon VL, catálogo, preços, fornecedores, pagamentos e funcionalidades preservados.
+Esta versão substitui o ZIP Marketplace v1 anterior.

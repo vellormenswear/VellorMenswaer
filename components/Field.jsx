@@ -1,0 +1,1 @@
+export default function Field({label,name,value,onChange,type='text',placeholder,required=false,children,step}){return <div className="field"><label htmlFor={name}>{label}</label>{children??<input id={name} name={name} value={value??''} onChange={e=>onChange(e.target.value)} type={type} placeholder={placeholder||''} required={required} step={step}/>}</div>}

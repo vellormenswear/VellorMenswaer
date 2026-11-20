@@ -1,0 +1,15 @@
+VELLOR MENSWEAR — PACOTE NEXT.JS + VERCEL + NEON
+=======================================
+Fonte visual: HTML original aprovado, preservado como layout em public/vitrine.html. O script antigo de pedidos fictícios foi removido.
+Entrada: / => /vitrine.html por rewrite (fallback de rota /app/page.jsx).
+104 SKUs nacionais (35 modelos) / 48 internacionais + 13 origem pendente NÃO importados.
+91 fotografias extraídas da prévia, 28 imagens adicionais da conversa e 13 fontes Dry Fit arquivadas para revisão. 13 SKU Dry Fit ainda com imagem individual ausente na prévia.
+Não criar cobranças reais. Sandbox é obrigatório no código.
+Migrations: db/001_init.sql
+Seed: data/catalogo-nacional.json
+Primeiro super administrador: scripts/bootstrap-admin.mjs
+Atalhos: /conta, /admin, /finalizar, /api/catalog, /api/webhooks/mercadopago
+Variáveis: .env.example
+ATENÇÃO: Testar dependências, Neon e Mercado Pago em seu ambiente de implantação.
+
+Correção 17/11/2026: 13 anúncios Dry Fit associados a fotografias fornecidas pelo usuário e presentes no Drive; 101 SKUs com preço e imagem de referência. Os arquivos permanecem originais. Fotografia de kit 4 usada como referência de cores em ofertas de 1 e 2 unidades, identificada na vitrine.

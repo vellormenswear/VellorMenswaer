@@ -1,0 +1,18 @@
+VELLOR MENSWEAR — MIGRAÇÃO AUTOMÁTICA DOS PAINÉIS (19/11/2026)
+
+1. Publique este ZIP no projeto existente da Vercel, com a mesma DATABASE_URL já configurada.
+2. Faça login com sua conta de administrador e abra /admin/fornecedores ou /admin/financeiro.
+3. A página chama POST /api/admin/marketplace-status. A API autentica o administrador e aplica as migrações 002/003 faltantes no Neon automaticamente.
+4. Abra os painéis novamente para verificar o funcionamento.
+
+SEGURANÇA
+- Requer usuário admin ou super_admin autenticado.
+- Verifica mesma origem do site antes de modificar banco.
+- Somente migrações 002 e 003, com controle schema_migrations e bloqueio transacional para evitar execução repetida.
+- Verifica a existência das tabelas originais antes de modificar o banco.
+- Se houver erro, faz ROLLBACK e apresenta alerta. NÃO cria banco nem conecta em outra instância.
+- Não altera dados históricos de catálogo, clientes, pedidos ou custos e não executa seed.
+- Pagamentos reais Mercado Pago continuam bloqueados até homologação.
+
+ATENÇÃO: A Vercel tem de dispor de DATABASE_URL correta e de uma role PostgreSQL com privilégios ALTER/CREATE. Não foi testado no banco de produção.
+Se não for possível alterar o esquema, o painel mostrará um aviso e a Vercel terá o erro detalhado em logs. Recomenda-se backup/branch Neon antes da publicação.

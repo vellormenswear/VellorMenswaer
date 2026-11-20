@@ -1,0 +1,11 @@
+VELLOR MENSWEAR — CORREÇÃO DO PAINEL DE FORNECEDORES
+Erro reportado: 'setChanges is not defined' ao carregar /admin/fornecedores.
+
+Causa confirmada no código: a página chamava quatro atualizadores de estado sem ter declarado seus useState correspondentes.
+Corrigido: changes / setChanges, overdue / setOverdue, cancellations / setCancellations, shipped / setShipped.
+
+O código de atualização automática do Neon existente na versão anterior foi mantido, sem alteração.
+O catálogo, os preços, o favicon VL, o checkout bloqueado por padrão e a identidade visual permanecem preservados.
+Nenhum dado do banco foi alterado por esta correção; a Vercel precisa receber o novo deploy.
+
+Essa versão substitui VELLOR_MENSWEAR_NEON_AUTO_2026-11-19.zip.

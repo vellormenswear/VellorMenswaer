@@ -1,0 +1,3 @@
+import {ok,fail,ensure} from '@/lib/http';
+export const dynamic='force-dynamic';
+export async function GET(req,{params}){try{const {cep}=await params;const code=cep.replace(/\D/g,'');ensure(code.length===8,'CEP deve conter 8 dígitos.');const r=await fetch(`https://viacep.com.br/ws/${code}/json/`,{cache:'no-store',signal:AbortSignal.timeout(5000)});ensure(r.ok,'Consulta de CEP indisponível.',502);const d=await r.json();ensure(!d.erro,'CEP não encontrado.',404);return ok({cep:code,street:d.logradouro,neighborhood:d.bairro,city:d.localidade,state:d.uf,complement:d.complemento||''})}catch(e){return fail(e)}}

@@ -1,0 +1,19 @@
+VELLOR MENSWEAR - CORREÇÃO DO FAVICON VL - 19/11/2026
+
+Causa identificada:
+A página principal é /public/vitrine.html, publicada em / por uma regra de rewrite no next.config.mjs.
+O arquivo /app/icon.png sozinho não era referenciado pelo HTML estático.
+
+Correção:
+- Adicionados links explícitos de favicon no <head> de /public/vitrine.html.
+- Adicionado /public/favicon.ico com vários tamanhos (16, 32, 48, 64 pixels).
+- Adicionadas versões PNG 16x16, 32x32 e 192x192, mais apple-touch-icon de 180x180.
+- Referências a esses arquivos incluídas no metadata do Next.js para as páginas dinâmicas.
+- Mantidas as cores e o monograma VL aprovado.
+- Não foram alterados preços, imagens do catálogo, banco de dados ou checkout.
+
+Após publicar esta nova versão na Vercel:
+1. Abra https://SEU-DOMINIO/favicon.ico para confirmar que o ícone é servido.
+2. Abra uma janela anônima e teste a aba do navegador.
+3. Se necessário, faça Ctrl + F5 ou feche/abra a aba.
+4. Verifique se a Vercel aponta para esse projeto e para esta versão.

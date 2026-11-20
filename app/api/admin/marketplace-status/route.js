@@ -1,0 +1,55 @@
+import {sql,db} from '@/lib/db';
+import {applyMarketplaceMigrations,MarketplaceSchemaError} from '@/lib/marketplace-auto-schema.mjs';
+import {requireRole} from '@/lib/auth';
+import {ok,fail,originGuard,HttpError} from '@/lib/http';
+
+export const runtime='nodejs';
+export const dynamic='force-dynamic';
+
+// Diagnóstico GET é somente leitura; inicialização POST exige sessão administrativa e origem autorizada.
+const requiredTables=[
+  'suppliers','supplier_invites','supplier_submissions','supplier_mp_connections',
+  'supplier_order_groups','supplier_cancel_events','supplier_price_requests',
+  'finance_adjustments','supplier_stock_reservations'
+];
+
+async function diagnostic(){
+    const tables=await sql(`
+      SELECT table_name FROM information_schema.tables
+       WHERE table_schema='public' AND table_name=ANY($1::text[])`,[requiredTables]);
+    const found=new Set(tables.rows.map(x=>x.table_name));
+    const missingTables=requiredTables.filter(x=>!found.has(x));
+    const columns=await sql(`
+      SELECT table_name,column_name FROM information_schema.columns
+       WHERE table_schema='public'
+         AND ((table_name='products' AND column_name='supplier_id')
+          OR (table_name='product_variants' AND column_name='supplier_cost_cents'))`);
+    const foundColumns=new Set(columns.rows.map(x=>x.table_name+'.'+x.column_name));
+    const requiredColumns=['products.supplier_id','product_variants.supplier_cost_cents'];
+    const missingColumns=requiredColumns.filter(x=>!foundColumns.has(x));
+    const migrationsTable=await sql("SELECT to_regclass('public.schema_migrations') AS table_ref");
+    const versions=migrationsTable.rows[0]?.table_ref
+      ? (await sql(`SELECT version FROM schema_migrations
+          WHERE version IN ('002_marketplace.sql','003_supplier_changes.sql')
+          ORDER BY version`)).rows.map(x=>x.version) : [];
+    const missingMigrations=['002_marketplace.sql','003_supplier_changes.sql'].filter(x=>!versions.includes(x));
+    return {ready:missingTables.length===0&&missingColumns.length===0&&missingMigrations.length===0,
+       missing_tables:missingTables,missing_columns:missingColumns,missing_migrations:missingMigrations};
+}
+export async function GET(req){
+  try{await requireRole(req,['admin','super_admin']);return ok(await diagnostic())}
+  catch(e){return fail(e)}
+}
+export async function POST(req){
+  try {
+    originGuard(req);
+    await requireRole(req,['admin','super_admin']);
+    const result=await applyMarketplaceMigrations(()=>db().connect());
+    return ok({...await diagnostic(),automatic_migrations:result.applied});
+  } catch(e){
+    if(e instanceof HttpError)return fail(e);
+    if(e instanceof MarketplaceSchemaError)return ok({error:e.message},503);
+    console.error('Vellor marketplace: falha ao executar migrações automáticas',e);
+    return ok({error:'Não foi possível preparar o banco automaticamente. Verifique permissão para criar/alterar tabelas na conexão Neon e os logs da Vercel. Nenhuma alteração parcial foi mantida.'},503);
+  }
+}

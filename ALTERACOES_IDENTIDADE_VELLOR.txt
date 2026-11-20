@@ -1,0 +1,15 @@
+VELLOR MENSWEAR — ATUALIZAÇÃO VISUAL DA PG GOSTON
+
+Mudanças feitas nesta versão:
+- Nome comercial: VELLOR MENSWEAR.
+- Slogan aprovado: Elegância masculina.
+- Logo horizontal do cabeçalho: public/logo-vellor.png, adaptada da arte aprovada VL/VELLOR.
+- Imagem principal da vitrine: public/hero-vellor.jpg, usando a arte aprovada.
+- Ícone da aba: app/icon.png, monograma VL.
+- Textos de marca na vitrine, rodapé, conta, administração, checkout, e-mails e metadados.
+
+NÃO MODIFICADOS: layout/CSS, cores, catálogo de 104 SKUs nacionais, preços, produtos, imagens dos produtos, contas, rotas, regras de frete, controle do checkout e integrações.
+
+Compatibilidade: os nomes internos dos cookies, chaves localStorage e caminho de uploads foram intencionalmente mantidos para não invalidar dados/sessões existentes.
+
+ATENÇÃO: checkout permanece desabilitado por padrão até os testes e configurações indicados no README. Não se trata de publicação automática na Vercel.

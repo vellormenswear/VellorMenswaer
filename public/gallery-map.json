@@ -1,0 +1,128 @@
+{
+  "estojo-porta-relogios-couro-sintetico-6-12-nichos": [
+    {
+      "url": "/gallery/estojo-porta-relogios-couro-sintetico-6-12-nichos/estojo_6_nichos.png",
+      "label": "estojo_6_nichos"
+    },
+    {
+      "url": "/gallery/estojo-porta-relogios-couro-sintetico-6-12-nichos/estojo_12_nichos.png",
+      "label": "estojo_12_nichos"
+    }
+  ],
+  "sapato-social-masculino-loafer-mocassim-casual": [
+    {
+      "url": "/gallery/sapato-social-masculino-loafer-mocassim-casual/loafer_preto.png",
+      "label": "loafer_preto"
+    },
+    {
+      "url": "/gallery/sapato-social-masculino-loafer-mocassim-casual/loafer_marrom.png",
+      "label": "loafer_marrom"
+    },
+    {
+      "url": "/gallery/sapato-social-masculino-loafer-mocassim-casual/loafer_tamanhos.png",
+      "label": "loafer_tamanhos"
+    }
+  ],
+  "sapato-mocassim-masculino-social": [
+    {
+      "url": "/gallery/sapato-mocassim-masculino-social/mocassim_principal.png",
+      "label": "mocassim_principal"
+    },
+    {
+      "url": "/gallery/sapato-mocassim-masculino-social/mocassim_lateral.png",
+      "label": "mocassim_lateral"
+    },
+    {
+      "url": "/gallery/sapato-mocassim-masculino-social/mocassim_sola.png",
+      "label": "mocassim_sola"
+    },
+    {
+      "url": "/gallery/sapato-mocassim-masculino-social/mocassim_galeria.png",
+      "label": "mocassim_galeria"
+    },
+    {
+      "url": "/gallery/sapato-mocassim-masculino-social/mocassim_tamanhos.png",
+      "label": "mocassim_tamanhos"
+    }
+  ],
+  "sapato-social-masculino-fosco-verniz": [
+    {
+      "url": "/gallery/sapato-social-masculino-fosco-verniz/verniz.png",
+      "label": "verniz"
+    },
+    {
+      "url": "/gallery/sapato-social-masculino-fosco-verniz/fosco.png",
+      "label": "fosco"
+    },
+    {
+      "url": "/gallery/sapato-social-masculino-fosco-verniz/tamanhos.png",
+      "label": "tamanhos"
+    }
+  ],
+  "tenis-masculino-branco-casual-minimalista": [
+    {
+      "url": "/gallery/tenis-masculino-branco-casual-minimalista/branco.png",
+      "label": "branco"
+    },
+    {
+      "url": "/gallery/tenis-masculino-branco-casual-minimalista/branco_lateral.png",
+      "label": "branco_lateral"
+    },
+    {
+      "url": "/gallery/tenis-masculino-branco-casual-minimalista/branco_preto.png",
+      "label": "branco_preto"
+    },
+    {
+      "url": "/gallery/tenis-masculino-branco-casual-minimalista/preto.png",
+      "label": "preto"
+    },
+    {
+      "url": "/gallery/tenis-masculino-branco-casual-minimalista/preto_branco.png",
+      "label": "preto_branco"
+    },
+    {
+      "url": "/gallery/tenis-masculino-branco-casual-minimalista/tamanhos.png",
+      "label": "tamanhos"
+    }
+  ],
+  "tenis-masculino-elegante-sola-alta-moderno": [
+    {
+      "url": "/gallery/tenis-masculino-elegante-sola-alta-moderno/preto.png",
+      "label": "preto"
+    },
+    {
+      "url": "/gallery/tenis-masculino-elegante-sola-alta-moderno/branco_preto.png",
+      "label": "branco_preto"
+    },
+    {
+      "url": "/gallery/tenis-masculino-elegante-sola-alta-moderno/branco_marrom.png",
+      "label": "branco_marrom"
+    },
+    {
+      "url": "/gallery/tenis-masculino-elegante-sola-alta-moderno/bege_cinza.png",
+      "label": "bege_cinza"
+    },
+    {
+      "url": "/gallery/tenis-masculino-elegante-sola-alta-moderno/tamanhos_01.png",
+      "label": "tamanhos_01"
+    },
+    {
+      "url": "/gallery/tenis-masculino-elegante-sola-alta-moderno/tamanhos_02.png",
+      "label": "tamanhos_02"
+    }
+  ],
+  "tenis-masculino-sem-cadarco-estilo-slip": [
+    {
+      "url": "/gallery/tenis-masculino-sem-cadarco-estilo-slip/preto.png",
+      "label": "preto"
+    },
+    {
+      "url": "/gallery/tenis-masculino-sem-cadarco-estilo-slip/azul_marinho.png",
+      "label": "azul_marinho"
+    },
+    {
+      "url": "/gallery/tenis-masculino-sem-cadarco-estilo-slip/tamanhos.png",
+      "label": "tamanhos"
+    }
+  ]
+}
