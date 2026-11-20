@@ -1,0 +1,65 @@
+name: Integrar pacote aprovado VELLOR
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/integrar-pacote-vellor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: integrar-pacote-vellor
+  cancel-in-progress: false
+
+jobs:
+  integrar:
+    if: github.repository == 'vellormenswear/VellorMenswaer'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Validar o pacote enviado
+        shell: bash
+        run: |
+          set -euo pipefail
+          pacote='VELLOR_MENSWEAR_MERCADOPAGO_WEBHOOKS_PEDIDOS_APOS_PAGAMENTO_2026-11-20.zip'
+          echo '02a94e8eda50fea8a2714a7c6564668cdd02cc80d99725bac0bcf4f065f065b5  '${pacote} | sha256sum --check
+          unzip -Z1 "$pacote" | grep -Fx 'db/004_paid_orders_only.sql'
+          unzip -Z1 "$pacote" | grep -Fx 'public/vitrine.html'
+          unzip -Z1 "$pacote" | grep -Fx 'app/api/webhooks/mercadopago/route.js'
+
+      - name: Sincronizar os arquivos de origem
+        shell: bash
+        run: |
+          set -euo pipefail
+          pacote='VELLOR_MENSWEAR_MERCADOPAGO_WEBHOOKS_PEDIDOS_APOS_PAGAMENTO_2026-11-20.zip'
+          origem="$RUNNER_TEMP/vellor-fonte-validada"
+          mkdir -p "$origem"
+          unzip -qq "$pacote" -d "$origem"
+          rsync -a --exclude='.git/' "$origem/" ./
+          rm -- "$pacote"
+
+      - name: Validar testes antes da publicação no GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/*.test.js
+
+      - name: Gravar versão completa no repositório
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Código já sincronizado, nenhuma alteração necessária.'
+            exit 0
+          fi
+          git commit -m 'Sincronizar fonte VELLOR aprovada, catalogo, imagens e marketplace'
+          git push origin HEAD:main
