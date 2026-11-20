@@ -41,7 +41,7 @@ jobs:
           origem="$RUNNER_TEMP/vellor-fonte-validada"
           mkdir -p "$origem"
           unzip -qq "$pacote" -d "$origem"
-          rsync -a --exclude='.git/' "$origem/" ./
+          rsync -a --exclude='.git/' --exclude='.github/' "$origem/" ./
           rm -- "$pacote"
 
       - name: Validar testes antes da publicação no GitHub
