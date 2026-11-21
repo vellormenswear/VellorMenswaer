@@ -7,27 +7,45 @@ import {ensure,fail,uuid} from '@/lib/http';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 
-// Consulta SOMENTE LEITURA. Nunca cria cobranças, altera pedidos ou confirma pagamentos.
+// Diagnóstico de pagamentos em sandbox, sem criar cobranças, pedidos nem confirmações.
 export async function GET(req){
  try{
   await requireRole(req,['super_admin']);
   ensure(process.env.MP_MODE==='sandbox','Diagnóstico disponível apenas em sandbox.',403);
-  const groupId=new URL(req.url).searchParams.get('group_id');
+  const q=new URL(req.url).searchParams;
+  const groupId=q.get('group_id');
+  const preferenceId=q.get('preference_id');
   ensure(!groupId||uuid(groupId),'Identificador de checkout inválido.',400);
+  ensure(!preferenceId||/^\d{3,20}-[a-f\d-]{30,50}$/i.test(preferenceId),'ID da preferência inválido.',400);
   const rows=await sql(`SELECT g.id,g.supplier_id,g.amount_cents,g.created_at,g.payment_status,
-      g.preference_id,g.provider_payment_id,g.order_id,mp.provider_user_id
+      g.preference_id,g.provider_payment_id,g.marketplace_fee_cents,g.order_id,mp.provider_user_id
     FROM supplier_order_groups g
     JOIN supplier_mp_connections mp ON mp.supplier_id=g.supplier_id
     WHERE ($1::uuid IS NULL OR g.id=$1::uuid)
+      AND ($2::text IS NULL OR g.preference_id=$2::text)
       AND g.created_at>=now()-interval '14 days'
-    ORDER BY g.created_at DESC LIMIT 10`,[groupId||null]);
+    ORDER BY g.created_at DESC LIMIT 10`,[groupId||null,preferenceId||null]);
   const groups=await Promise.all(rows.rows.map(async g=>{
-   const base={group_id:g.id,created_at:g.created_at,amount_cents:g.amount_cents,
+   const base={group_id:g.id,preference_id:g.preference_id||null,
+      created_at:g.created_at,amount_cents:g.amount_cents,
       local_status:g.payment_status,preference_created:!!g.preference_id,
       provider_payment_id:g.provider_payment_id||null,order_created:!!g.order_id};
    if(!g.preference_id)return {...base,diagnosis:'Preferência não foi criada.',attempts:[]};
    try{
     const token=await supplierAccessToken(g.supplier_id);
+    const auth_type=token.startsWith('TEST-')?'TEST':token.startsWith('APP_USR-')?'APP_USR':'other';
+    let preference=null;
+    try{
+     const mp=await mpRequest('/checkout/preferences/'+encodeURIComponent(g.preference_id),token);
+     preference={
+      found:!!mp.id,collector_matches:String(mp.collector_id||'')===String(g.provider_user_id||''),
+      has_init_point:/^https:\/\//.test(mp.init_point||''),
+      has_sandbox_init_point:/^https:\/\//.test(mp.sandbox_init_point||''),
+      fee_matches:Math.round(Number(mp.marketplace_fee||0)*100)===Number(g.marketplace_fee_cents),
+      expired:mp.preference_expired===true||!!mp.expiration_date_to&&
+        new Date(mp.expiration_date_to).getTime()<Date.now()
+     };
+    }catch{preference={found:false,query_failed:true}}
     const params=new URLSearchParams({sort:'date_created',criteria:'desc',
       external_reference:g.id,limit:'10'});
     const found=await mpRequest('/v1/payments/search?'+params.toString(),token);
@@ -41,12 +59,14 @@ export async function GET(req){
          Math.round(Number(p.transaction_amount)*100)===Number(g.amount_cents),
        collector_matches:String(p.collector_id||'')===String(g.provider_user_id||'')
       }));
-    return {...base,attempts,diagnosis:attempts.length?'Tentativa encontrada no Mercado Pago.':'Nenhuma transação localizada para esta preferência.'};
+    return {...base,auth_type,preference,attempts,
+     diagnosis:attempts.length?'Tentativa encontrada no Mercado Pago.':'Nenhuma transação localizada para esta preferência.'};
    }catch{
     return {...base,attempts:null,diagnosis:'Consulta ao Mercado Pago falhou; verifique a conexão OAuth do fornecedor.'};
    }
   }));
   return NextResponse.json({mode:'sandbox',checked_at:new Date().toISOString(),
-    groups,read_only:true},{headers:{'Cache-Control':'no-store, max-age=0','X-Robots-Tag':'noindex'}});
+    match_count:groups.length,groups,read_only:true},
+    {headers:{'Cache-Control':'no-store, max-age=0','X-Robots-Tag':'noindex'}});
  }catch(e){return fail(e)}
 }
