@@ -6,6 +6,7 @@ import {ensure,fail,uuid} from '@/lib/http';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
+const safeHost=url=>{try{return new URL(url).hostname.toLowerCase()}catch{return null}};
 
 // Diagnóstico de pagamentos em sandbox, sem criar cobranças, pedidos nem confirmações.
 export async function GET(req){
@@ -18,7 +19,7 @@ export async function GET(req){
   ensure(!groupId||uuid(groupId),'Identificador de checkout inválido.',400);
   ensure(!preferenceId||/^\d{3,20}-[a-f\d-]{30,50}$/i.test(preferenceId),'ID da preferência inválido.',400);
   const rows=await sql(`SELECT g.id,g.supplier_id,g.amount_cents,g.created_at,g.payment_status,
-      g.preference_id,g.provider_payment_id,g.marketplace_fee_cents,g.order_id,mp.provider_user_id
+      g.preference_id,g.checkout_url,g.provider_payment_id,g.marketplace_fee_cents,g.order_id,mp.provider_user_id
     FROM supplier_order_groups g
     JOIN supplier_mp_connections mp ON mp.supplier_id=g.supplier_id
     WHERE ($1::uuid IS NULL OR g.id=$1::uuid)
@@ -29,7 +30,9 @@ export async function GET(req){
    const base={group_id:g.id,preference_id:g.preference_id||null,
       created_at:g.created_at,amount_cents:g.amount_cents,
       local_status:g.payment_status,preference_created:!!g.preference_id,
-      provider_payment_id:g.provider_payment_id||null,order_created:!!g.order_id};
+      provider_payment_id:g.provider_payment_id||null,order_created:!!g.order_id,
+      checkout_host:safeHost(g.checkout_url),seller_is_allowlisted_test_account:
+       String(g.provider_user_id)===String(process.env.MP_SANDBOX_TEST_SELLER_USER_ID||'')};
    if(!g.preference_id)return {...base,diagnosis:'Preferência não foi criada.',attempts:[]};
    try{
     const token=await supplierAccessToken(g.supplier_id);
@@ -41,6 +44,12 @@ export async function GET(req){
       found:!!mp.id,collector_matches:String(mp.collector_id||'')===String(g.provider_user_id||''),
       has_init_point:/^https:\/\//.test(mp.init_point||''),
       has_sandbox_init_point:/^https:\/\//.test(mp.sandbox_init_point||''),
+      init_point_host:safeHost(mp.init_point),
+      sandbox_init_point_host:safeHost(mp.sandbox_init_point),
+      payer_email_matches_authorized_customer:
+       !!mp.payer?.email&&String(mp.payer.email).toLowerCase()===String(process.env.MP_SANDBOX_TEST_CUSTOMER_EMAIL||'').toLowerCase(),
+      item_total_matches:Array.isArray(mp.items)&&Math.round(mp.items.reduce((sum,item)=>sum+Number(item.unit_price||0)*Number(item.quantity||0),0)*100)===Number(g.amount_cents),
+      marketplace_setting:mp.marketplace||null,
       fee_matches:Math.round(Number(mp.marketplace_fee||0)*100)===Number(g.marketplace_fee_cents),
       expired:mp.preference_expired===true||!!mp.expiration_date_to&&
         new Date(mp.expiration_date_to).getTime()<Date.now()
