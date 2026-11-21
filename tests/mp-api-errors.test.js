@@ -14,7 +14,7 @@ test('diagnostico preserva codigos do Mercado Pago e x-request-id',()=>{
 
 test('diagnostico omite tokens, CPF, mensagens e detalhes do comprador',()=>{
  const p={error:'APP_USR-SECRET-PASTE-HERE',message:'payer name test@test.com CPF 11122233344',
-  cause:[{code:'Bearer_SECRET'},{code:'1234'}, {code:'test@test.com'}],
+  cause:[{code:'Bearer_SECRET'},{code:'1234'}, {code:'test@test.com'}, {code:'11122233344'}],
   payer:{email:'test@test.com'},card:{number:'4111111111111111'}};
  const x=mpApiErrorSummary(401,p,'token with spaces or newlines');
  assert.equal(x.code,null);
