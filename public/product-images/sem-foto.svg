@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="Imagem do produto indisponível">
+<rect width="800" height="800" fill="#f4f2ed"/>
+<rect x="124" y="138" width="552" height="440" rx="18" fill="none" stroke="#b9bbb5" stroke-width="12"/>
+<circle cx="285" cy="278" r="42" fill="none" stroke="#b9bbb5" stroke-width="12"/>
+<path d="M162 496 327 352l100 90 87-75 124 129" fill="none" stroke="#b9bbb5" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="400" y="650" fill="#34493e" font-family="Arial,sans-serif" font-size="35" font-weight="500" text-anchor="middle">Imagem indisponível</text>
+<text x="400" y="700" fill="#7a837c" font-family="Arial,sans-serif" font-size="24" text-anchor="middle">VELLOR Menswear</text>
+</svg>

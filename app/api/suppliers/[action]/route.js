@@ -3,7 +3,7 @@ import {requireUser,requireRole} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,uuid,txt,email,HttpError} from '@/lib/http';
 import {randomToken,sha256} from '@/lib/security';
 import {randomUUID} from 'node:crypto';
-import {supplierSubmissionValid,generatedSupplierSku} from '@/lib/marketplace-rules.mjs';
+import {supplierSubmissionValid,generatedSupplierSku,resolveApprovedProductImage} from '@/lib/marketplace-rules.mjs';
 import {supplierVariantValid,feeOf,supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {reconcilePayment} from '@/lib/split-reconcile';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -74,9 +74,11 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
      const sl=txt(x.slug,200).toLowerCase();ensure(/^[a-z0-9-]{4,200}$/.test(sl),'Slug inválido.');
      const p=await c.query(`INSERT INTO products(name,slug,description,category_id,shipping,active,hidden,supplier_id) VALUES($1,$2,$3,$4,'nacional',true,false,$5) RETURNING id`,[sub.name,sl,sub.description,sub.category_id,sub.supplier_id]);productId=p.rows[0].id;
      for(let i=0;i<sub.variants.length;i++){
-      const v=sub.variants[i],price=Number(prices[i]);ensure(supplierVariantValid(v)&&Number.isInteger(price)&&price>=1&&price<=100000000,'Variação ou preço inválido.');feeOf(price,Number(v.cost_cents));
+      const v=sub.variants[i],price=Number(prices[i]);
+      const imageUrl=resolveApprovedProductImage(v.image_url);
+      ensure(supplierVariantValid({...v,image_url:imageUrl})&&Number.isInteger(price)&&price>=1&&price<=100000000,'Revise o preço de venda e os dados da variação.');feeOf(price,Number(v.cost_cents));
       await c.query(`INSERT INTO product_variants(product_id,sku,label,price_cents,stock,stock_mode,supplier_available,supplier_cost_cents,sizes,active,primary_image_url,preparation_days,delivery_days_min,delivery_days_max) VALUES($1,$2,$3,$4,$5,$6,true,$7,$8,true,$9,$10,$11,$12)`,[
-       productId,v.sku.trim().toUpperCase(),v.label.trim(),price,v.stock_mode==='availability'?null:Number(v.stock),v.stock_mode,Number(v.cost_cents),v.sizes||[],v.image_url,Number(v.preparation_days)||2,Number(v.delivery_days_min)||5,Number(v.delivery_days_max)||15]);
+       productId,v.sku.trim().toUpperCase(),v.label.trim(),price,v.stock_mode==='availability'?null:Number(v.stock),v.stock_mode,Number(v.cost_cents),v.sizes||[],imageUrl,Number(v.preparation_days)||2,Number(v.delivery_days_min)||5,Number(v.delivery_days_max)||15]);
      }
     }
     await c.query('UPDATE supplier_submissions SET status=$1,admin_note=$2,product_id=$3,reviewed_by=$4,reviewed_at=now(),updated_at=now() WHERE id=$5',[x.decision,txt(x.note,1000),productId,u.id,x.id]);return {productId}
