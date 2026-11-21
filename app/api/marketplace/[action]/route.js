@@ -68,6 +68,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  if(action==='checkout-create'){
   ensure(isReady(),'Checkout Split ainda não habilitado. Configure credenciais, fornecedores e webhooks.',503);
   const u=await requireUser(req);ensure(u.role==='customer','Somente clientes podem comprar.',403);
+  ensure(checkoutAllowedForUser(process.env,u),'Checkout sandbox restrito à conta compradora de teste.',403);
   ensure(uuid(x.address_id),'Endereço inválido.');const addr=await sql('SELECT * FROM addresses WHERE id=$1 AND user_id=$2',[x.address_id,u.id]);ensure(addr.rowCount,'Endereço não encontrado.',404);
   const quote=await quoteCart(x.items,x.coupon);ensure(quote.shipping_cents===0,'O frete deve estar incluído no preço dos fornecedores.',409);
   const ids=quote.items.map(i=>i.variant_id);
