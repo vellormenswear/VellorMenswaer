@@ -53,7 +53,7 @@ async function createPreference(group,customerEmail){
   const r=await sql('SELECT provider_user_id FROM supplier_mp_connections WHERE supplier_id=$1',[group.supplier_id]);
   const allowed=String(process.env.MP_SANDBOX_TEST_SELLER_USER_ID||'').trim();
   ensure(/^\d+$/.test(allowed)&&r.rowCount&&String(r.rows[0].provider_user_id)===allowed,'Checkout de teste bloqueado: fornecedor nao corresponde a conta de teste autorizada.',409);
-  ensure(token.startsWith('TEST-'),'Checkout de teste bloqueado: credencial OAuth nao e sandbox. Reconecte o vendedor de teste.',409);
+  ensure(token.startsWith('APP_USR-'),'Checkout de teste bloqueado: conta vendedora de teste deve usar APP_USR.',409);
  }
  const items=group.items_snapshot;
  ensure(Array.isArray(items)&&items.length>0,'Itens da tentativa não encontrados.',409);
@@ -66,13 +66,11 @@ async function createPreference(group,customerEmail){
    notification_url:site()+'/api/webhooks/mercadopago?group='+encodeURIComponent(group.id),auto_return:'approved',
    expires:true,expiration_date_from:new Date().toISOString(),expiration_date_to:until.toISOString()};
  const mp=await mpRequest('/checkout/preferences',token,{method:'POST',data:payload,idempotency:'vellor-'+group.id});
- // Jamais enviar um comprador do sandbox ao checkout que pode processar pagamentos reais.
- const url=process.env.MP_MODE==='sandbox'?mp.sandbox_init_point:mp.init_point;
- if(process.env.MP_MODE==='sandbox'){
-  const host=(()=>{try{return new URL(url).hostname.toLowerCase()}catch{return ''}})();
-  ensure(host==='sandbox.mercadopago.com.br'||host==='sandbox.mercadopago.com',
-   'URL do sandbox invalida: pagamento bloqueado.',502);
- }
+ // Para Checkout Pro, Mercado Pago usa init_point tambem no teste com vendedor TESTE.
+ const url=mp.init_point;
+ const host=(()=>{try{return new URL(url).hostname.toLowerCase()}catch{return ''}})();
+ ensure(['www.mercadopago.com.br','mercadopago.com.br','www.mercadopago.com','mercadopago.com'].includes(host),
+  'URL de pagamento retornada pelo Mercado Pago nao foi reconhecida.',502);
  ensure(/^https:\/\//.test(url||'')&&mp.id,'Mercado Pago não retornou uma preferência válida.',502);
  await sql('UPDATE supplier_order_groups SET preference_id=$1,checkout_url=$2,updated_at=now() WHERE id=$3 AND order_id IS NULL',[mp.id,url,group.id]);return url;
 }
