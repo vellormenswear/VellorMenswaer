@@ -20,6 +20,8 @@ test('endpoint público e endpoints de compra aplicam limite ao cliente sandbox'
  const route=readFileSync('app/api/marketplace/[action]/route.js','utf8');
  assert.match(status,/checkoutAllowedForUser\(process\.env,u\)/);
  assert.ok((route.match(/checkoutAllowedForUser\(process\.env,u\)/g)||[]).length>=2);
- assert.match(route,/const url=process\.env\.MP_MODE==='sandbox'\?mp\.sandbox_init_point:mp\.init_point;/);
+ assert.match(route,/const url=mp\.init_point;/);
+ assert.match(route,/token\.startsWith\('APP_USR-'\)/);
+ assert.match(route,/MP_SANDBOX_TEST_SELLER_USER_ID/);
  assert.ok(!route.includes('||mp.init_point'));
 });
