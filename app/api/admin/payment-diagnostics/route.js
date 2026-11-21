@@ -55,7 +55,7 @@ export async function GET(req){
       expired:mp.preference_expired===true||!!mp.expiration_date_to&&
         new Date(mp.expiration_date_to).getTime()<Date.now()
      };
-    }catch{preference={found:false,query_failed:true}}
+    }catch(e){preference={found:false,query_failed:true,api_error:e?.mpDiagnostic||null}}
     const params=new URLSearchParams({sort:'date_created',criteria:'desc',
       external_reference:g.id,limit:'10'});
     let payments_api=null;
@@ -87,8 +87,8 @@ export async function GET(req){
         payment_id:String(p.id||''),status:p.status||null,status_detail:p.status_detail||null
        })):[]
       }))};
-    }catch{
-     merchant_orders={query_ok:false,orders:[],error:'Consulta de ordens comerciais nao disponivel.'};
+    }catch(e){
+     merchant_orders={query_ok:false,orders:[],error:'Consulta de ordens comerciais nao disponivel.',api_error:e?.mpDiagnostic||null};
     }
     const foundAttempt=attempts.length>0||merchant_orders.orders?.some(o=>o.payments?.length>0);
     return {...base,auth_type,preference,attempts,merchant_orders,
@@ -96,8 +96,9 @@ export async function GET(req){
      diagnosis:foundAttempt?'Ha registro de pagamento no Mercado Pago. Consulte o status.':
       merchant_orders.orders?.length?'Ordem comercial encontrada sem pagamento visivel.':
       'Nenhuma transacao nem ordem comercial encontrada nesta consulta.'};
-   }catch{
-    return {...base,attempts:null,diagnosis:'Consulta ao Mercado Pago falhou; verifique a conexão OAuth do fornecedor.'};
+   }catch(e){
+    return {...base,attempts:null,api_error:e?.mpDiagnostic||null,
+     diagnosis:'Consulta ao Mercado Pago falhou; verifique a conexão OAuth do fornecedor.'};
    }
   }));
   return NextResponse.json({mode:'sandbox',checked_at:new Date().toISOString(),
