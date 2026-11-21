@@ -4,7 +4,7 @@ import {ok,fail,body,originGuard,ensure,HttpError,uuid,txt} from '@/lib/http';
 import {randomToken,sha256} from '@/lib/security';
 import {connectOAuth,supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {distributeDiscount} from '@/lib/marketplace-rules.mjs';
-import {checkoutReady,discountedPreferenceItems} from '@/lib/supplier-checkout.mjs';
+import {checkoutReady,checkoutAllowedForUser,discountedPreferenceItems} from '@/lib/supplier-checkout.mjs';
 import {randomUUID} from 'node:crypto';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const isReady=()=>checkoutReady(process.env);
@@ -60,7 +60,7 @@ async function createPreference(group,customerEmail){
    notification_url:site()+'/api/webhooks/mercadopago?group='+encodeURIComponent(group.id),auto_return:'approved',
    expires:true,expiration_date_from:new Date().toISOString(),expiration_date_to:until.toISOString()};
  const mp=await mpRequest('/checkout/preferences',token,{method:'POST',data:payload,idempotency:'vellor-'+group.id});
- const url=(process.env.MP_MODE==='sandbox'?mp.sandbox_init_point:mp.init_point)||mp.init_point;
+ const url=process.env.MP_MODE==='sandbox'?mp.sandbox_init_point:mp.init_point;
  ensure(/^https:\/\//.test(url||'')&&mp.id,'Mercado Pago não retornou uma preferência válida.',502);
  await sql('UPDATE supplier_order_groups SET preference_id=$1,checkout_url=$2,updated_at=now() WHERE id=$3 AND order_id IS NULL',[mp.id,url,group.id]);return url;
 }
@@ -119,6 +119,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  if(action==='retry-preference'){
   ensure(isReady(),'Checkout desabilitado.',503);const u=await requireUser(req);
   ensure(u.role==='customer'&&uuid(x.group_id),'Pagamento inválido.',403);
+  ensure(checkoutAllowedForUser(process.env,u),'Checkout sandbox restrito à conta compradora de teste.',403);
   const r=await sql('SELECT g.* FROM supplier_order_groups g WHERE g.id=$1 AND g.customer_id=$2 AND g.order_id IS NULL',[x.group_id,u.id]);
   ensure(r.rowCount,'Tentativa não encontrada.',404);const g=r.rows[0];ensure(g.payment_status==='pending','Não é possível repetir este pagamento.',409);
   ensure(new Date(g.checkout_expires_at).getTime()>Date.now(),'Tentativa expirada: volte ao carrinho e gere outra.',409);
