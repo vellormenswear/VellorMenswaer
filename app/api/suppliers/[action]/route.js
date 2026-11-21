@@ -2,6 +2,8 @@ import {sql,transaction,audit} from '@/lib/db';
 import {requireUser,requireRole} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,uuid,txt,email,HttpError} from '@/lib/http';
 import {randomToken,sha256} from '@/lib/security';
+import {randomUUID} from 'node:crypto';
+import {supplierSubmissionValid,generatedSupplierSku} from '@/lib/marketplace-rules.mjs';
 import {supplierVariantValid,feeOf,supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {reconcilePayment} from '@/lib/split-reconcile';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -122,8 +124,15 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  if(action==='submit'){
   const variants=Array.isArray(x.variants)?x.variants:[];ensure(variants.length>0&&variants.length<=30,'Informe de 1 a 30 variações.');
-  const name=txt(x.name,220);ensure(name.length>=4,'Nome muito curto.');ensure(variants.every(supplierVariantValid),'Revise SKU, custo, estoque e foto de cada variação.');
-  ensure(new Set(variants.map(v=>v.sku.toUpperCase())).size===variants.length,'SKU duplicado.');ensure(variants.every(v=>v.stock_mode==='availability'||!Array.isArray(v.sizes)||v.sizes.length<=1),'Para estoque exato por tamanho, cadastre um SKU separado para cada tamanho.',400);
+  const name=txt(x.name,220);ensure(name.length>=4,'Nome muito curto.');
+  // SKU e URL da foto são opcionais no envio. A validação de publicação continua
+  // exigindo imagem, para que a vitrine não exiba produtos sem fotografia.
+  for(const v of variants){
+    v.sku=txt(v.sku,120).toUpperCase()||generatedSupplierSku(randomUUID());
+    v.image_url=txt(v.image_url,2048);
+  }
+  ensure(variants.every(supplierSubmissionValid),'Revise modelo, custo e estoque de cada variação.');
+  ensure(new Set(variants.map(v=>v.sku)).size===variants.length,'SKU duplicado.');ensure(variants.every(v=>v.stock_mode==='availability'||!Array.isArray(v.sizes)||v.sizes.length<=1),'Para estoque exato por tamanho, cadastre um SKU separado para cada tamanho.',400);
   for(const v of variants){v.sku=txt(v.sku,120).toUpperCase();v.label=txt(v.label,120);v.sizes=Array.isArray(v.sizes)?v.sizes.map(s=>txt(s,30)).slice(0,40):[];
     v.preparation_days=Number(v.preparation_days??supplier.preparation_days);v.delivery_days_min=Number(v.delivery_days_min??supplier.delivery_days_min);v.delivery_days_max=Number(v.delivery_days_max??supplier.delivery_days_max);
     ensure(Number.isInteger(v.preparation_days)&&v.preparation_days>=0&&v.preparation_days<=90&&Number.isInteger(v.delivery_days_min)&&v.delivery_days_min>=1&&v.delivery_days_max>=v.delivery_days_min&&v.delivery_days_max<=180,'Prazo de entrega inválido.');

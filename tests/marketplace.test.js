@@ -22,3 +22,12 @@ test('alerta de postagem respeita dias úteis e não alerta itens postados',asyn
  assert.equal(isPostingLate('2026-11-20T12:00:00Z',2,null,'2026-11-25T12:00:00Z'),true);
  assert.equal(isPostingLate('2026-11-20T12:00:00Z',2,'2026-11-23T12:00:00Z','2026-11-26T12:00:00Z'),false);
 });
+
+test('fornecedor pode enviar anúncio sem SKU e sem URL de imagem',async()=>{
+ const {generatedSupplierSku,supplierSubmissionValid}=await import('../lib/marketplace-rules.mjs');
+ const sku=generatedSupplierSku('3b14fb87-d916-443b-91fd-b3cb98bf8972');
+ assert.equal(sku,'VL-3B14FB87D916443B91FDB3CB98BF8972');
+ assert.equal(supplierSubmissionValid({sku,label:'Azul',cost_cents:1000,stock_mode:'quantity',stock:1,image_url:''}),true);
+ assert.equal(supplierSubmissionValid({sku,label:'Azul',cost_cents:1000,stock_mode:'quantity',stock:1,image_url:'http://inseguro.com/foto.jpg'}),false);
+ assert.equal(supplierSubmissionValid({sku,label:'Azul',cost_cents:0,stock_mode:'quantity',stock:1,image_url:''}),false);
+});
