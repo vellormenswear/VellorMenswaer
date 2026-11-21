@@ -68,8 +68,30 @@ export async function GET(req){
          Math.round(Number(p.transaction_amount)*100)===Number(g.amount_cents),
        collector_matches:String(p.collector_id||'')===String(g.provider_user_id||'')
       }));
-    return {...base,auth_type,preference,attempts,
-     diagnosis:attempts.length?'Tentativa encontrada no Mercado Pago.':'Nenhuma transação localizada para esta preferência.'};
+    // Merchant Orders podem existir mesmo quando Payments Search nao retorna nada.
+    // Consultar apenas a preferencia deste grupo, sem expor informacoes pessoais.
+    let merchant_orders;
+    try{
+     const params=new URLSearchParams({preference_id:String(g.preference_id),limit:'10',offset:'0'});
+     const result=await mpRequest('/merchant_orders/search?'+params.toString(),token);
+     const elements=(Array.isArray(result.elements)?result.elements:[])
+      .filter(o=>String(o.preference_id||'')===String(g.preference_id))
+      .slice(0,10);
+     merchant_orders={query_ok:true,total:Number(result.total||0),
+      orders:elements.map(o=>({
+       order_id:String(o.id||''),status:o.status||null,order_status:o.order_status||null,
+       payments:Array.isArray(o.payments)?o.payments.slice(0,10).map(p=>({
+        payment_id:String(p.id||''),status:p.status||null,status_detail:p.status_detail||null
+       })):[]
+      }))};
+    }catch{
+     merchant_orders={query_ok:false,orders:[],error:'Consulta de ordens comerciais nao disponivel.'};
+    }
+    const foundAttempt=attempts.length>0||merchant_orders.orders?.some(o=>o.payments?.length>0);
+    return {...base,auth_type,preference,attempts,merchant_orders,
+     diagnosis:foundAttempt?'Ha registro de pagamento no Mercado Pago. Consulte o status.':
+      merchant_orders.orders?.length?'Ordem comercial encontrada sem pagamento visivel.':
+      'Nenhuma transacao nem ordem comercial encontrada nesta consulta.'};
    }catch{
     return {...base,attempts:null,diagnosis:'Consulta ao Mercado Pago falhou; verifique a conexão OAuth do fornecedor.'};
    }
