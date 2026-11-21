@@ -38,8 +38,9 @@ export async function GET(req){
     const token=await supplierAccessToken(g.supplier_id);
     const auth_type=token.startsWith('TEST-')?'TEST':token.startsWith('APP_USR-')?'APP_USR':'other';
     let preference=null;
+    let preference_api=null;
     try{
-     const mp=await mpRequest('/checkout/preferences/'+encodeURIComponent(g.preference_id),token);
+     const mp=await mpRequest('/checkout/preferences/'+encodeURIComponent(g.preference_id),token,{onResponseMeta:meta=>{preference_api=meta}});
      preference={
       found:!!mp.id,collector_matches:String(mp.collector_id||'')===String(g.provider_user_id||''),
       has_init_point:/^https:\/\//.test(mp.init_point||''),
@@ -57,7 +58,8 @@ export async function GET(req){
     }catch{preference={found:false,query_failed:true}}
     const params=new URLSearchParams({sort:'date_created',criteria:'desc',
       external_reference:g.id,limit:'10'});
-    const found=await mpRequest('/v1/payments/search?'+params.toString(),token);
+    let payments_api=null;
+    const found=await mpRequest('/v1/payments/search?'+params.toString(),token,{onResponseMeta:meta=>{payments_api=meta}});
     const attempts=(Array.isArray(found.results)?found.results:[])
       .filter(p=>String(p.external_reference||'')===String(g.id))
       .slice(0,5).map(p=>({
@@ -71,9 +73,10 @@ export async function GET(req){
     // Merchant Orders podem existir mesmo quando Payments Search nao retorna nada.
     // Consultar apenas a preferencia deste grupo, sem expor informacoes pessoais.
     let merchant_orders;
+    let merchant_orders_api=null;
     try{
      const params=new URLSearchParams({preference_id:String(g.preference_id),limit:'10',offset:'0'});
-     const result=await mpRequest('/merchant_orders/search?'+params.toString(),token);
+     const result=await mpRequest('/merchant_orders/search?'+params.toString(),token,{onResponseMeta:meta=>{merchant_orders_api=meta}});
      const elements=(Array.isArray(result.elements)?result.elements:[])
       .filter(o=>String(o.preference_id||'')===String(g.preference_id))
       .slice(0,10);
@@ -89,6 +92,7 @@ export async function GET(req){
     }
     const foundAttempt=attempts.length>0||merchant_orders.orders?.some(o=>o.payments?.length>0);
     return {...base,auth_type,preference,attempts,merchant_orders,
+     api_requests:{preference:preference_api,payments:payments_api,merchant_orders:merchant_orders_api},
      diagnosis:foundAttempt?'Ha registro de pagamento no Mercado Pago. Consulte o status.':
       merchant_orders.orders?.length?'Ordem comercial encontrada sem pagamento visivel.':
       'Nenhuma transacao nem ordem comercial encontrada nesta consulta.'};
