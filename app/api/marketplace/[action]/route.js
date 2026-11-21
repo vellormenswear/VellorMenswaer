@@ -65,7 +65,16 @@ async function createPreference(group,customerEmail){
    payer:{email:customerEmail},back_urls:{success:callback,failure:callback,pending:callback},
    notification_url:site()+'/api/webhooks/mercadopago?group='+encodeURIComponent(group.id),auto_return:'approved',
    expires:true,expiration_date_from:new Date().toISOString(),expiration_date_to:until.toISOString()};
- const mp=await mpRequest('/checkout/preferences',token,{method:'POST',data:payload,idempotency:'vellor-'+group.id});
+ let mpMeta=null;
+ const mp=await mpRequest('/checkout/preferences',token,{
+  method:'POST',data:payload,idempotency:'vellor-'+group.id,
+  onResponseMeta:meta=>{mpMeta=meta}
+ });
+ // Somente metadados nao sensiveis, visiveis no runtime de servidor.
+ if(process.env.MP_MODE==='sandbox')console.info('[mp.preference.created]',JSON.stringify({
+  group_id:group.id,preference_id:String(mp.id||''),http_status:mpMeta?.http_status||null,
+  request_id:mpMeta?.request_id||null,amount_cents:group.amount_cents
+ }));
  // Para Checkout Pro, Mercado Pago usa init_point tambem no teste com vendedor TESTE.
  const url=mp.init_point;
  const host=(()=>{try{return new URL(url).hostname.toLowerCase()}catch{return ''}})();
