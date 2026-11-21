@@ -144,7 +144,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  if(action==='inventory'){
   ensure(uuid(x.variant_id),'Variação inválida.');const mode=x.stock_mode;ensure(['quantity','availability'].includes(mode),'Modalidade inválida.');const qty=Number(x.stock);ensure(mode==='availability'||Number.isInteger(qty)&&qty>=0,'Quantidade inválida.');
-  const r=await sql(`UPDATE product_variants v SET stock_mode=$1,stock=CASE WHEN $1='availability' THEN NULL ELSE $2 END,supplier_available=$3,updated_at=now() FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 RETURNING v.id`,[mode,mode==='availability'?null:qty,Boolean(x.available),supplier.id,x.variant_id]);ensure(r.rowCount,'Variação não encontrada.',404);await audit(user.id,'supplier.inventory','variant',x.variant_id);return ok({updated:true})
+  const r=await sql(`UPDATE product_variants v SET stock_mode=$1::text,stock=CASE WHEN $1::text='availability' THEN NULL ELSE $2::integer END,supplier_available=$3::boolean,updated_at=now() FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 RETURNING v.id`,[mode,mode==='availability'?null:qty,Boolean(x.available),supplier.id,x.variant_id]);ensure(r.rowCount,'Variação não encontrada.',404);await audit(user.id,'supplier.inventory','variant',x.variant_id);return ok({updated:true})
  }
  if(action==='leadtime'){
   ensure(uuid(x.variant_id),'Variação inválida.');const prep=Number(x.preparation_days),min=Number(x.delivery_days_min),max=Number(x.delivery_days_max);ensure([prep,min,max].every(Number.isInteger)&&prep>=0&&prep<=90&&min>=1&&max>=min&&max<=180,'Prazo inválido.');
