@@ -4,7 +4,7 @@ import {getUser,requireUser,publicUser,issueSession,revoke} from '@/lib/auth';im
 export const runtime='nodejs';export const dynamic='force-dynamic';
 export async function GET(req,{params}){try{const {action}=await params;if(action!=='me')throw new HttpError(404,'Não encontrado.');return ok({user:publicUser(await getUser(req))})}catch(e){return fail(e)}}
 export async function POST(req,{params}){try{originGuard(req);const {action}=await params;const x=await body(req);if(action==='register'){
- const name=txt(x.name,120),mail=email(x.email),pw=x.password;ensure(name.length>=3&&/^\S+@\S+\.\S+$/.test(mail),'Dados de cadastro inválidos.');const hash=await passwordHash(pw);
+ const name=txt(x.name,120),mail=email(x.email),pw=x.password;ensure(name.length>=3&&/^\S+@\S+\.\S+$/.test(mail),'Dados de cadastro inválidos.');ensure(typeof pw==='string'&&pw.length>=12&&pw.length<=128,'A senha deve conter entre 12 e 128 caracteres.',400);const hash=await passwordHash(pw);
  try{const r=await sql(`INSERT INTO users(full_name,email,password_hash,role) VALUES($1,$2,$3,'customer') RETURNING id`,[name,mail,hash]);const res=ok({created:true,user:{name,email:mail,role:'customer'}},201);return await issueSession(r.rows[0].id,res,req.headers.get('user-agent')||'')}catch(e){if(e.code==='23505')throw new HttpError(409,'E-mail já cadastrado.');throw e}
  }
  if(action==='login'){
@@ -27,13 +27,13 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  return ok({message:'Se o e-mail existir e o envio estiver configurado, enviaremos as instruções.'});
  }
  if(action==='reset'){
- const hash=await passwordHash(x.password),token=txt(x.token,200);ensure(token.length>20,'Token inválido.');await transaction(async c=>{const t=await c.query('SELECT * FROM password_reset_tokens WHERE token_hash=$1 AND used_at IS NULL AND expires_at>now() FOR UPDATE',[sha256(token)]);ensure(t.rowCount,'Link inválido ou expirado.',400);await c.query('UPDATE users SET password_hash=$1,updated_at=now() WHERE id=$2',[hash,t.rows[0].user_id]);await c.query('UPDATE password_reset_tokens SET used_at=now() WHERE id=$1',[t.rows[0].id]);await c.query('DELETE FROM sessions WHERE user_id=$1',[t.rows[0].user_id]);});return ok({message:'Senha atualizada. Faça login novamente.'});
+ ensure(typeof x.password==='string'&&x.password.length>=12&&x.password.length<=128,'A senha deve conter entre 12 e 128 caracteres.',400);const hash=await passwordHash(x.password),token=txt(x.token,200);ensure(token.length>20,'Token inválido.');await transaction(async c=>{const t=await c.query('SELECT * FROM password_reset_tokens WHERE token_hash=$1 AND used_at IS NULL AND expires_at>now() FOR UPDATE',[sha256(token)]);ensure(t.rowCount,'Link inválido ou expirado.',400);await c.query('UPDATE users SET password_hash=$1,updated_at=now() WHERE id=$2',[hash,t.rows[0].user_id]);await c.query('UPDATE password_reset_tokens SET used_at=now() WHERE id=$1',[t.rows[0].id]);await c.query('DELETE FROM sessions WHERE user_id=$1',[t.rows[0].user_id]);});return ok({message:'Senha atualizada. Faça login novamente.'});
  }
  if(action==='profile'){
  const user=await requireUser(req);const full_name=txt(x.name,120),phone=txt(x.phone,24);ensure(full_name.length>=3,'Nome inválido.');await sql('UPDATE users SET full_name=$1,phone=$2,updated_at=now() WHERE id=$3',[full_name,phone,user.id]);return ok({updated:true});
  }
  if(action==='password'){
- const user=await requireUser(req);const r=await sql('SELECT password_hash FROM users WHERE id=$1',[user.id]);ensure(await passwordVerify(String(x.current||''),r.rows[0].password_hash),'Senha atual incorreta.',403);const hash=await passwordHash(x.next);await sql('UPDATE users SET password_hash=$1,updated_at=now() WHERE id=$2',[hash,user.id]);await sql('DELETE FROM sessions WHERE user_id=$1',[user.id]);const res=ok({updated:true});await revoke(req,res);return res;
+ const user=await requireUser(req);const r=await sql('SELECT password_hash FROM users WHERE id=$1',[user.id]);ensure(await passwordVerify(String(x.current||''),r.rows[0].password_hash),'Senha atual incorreta.',403);ensure(typeof x.next==='string'&&x.next.length>=12&&x.next.length<=128,'A senha deve conter entre 12 e 128 caracteres.',400);const hash=await passwordHash(x.next);await sql('UPDATE users SET password_hash=$1,updated_at=now() WHERE id=$2',[hash,user.id]);await sql('DELETE FROM sessions WHERE user_id=$1',[user.id]);const res=ok({updated:true});await revoke(req,res);return res;
  }
  throw new HttpError(404,'Ação desconhecida.');
  }catch(e){return fail(e)}}
