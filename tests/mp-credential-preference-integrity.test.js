@@ -33,7 +33,7 @@ test('both routes validate OAuth identity and preference integrity',()=>{
  const isolated=readFileSync('app/api/admin/mp-isolated-test/route.js','utf8');
  const real=readFileSync('app/api/marketplace/[action]/route.js','utf8');
  for(const source of [isolated,real]){
-  assert.match(source,/mpRequest\('\/users\/me',token\)/);
+  assert.match(source,/oauthSellerId\(token\)/);
   assert.match(source,/checkoutCreationIntegrity\(/);
  }
 });
