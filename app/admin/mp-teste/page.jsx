@@ -6,9 +6,16 @@ const money=n=>(Number(n||0)/100).toLocaleString('pt-BR',{style:'currency',curre
 export default function IsolatedMercadoPagoTest(){
  const [user,setUser]=useState(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),
  [error,setError]=useState(''),[runs,setRuns]=useState([]);
- useEffect(()=>{fetch('/api/auth/me',{cache:'no-store'}).then(r=>r.json())
-  .then(j=>setUser(j.user||null)).catch(()=>setError('Falha ao verificar sessao.')).finally(()=>setLoading(false));},[]);
+ useEffect(()=>{
+  fetch('/api/auth/me',{cache:'no-store',credentials:'same-origin'})
+   .then(async r=>{if(!r.ok)throw new Error('Nao foi possivel consultar sua sessao.');return r.json()})
+   .then(j=>setUser(j.user||null))
+   .catch(()=>setError('Falha ao verificar a sessao. Atualize a pagina ou entre novamente na conta administrativa.'))
+   .finally(()=>setLoading(false));
+ },[]);
+ const authorized=user?.role==='super_admin';
  async function create(mode){
+  if(!authorized){setError('Entre com a conta superadministradora para gerar preferencias de teste.');return;}
   setBusy(mode);setError('');
   try{
    const r=await fetch('/api/admin/mp-isolated-test',{method:'POST',
@@ -28,18 +35,25 @@ export default function IsolatedMercadoPagoTest(){
  return <Frame user={user}><main className="page checkoutbox">
   <h1>Mercado Pago · teste isolado</h1>
   <p><Link href="/admin">Voltar ao painel</Link></p>
-  {loading?<p>Verificando acesso...</p>:user?.role!=='super_admin'?
-   <p className="notice error">Acesso restrito ao superadministrador.</p>:<>
-   <p className="notice">Ambiente de testes, somente para diagnostico. Nenhum pedido da VELLOR sera criado por estes testes. Use somente contas e cartoes de teste do Mercado Pago.</p>
-   <section className="card"><h2>Comparar Checkout Pro</h2>
-    <p>Dois testes separados de {money(2000)}, usando o mesmo vendedor OAuth de teste e o mesmo produto. Nenhum filtro de forma de pagamento, URL de retorno ou notificacao.</p>
-    <div className="flexrow">
-     <button className="btn" disabled={!!busy} onClick={()=>create('simple')}>1. GERAR TESTE SIMPLES (SEM SPLIT)</button>
-     <button className="btn gold" disabled={!!busy} onClick={()=>create('split')}>2. GERAR TESTE COM SPLIT (R$ 1)</button>
-    </div>
-    <p className="small">Para isolar a falha, teste primeiro o simples e depois o Split. Geramos preferencias novas, sem alterar o checkout da loja.</p>
-   </section>
-   {error&&<p className="notice error" role="alert">{error}</p>}
+  <section className="card">
+   <h2>Comparar Checkout Pro</h2>
+   <p>Dois testes de {money(2000)}, com o mesmo vendedor OAuth de teste e o mesmo produto. O primeiro nao inclui Split; o segundo utiliza uma comissao isolada de R$ 1.</p>
+   <div className="flexrow" style={{gap:12,flexWrap:'wrap'}}>
+    <button type="button" className="btn gold" disabled={loading||!authorized||!!busy} onClick={()=>create('simple')}>GERAR TESTE SIMPLES (SEM SPLIT)</button>
+    <button type="button" className="btn" disabled={loading||!authorized||!!busy} onClick={()=>create('split')}>GERAR TESTE COM SPLIT (R$ 1)</button>
+   </div>
+   {loading?<p className="notice">Verificando acesso para habilitar os botoes...</p>:
+    !authorized?<div className="notice error" role="status">
+      Os botoes estao visiveis, mas desabilitados porque esta sessao nao foi reconhecida como superadministradora.
+      {user?<p>Perfil identificado: <b>{user.role}</b>. Entre com uma conta <b>super_admin</b>.</p>:
+       <p>Voce nao esta autenticado nesta sessao. Entre na VELLOR para habilitar os testes.</p>}
+      <p><Link href="/conta">ENTRAR / TROCAR DE CONTA</Link></p>
+     </div>:
+     <p className="notice">Acesso confirmado: superadministrador. Use primeiro o teste simples, depois o Split.</p>}
+   <p className="small">Essas preferencias nao criam pedidos na VELLOR. Use apenas dados e cartoes de teste do Mercado Pago.</p>
+  </section>
+  {error&&<p className="notice error" role="alert">{error}</p>}
+  {authorized&&<>
    {runs.map(t=><section key={t.preference_id} className="card">
     <h2>{t.mode==='split'?'Com Split':'Simples'} · {money(t.amount_cents)}</h2>
     <p className="small">Preferencia: <code>{t.preference_id}</code></p>
