@@ -79,7 +79,11 @@ export async function GET(req){
   }));
   const isApproved=payments.some(p=>p.verified&&p.status==='approved');
   const rejected=payments.find(p=>p.verified&&p.status==='rejected');
-  const noPayments=paymentIds.length===0;
+  const noLinkedPayments=paymentIds.length===0;
+  // Como a preferencia diagnostica nao define external_reference,
+  // nao ha chave segura para consultar e associar pagamentos independentes.
+  // Sem merchant order, informar escopo limitado em vez de afirmar ausencia global.
+  const paymentLookupScope='merchant_orders_linked_payments_only';
   return result({
    preference_id:id,mode:getTestMode(pref),amount_cents:2000,marketplace_fee_cents:getTestMode(pref)==='split'?100:0,
    checkout_url_hosts:{init_point:(()=>{try{return new URL(pref.init_point).hostname}catch{return null}})(),
@@ -87,9 +91,18 @@ export async function GET(req){
    merchant_orders:orders.map(o=>({order_id:String(o.id||''),status:o.status||null,
     order_status:o.order_status||null,payment_count:Array.isArray(o.payments)?o.payments.length:0})),
    payments,query_error:ordersError,
+   payment_lookup_scope:paymentLookupScope,independent_payment_search_performed:false,
    outcome:ordersError?'ORDER_QUERY_INCOMPLETE':isApproved?'APPROVED':
-    rejected?'REJECTED':noPayments?(orders.length?'ORDER_WITHOUT_PAYMENT':'NO_ORDER_OR_PAYMENT'):
+    rejected?'REJECTED':noLinkedPayments?(orders.length?'ORDER_WITHOUT_PAYMENT':'NO_MERCHANT_ORDER_FOUND'):
     'PAYMENT_NOT_APPROVED',
+   outcome_explanation:ordersError?
+    'Nao foi possivel consultar todas as ordens comerciais; resultado inconclusivo.':
+    isApproved?'Pagamento aprovado e vinculado a ordem comercial.':
+    rejected?'Pagamento recusado e vinculado a ordem comercial.':
+    noLinkedPayments?(orders.length?
+     'Ordem comercial encontrada, mas sem pagamentos vinculados ate a consulta.':
+     'Nenhuma ordem comercial foi encontrada para esta preferencia. Sem busca independente por pagamentos, nao e possivel afirmar que nenhum pagamento existe.'):
+    'Existe pagamento vinculado, mas nao foi confirmada aprovacao.',
    exact_reason_available:!!rejected?.status_detail,
    reason_code:rejected?.status_detail||null,
    diagnostic_only:true,read_only:true
