@@ -59,7 +59,8 @@ try{
   ...isolated.map(preference_id=>({kind:'isolated_simple_or_split',preference_id})),
   ...groups.rows.map(g=>({kind:'storefront',...g}))
  ].filter((g,i,a)=>a.findIndex(x=>x.preference_id===g.preference_id)===i).slice(0,5);
- report('scope',{isolated_count:isolated.length,storefront_count:groups.rowCount,audited_preferences:selected.length});
+ report('scope',{isolated_count:isolated.length,storefront_count:groups.rowCount,audited_preferences:selected.length,
+   authorized_vellor_buyer_uses_mp_testuser_domain:String(env.MP_SANDBOX_TEST_CUSTOMER_EMAIL||'').toLowerCase().endsWith('@testuser.com')});
  for(const group of selected){
   const pref=await mp('/checkout/preferences/'+encodeURIComponent(group.preference_id),token);
   const p=pref.data;
@@ -69,7 +70,10 @@ try{
     status:pref.ok?safe(p?.status):null,
     marketplace_fee_cents:pref.ok?Math.round(Number(p.marketplace_fee||0)*100):null,
     total_cents:pref.ok&&Array.isArray(p?.items)?Math.round(p.items.reduce((s,x)=>s+Number(x.unit_price)*Number(x.quantity),0)*100):null,
-    external_reference_matches:group.kind==='storefront'&&pref.ok?String(p.external_reference)===String(group.id):null});
+    external_reference_matches:group.kind==='storefront'&&pref.ok?String(p.external_reference)===String(group.id):null,
+    payer_email_present:pref.ok?!!p?.payer?.email:null,
+    payer_email_matches_vellor_authorized_user:pref.ok&&p?.payer?.email?String(p.payer.email).toLowerCase()===String(env.MP_SANDBOX_TEST_CUSTOMER_EMAIL||'').toLowerCase():null,
+    payer_email_uses_mp_testuser_domain:pref.ok&&p?.payer?.email?String(p.payer.email).toLowerCase().endsWith('@testuser.com'):null});
   const orders=await mp('/merchant_orders/search?'+new URLSearchParams({preference_id:group.preference_id,limit:'5',offset:'0'}).toString(),token);
   const items=Array.isArray(orders.data?.elements)?orders.data.elements.filter(x=>String(x.preference_id||'')===group.preference_id):[];
   report('merchant_orders',{kind:group.kind,id:group.preference_id,http:orders.http,error:orders.error,
