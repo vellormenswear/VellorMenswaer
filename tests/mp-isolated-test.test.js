@@ -26,7 +26,7 @@ test('somente administradores no ambiente sandbox podem criar teste',()=>{
  assert.match(route,/MP_MODE==='sandbox'/);
  assert.match(route,/MP_SANDBOX_TEST_SELLER_USER_ID/);
  assert.match(route,/token\.startsWith\('APP_USR-'\)/);
- assert.match(route,/validateSandboxCheckoutUrl\(pref\.sandbox_init_point\)/);
+ assert.match(route,/checkoutProLink\(pref\)/);
  assert.ok(!route.includes('INSERT INTO orders'));
  assert.ok(!route.includes('UPDATE orders'));
  assert.ok(!route.includes('reconcilePayment('));

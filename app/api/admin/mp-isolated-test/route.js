@@ -4,7 +4,7 @@ import {requireRole} from '@/lib/auth';
 import {sql} from '@/lib/db';
 import {ensure,fail,originGuard} from '@/lib/http';
 import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
-import {validateSandboxCheckoutUrl} from '@/lib/mp-sandbox-link.mjs';
+import {checkoutProLink,checkoutProHost} from '@/lib/mp-checkout-url.mjs';
 import {safePaymentDetail} from '@/lib/mp-payment-diagnosis.mjs';
 import {isolatedPreferencePayload,isIsolatedTestPreference,getTestMode,safeCreationDiagnostic,safeHost} from '@/lib/mp-isolated-test.mjs';
 import {recordCheckoutEvent,safeTraceId,traceForPreference} from '@/lib/checkout-trace';
@@ -40,20 +40,21 @@ export async function POST(req){
   });
   ensure(pref?.id,'O Mercado Pago nao retornou uma preferencia.',502);
   ensure(String(pref.collector_id||sellerId)===sellerId,'Recebedor inesperado no teste.',502);
-  // Nao reconstruir links: validar o sandbox_init_point exato do provedor.
-  const sandboxUrl=validateSandboxCheckoutUrl(pref.sandbox_init_point);
-  await recordCheckoutEvent({trace_id:tid,stage:'payment.isolated_test.preference_created',level:'success',code:'MP_PREFERENCE_CREATED',preference_id:String(pref.id),http_status:meta?.http_status||201,metadata:{checkout_mode:mode,host:sandboxUrl?'sandbox.mercadopago.com.br':'not_available',request_id:meta?.request_id}});
+  // Checkout Pro OAuth APP_USR usa init_point mesmo com contas de teste.
+  const checkoutUrl=checkoutProLink(pref);
+  ensure(checkoutUrl,'Mercado Pago nao retornou um init_point HTTPS valido.',502);
+  await recordCheckoutEvent({trace_id:tid,stage:'payment.isolated_test.preference_created',level:'success',code:'MP_PREFERENCE_CREATED',preference_id:String(pref.id),http_status:meta?.http_status||201,metadata:{checkout_mode:mode,host:checkoutProHost(checkoutUrl),request_id:meta?.request_id}});
   const creation_diagnostic=safeCreationDiagnostic({request:payload,preference:pref,meta,sellerId,mode});
   return result({
    mode,sandbox:true,trace_id:tid,amount_cents:2000,
    marketplace_fee_cents:mode==='split'?100:0,
    preference_id:String(pref.id),
    creation_diagnostic,
-   checkout_field_used:'sandbox_init_point',
-   checkout_initial_host:safeHost(sandboxUrl),
-   sandbox_checkout_url:sandboxUrl,
-   sandbox_url_available:!!sandboxUrl,
-   note:sandboxUrl?'Link alternativo de sandbox gerado.':'A preferencia foi criada, mas nao retornou sandbox_init_point valido.',
+   checkout_field_used:'init_point',
+   checkout_initial_host:checkoutProHost(checkoutUrl),
+   checkout_url:checkoutUrl,
+   checkout_url_available:true,
+   note:'Checkout Pro utiliza init_point com vendedor OAuth de teste. Nao utilize dados de pagamento reais.',
    http_status:meta?.http_status||null,request_id:meta?.request_id||null,
    order_created:false,read_only:false
   },201);
@@ -97,7 +98,7 @@ export async function GET(req){
    preference_id:id,mode:getTestMode(pref),amount_cents:2000,marketplace_fee_cents:getTestMode(pref)==='split'?100:0,
    checkout_url_hosts:{init_point:safeHost(pref.init_point),
     sandbox_init_point:safeHost(pref.sandbox_init_point)},
-   checkout_field_used:'sandbox_init_point',
+   checkout_field_used:'init_point',
    merchant_orders:orders.map(o=>({order_id:String(o.id||''),status:o.status||null,
     order_status:o.order_status||null,payment_count:Array.isArray(o.payments)?o.payments.length:0})),
    payments,query_error:ordersError,

@@ -31,5 +31,5 @@ test('pagina exibe retorno e dominio observado com controle de acesso',()=>{
  assert.match(route,/safeCreationDiagnostic/);
  assert.match(route,/requireRole\(req,\['super_admin','admin'\]\)/);
  assert.match(route,/MP_MODE==='sandbox'/);
- assert.match(route,/validateSandboxCheckoutUrl\(pref\.sandbox_init_point\)/);
+ assert.match(route,/checkoutProLink\(pref\)/);
 });

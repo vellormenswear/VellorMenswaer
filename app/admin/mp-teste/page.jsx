@@ -33,7 +33,7 @@ export default function IsolatedMercadoPagoTest(){
  async function copyDiagnostic(t){
   const safe={
    preference_id:t.preference_id,mode:t.mode,
-   checkout_field_used:'sandbox_init_point',
+   checkout_field_used:'init_point',
    checkout_initial_host:t.checkout_initial_host||null,
    browser_observed_host:t.observed_host||'nao_conferido',
    checkout_opened_at:t.opened_at||null,
@@ -69,7 +69,7 @@ export default function IsolatedMercadoPagoTest(){
       <p><Link href="/conta">ENTRAR / TROCAR DE CONTA</Link></p>
      </div>:
      <p className="notice">Acesso administrativo confirmado. Use primeiro o teste simples, depois o Split.</p>}
-   <p className="small">Essas preferencias nao criam pedidos na VELLOR. Use apenas dados e cartoes de teste do Mercado Pago.</p>
+   <p className="small">Preferencias sem pedidos comerciais. O Checkout Pro utiliza init_point mesmo com vendedores APP_USR de teste. Use somente contas e cartoes de teste, nunca meios de pagamento reais.</p>
   </section>
   {error&&<p className="notice error" role="alert">{error}</p>}
   {copied&&<p className="notice" role="status">{copied}</p>}
@@ -77,9 +77,9 @@ export default function IsolatedMercadoPagoTest(){
    {runs.map(t=><section key={t.preference_id} className="card">
     <h2>{t.mode==='split'?'Com Split':'Simples'} · {money(t.amount_cents)}</h2>
     <p className="small">Preferencia: <code>{t.preference_id}</code>{t.trace_id&&<> · Rastreamento: <code>{t.trace_id}</code></>}</p>
-    {t.sandbox_checkout_url?<a className="btn gold" href={t.sandbox_checkout_url} target="_blank" rel="noopener noreferrer" onClick={()=>markOpened(t.preference_id)}>ABRIR CHECKOUT SANDBOX</a>:
-      <p className="notice error">O Mercado Pago nao forneceu um link de sandbox valido nesta preferencia.</p>}
-    <p className="small">Link enviado: <b>sandbox_init_point</b> · Dominio inicial: <b>{t.checkout_initial_host||'Nao retornado'}</b></p>
+    {t.checkout_url?<a className="btn gold" href={t.checkout_url} target="_blank" rel="noopener noreferrer" onClick={()=>markOpened(t.preference_id)}>ABRIR CHECKOUT DE TESTE (INIT_POINT)</a>:
+      <p className="notice error">O Mercado Pago nao forneceu um init_point valido nesta preferencia.</p>
+    <p className="small">Link enviado: <b>init_point</b> · Dominio inicial: <b>{t.checkout_initial_host||'Nao retornado'}</b></p>
     {t.creation_diagnostic&&<details><summary>Resposta da criacao da preferencia (dados seguros)</summary>
       <pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{JSON.stringify(t.creation_diagnostic,null,2)}</pre></details>}
     <div className="field"><label htmlFor={'mp-host-'+t.preference_id}>Dominio que voce viu no navegador depois de abrir o checkout</label>

@@ -18,9 +18,11 @@ export async function POST(req){let auditGroup=null,auditTrace=null;try{
    if(!r.rowCount)return ok({ignored:'unrelated_payment'});
    const expectedSeller=String(r.rows[0].provider_user_id);
 
-   const live=process.env.MP_MODE==='production';ensure(body.live_mode===live,'Ambiente divergente.',403);
+   // O evento pode omitir live_mode. O pagamento oficial da API e a fonte de verdade.
+   const live=process.env.MP_MODE==='production';
+   if(typeof body.live_mode==='boolean')ensure(body.live_mode===live,'Ambiente do webhook divergente.',403);
    const token=await supplierAccessToken(r.rows[0].supplier_id);const payment=await mpRequest('/v1/payments/'+encodeURIComponent(id),token);await recordCheckoutEvent({trace_id:auditTrace,stage:'payment.provider.fetched',level:'success',code:'MP_PAYMENT_FETCHED',group_id:groupId,metadata:{payment_id:String(payment.id||''),provider_status:payment.status||null,status_detail:payment.status_detail||null}});
-   if(payment.live_mode!==undefined)ensure(payment.live_mode===live,'Pagamento de outro ambiente.',403);
+   ensure(payment.live_mode===live,'Pagamento de outro ambiente ou sem ambiente verificavel.',403);
    if(uuid(groupId))ensure(String(payment.external_reference)===groupId,'Grupo informado não corresponde ao pagamento.',403);
    const result=await reconcilePayment(payment,expectedSeller);await recordCheckoutEvent({trace_id:auditTrace,stage:'payment.reconciliation.completed',level:result.status==='approved'?'success':'info',code:'RECONCILIATION_'+String(result.status||'UNKNOWN').toUpperCase(),group_id:result.group_id||groupId,metadata:{status:result.status||null,payment_id:id}});return ok({accepted:true,...result});
  }

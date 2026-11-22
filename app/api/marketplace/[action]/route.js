@@ -8,7 +8,9 @@ import {checkoutReady,checkoutAllowedForUser,discountedPreferenceItems} from '@/
 import {randomUUID} from 'node:crypto';
 import {checkoutBlockCode} from '@/lib/checkout-block-reasons.mjs';
 import {recordCheckoutEvent,safeTraceId} from '@/lib/checkout-trace';
-import {validateSandboxCheckoutUrl,preferenceMatchesGroup} from '@/lib/mp-sandbox-link.mjs';
+import {checkoutProLink,checkoutProHost} from '@/lib/mp-checkout-url.mjs';
+import {recheckProviderPayment} from '@/lib/mp-payment-recovery';
+import {traceForGroup} from '@/lib/checkout-trace';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const isReady=()=>checkoutReady(process.env);
 const site=()=>{const value=(process.env.SITE_URL||'').replace(/\/$/,'');ensure(value.startsWith('https://'),'Defina SITE_URL HTTPS.',503);return value};
@@ -46,9 +48,9 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
     WHERE g.order_id=$1 AND o.customer_id=$2 ORDER BY g.created_at,g.id`,[orderId,u.id]);
   else throw new HttpError(400,'Referência de checkout inválida.');
   ensure(r.rowCount,'Pagamento não encontrado.',404);
-  await recordCheckoutEvent({trace_id:req.headers.get('x-vellor-trace-id')||null,stage:'payment.groups.polled',code:'GROUP_STATUS_POLLED',checkout_batch_id:batch,metadata:{group_count:r.rowCount,status:r.rows.every(x=>x.payment_status==='approved')?'approved':'pending'}});
+  await recordCheckoutEvent({trace_id:await traceForGroup(r.rows[0].id),stage:'payment.groups.polled',code:'GROUP_STATUS_POLLED',checkout_batch_id:batch,metadata:{group_count:r.rowCount,status:r.rows.every(x=>x.payment_status==='approved')?'approved':'pending'}});
   return ok({groups:r.rows,checkout_id:batch||null,order_id:orderId||null,
-   sandbox_link_test_enabled:process.env.MP_MODE==='sandbox'&&checkoutAllowedForUser(process.env,u)});
+   sandbox_link_test_enabled:false});
  }
  throw new HttpError(404,'Ação desconhecida.');
  }catch(e){return fail(e)}}
@@ -81,12 +83,10 @@ async function createPreference(group,customerEmail,tid=null){
   group_id:group.id,preference_id:String(mp.id||''),http_status:mpMeta?.http_status||null,
   request_id:mpMeta?.request_id||null,amount_cents:group.amount_cents
  }));
- // Para Checkout Pro, Mercado Pago usa init_point tambem no teste com vendedor TESTE.
- const url=mp.init_point;
- const host=(()=>{try{return new URL(url).hostname.toLowerCase()}catch{return ''}})();
- ensure(['www.mercadopago.com.br','mercadopago.com.br','www.mercadopago.com','mercadopago.com'].includes(host),
-  'URL de pagamento retornada pelo Mercado Pago nao foi reconhecida.',502);
- ensure(/^https:\/\//.test(url||'')&&mp.id,'Mercado Pago não retornou uma preferência válida.',502);
+ // APP_USR de vendedor TESTE usa init_point oficial, nao sandbox_init_point legado.
+ const url=checkoutProLink(mp);
+ const host=checkoutProHost(url);
+ ensure(url&&mp.id,'Mercado Pago nao retornou um init_point HTTPS valido.',502);
  await sql('UPDATE supplier_order_groups SET preference_id=$1,checkout_url=$2,updated_at=now() WHERE id=$3 AND order_id IS NULL',[mp.id,url,group.id]);await recordCheckoutEvent({trace_id:tid,stage:'payment.preference.created',level:'success',code:'MP_PREFERENCE_CREATED',http_status:mpMeta?.http_status||201,group_id:group.id,checkout_batch_id:group.checkout_batch_id,preference_id:String(mp.id),metadata:{amount_cents:group.amount_cents,fee_cents:group.marketplace_fee_cents,host,request_id:mpMeta?.request_id}});return url;
 }
 export async function POST(req,{params}){let tid=null,operation='unknown';try{originGuard(req);const {action}=await params;operation=action;const x=await body(req,120000);tid=safeTraceId(x.trace_id);
@@ -153,36 +153,29 @@ export async function POST(req,{params}){let tid=null,operation='unknown';try{or
   return ok({checkout_id:batch,groups:links,mode:process.env.MP_MODE,trace_id:tid},201);
  }
  if(action==='sandbox-link-test'){
-  // Experimento comparativo somente para comprador autorizado em sandbox.
-  // Nao muda o init_point habitual nem cria outra preferencia ou pagamento.
-  ensure(process.env.MP_MODE==='sandbox'&&isReady(),'Teste alternativo disponivel apenas em sandbox.',403);
+  throw new HttpError(410,'Link sandbox legado desativado. Use CONTINUAR PAGAMENTO (init_point do vendedor de teste).');
+ }
+ if(action==='recheck-payment'){
+  // Reconciliacao explicita sem dependencia do webhook. O comprador nunca informa IDs de MP,
+  // tokens, valor ou comissao. Apenas um UUID de grupo pertencente a sua conta.
   const u=await requireUser(req);
-  ensure(u.role==='customer'&&checkoutAllowedForUser(process.env,u),'Comprador de teste nao autorizado.',403);
-  ensure(uuid(x.group_id),'Grupo invalido.',400);
-  const found=await sql(`SELECT g.id,g.supplier_id,g.preference_id,g.amount_cents,g.marketplace_fee_cents,
-   g.payment_status,g.checkout_expires_at,mp.provider_user_id FROM supplier_order_groups g
-   JOIN supplier_mp_connections mp ON mp.supplier_id=g.supplier_id
-   WHERE g.id=$1 AND g.customer_id=$2 AND g.order_id IS NULL`,[x.group_id,u.id]);
-  ensure(found.rowCount,'Checkout de teste nao encontrado.',404);
-  const g=found.rows[0];
-  ensure(g.payment_status==='pending','Nao e possivel reabrir um pagamento concluido.',409);
-  ensure(new Date(g.checkout_expires_at).getTime()>Date.now(),'Checkout expirado. Gere nova tentativa.',409);
-  ensure(g.preference_id,'A preferencia ainda nao foi criada.',409);
-  ensure(String(g.provider_user_id)===String(process.env.MP_SANDBOX_TEST_SELLER_USER_ID||''),
-   'Vendedor de teste nao autorizado.',403);
-  const token=await supplierAccessToken(g.supplier_id);
-  ensure(token.startsWith('APP_USR-'),'Credencial de vendedor de teste invalida.',403);
-  const pref=await mpRequest('/checkout/preferences/'+encodeURIComponent(g.preference_id),token);
-  ensure(preferenceMatchesGroup(pref,{id:g.preference_id,collectorId:g.provider_user_id,
-   amountCents:Number(g.amount_cents),marketplaceFeeCents:Number(g.marketplace_fee_cents),payerEmail:u.email}),
-   'Preferencia nao corresponde ao checkout autorizado.',409);
-  ensure(!pref.preference_expired&&(!pref.expiration_date_to||new Date(pref.expiration_date_to).getTime()>Date.now()),
-   'Preferencia de teste expirada.',409);
-  const url=validateSandboxCheckoutUrl(pref.sandbox_init_point);
-  ensure(url,'O Mercado Pago nao retornou link de sandbox valido para esta preferencia.',502);
-  console.info('[mp.sandbox_link_test]',JSON.stringify({group_id:g.id,preference_id:g.preference_id}));
-  await recordCheckoutEvent({trace_id:tid,stage:'payment.sandbox_link.validated',level:'success',code:'SANDBOX_LINK_OK',group_id:g.id,preference_id:g.preference_id,metadata:{host:'sandbox.mercadopago.com.br'}});
-  return ok({sandbox_checkout_url:url,mode:'sandbox',experimental:true});
+  ensure(u.role==='customer','Somente o comprador pode conferir este pagamento.',403);
+  ensure(uuid(x.group_id),'Identificador de pagamento invalido.',400);
+  ensure(['sandbox','production'].includes(process.env.MP_MODE),'Integracao com Mercado Pago indisponivel.',503);
+  if(process.env.MP_MODE==='sandbox'){
+   const allowed=String(process.env.MP_SANDBOX_TEST_CUSTOMER_EMAIL||'').trim().toLowerCase();
+   ensure(allowed&&String(u.email||'').trim().toLowerCase()===allowed,'Comprador de teste nao autorizado.',403);
+  }
+  const rows=await sql(`SELECT g.id,g.supplier_id,g.preference_id,g.amount_cents,g.marketplace_fee_cents,
+   g.provider_payment_id,g.payment_status,mp.provider_user_id
+   FROM supplier_order_groups g JOIN supplier_mp_connections mp ON mp.supplier_id=g.supplier_id
+   WHERE g.id=$1 AND g.customer_id=$2`,[x.group_id,u.id]);
+  ensure(rows.rowCount,'Tentativa de pagamento nao encontrada.',404);
+  const group=rows.rows[0];
+  if(['approved','refunded','refund_pending','refund_failed'].includes(group.payment_status))
+   return ok({group_id:group.id,result:'ALREADY_PROCESSED',provider_status:group.payment_status,checked:true,reconciled:false});
+  const verified=await recheckProviderPayment(group);
+  return ok({group_id:group.id,...verified});
  }
  if(action==='retry-preference'){
   ensure(isReady(),'Checkout desabilitado.',503);const u=await requireUser(req);
