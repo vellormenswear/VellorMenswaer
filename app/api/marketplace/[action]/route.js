@@ -9,6 +9,7 @@ import {randomUUID} from 'node:crypto';
 import {checkoutBlockCode} from '@/lib/checkout-block-reasons.mjs';
 import {recordCheckoutEvent,safeTraceId} from '@/lib/checkout-trace';
 import {checkoutProLink,checkoutProHost} from '@/lib/mp-checkout-url.mjs';
+import {checkoutCreationIntegrity} from '@/lib/mp-checkout-creation-integrity.mjs';
 import {recheckProviderPayment} from '@/lib/mp-payment-recovery';
 import {traceForGroup} from '@/lib/checkout-trace';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -57,6 +58,11 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
 async function createPreference(group,customerEmail,tid=null){
  await recordCheckoutEvent({trace_id:tid,stage:'payment.preference.requested',code:'MP_PREFERENCE_REQUEST',group_id:group.id,checkout_batch_id:group.checkout_batch_id,metadata:{amount_cents:group.amount_cents,fee_cents:group.marketplace_fee_cents}});
  const token=await supplierAccessToken(group.supplier_id);
+ const connection=await sql('SELECT provider_user_id FROM supplier_mp_connections WHERE supplier_id=$1',[group.supplier_id]);
+ ensure(connection.rowCount,'Conta do fornecedor nao conectada.',409);
+ const sellerId=String(connection.rows[0].provider_user_id||'');
+ const identity=await mpRequest('/users/me',token);
+ ensure(sellerId&&String(identity?.id||'')===sellerId,'Credencial OAuth nao corresponde ao vendedor conectado.',409);
  if(process.env.MP_MODE==='sandbox'){
   const r=await sql('SELECT provider_user_id FROM supplier_mp_connections WHERE supplier_id=$1',[group.supplier_id]);
   const allowed=String(process.env.MP_SANDBOX_TEST_SELLER_USER_ID||'').trim();
@@ -78,6 +84,8 @@ async function createPreference(group,customerEmail,tid=null){
   method:'POST',data:payload,idempotency:'vellor-'+group.id,
   onResponseMeta:meta=>{mpMeta=meta}
  });
+ const integrity=checkoutCreationIntegrity({preference:mp,request:payload,sellerId,clientId:process.env.MP_CLIENT_ID});
+ ensure(integrity.ok,'Preferencia inconsistente com vendedor, aplicativo, valor ou comissao ('+integrity.code+').',502);
  // Somente metadados nao sensiveis, visiveis no runtime de servidor.
  if(process.env.MP_MODE==='sandbox')console.info('[mp.preference.created]',JSON.stringify({
   group_id:group.id,preference_id:String(mp.id||''),http_status:mpMeta?.http_status||null,
