@@ -3,6 +3,7 @@ import {requireRole} from '@/lib/auth';
 import {sql} from '@/lib/db';
 import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {ensure,fail,uuid} from '@/lib/http';
+import {deriveMpPaymentDiagnosis,safePaymentDetail} from '@/lib/mp-payment-diagnosis.mjs';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -33,7 +34,10 @@ export async function GET(req){
       provider_payment_id:g.provider_payment_id||null,order_created:!!g.order_id,
       checkout_host:safeHost(g.checkout_url),seller_is_allowlisted_test_account:
        String(g.provider_user_id)===String(process.env.MP_SANDBOX_TEST_SELLER_USER_ID||'')};
-   if(!g.preference_id)return {...base,diagnosis:'Preferência não foi criada.',attempts:[]};
+   if(!g.preference_id)return {...base,
+    error_diagnosis:{code:'PREFERENCE_NOT_CREATED',source:'vellor',exact_provider_reason:false,
+     message:'Preferencia nao registrada. A falha pode ter ocorrido antes ou durante a criacao na API.',support_required:false},
+    diagnosis:'Preferencia nao registrada. Verifique os logs de criacao da VELLOR.',attempts:[]};
    try{
     const token=await supplierAccessToken(g.supplier_id);
     const auth_type=token.startsWith('TEST-')?'TEST':token.startsWith('APP_USR-')?'APP_USR':'other';
@@ -90,19 +94,56 @@ export async function GET(req){
     }catch(e){
      merchant_orders={query_ok:false,orders:[],error:'Consulta de ordens comerciais nao disponivel.',api_error:e?.mpDiagnostic||null};
     }
+    // Preferir o registro individual do pagamento: /v1/payments/{id} e a fonte
+    // oficial do status_detail. Toda consulta e somente leitura e vinculada
+    // ao grupo, ao recebedor, ao valor e a moeda BRL.
+    const paymentIds=[...new Set([
+     ...(g.provider_payment_id?[String(g.provider_payment_id)]:[]),
+     ...attempts.map(p=>p.payment_id),
+     ...(merchant_orders.orders||[]).flatMap(o=>(o.payments||[]).map(p=>p.payment_id))
+    ])].filter(id=>/^\d{5,30}$/.test(id)).slice(0,3);
+    const paymentDetails=await Promise.all(paymentIds.map(async id=>{
+     let requestMeta=null;
+     try{
+      const payment=await mpRequest('/v1/payments/'+id,token,{onResponseMeta:m=>{requestMeta=m}});
+      const reference_matches=String(payment.external_reference||'')===String(g.id);
+      const collector_matches=String(payment.collector_id||'')===String(g.provider_user_id);
+      const amount_matches=Number.isFinite(Number(payment.transaction_amount))&&
+        Math.round(Number(payment.transaction_amount)*100)===Number(g.amount_cents);
+      const currency_matches=payment.currency_id==='BRL';
+      if(!reference_matches||!collector_matches||!amount_matches||!currency_matches){
+       return {payment_id:id,verified:false,code:'PAYMENT_INTEGRITY_MISMATCH',
+        checks:{reference_matches,collector_matches,amount_matches,currency_matches},
+        api_request:requestMeta};
+      }
+      return {...safePaymentDetail(payment),verified:true,api_request:requestMeta};
+     }catch(e){
+      return {payment_id:id,verified:false,code:'PAYMENT_DETAIL_QUERY_FAILED',
+       api_error:e?.mpDiagnostic||null};
+     }
+    }));
+    const verifiedPayments=paymentDetails.filter(p=>p.verified);
+    const error_diagnosis=deriveMpPaymentDiagnosis({
+     verifiedPayments,paymentDetails,attempts,merchantOrders:merchant_orders,preference,
+     localStatus:g.payment_status
+    });
     const foundAttempt=attempts.length>0||merchant_orders.orders?.some(o=>o.payments?.length>0);
     return {...base,auth_type,preference,attempts,merchant_orders,
+     provider_payment_details:paymentDetails,error_diagnosis,
      api_requests:{preference:preference_api,payments:payments_api,merchant_orders:merchant_orders_api},
-     diagnosis:foundAttempt?'Ha registro de pagamento no Mercado Pago. Consulte o status.':
-      merchant_orders.orders?.length?'Ordem comercial encontrada sem pagamento visivel.':
-      'Nenhuma transacao nem ordem comercial encontrada nesta consulta.'};
+     diagnosis:error_diagnosis.message};
    }catch(e){
-    return {...base,attempts:null,api_error:e?.mpDiagnostic||null,
-     diagnosis:'Consulta ao Mercado Pago falhou; verifique a conexão OAuth do fornecedor.'};
+    const error_diagnosis={
+     code:'PAYMENT_API_QUERY_FAILED',source:'mercado_pago_api',exact_provider_reason:false,
+     provider_error:e?.mpDiagnostic||null,
+     message:'Consulta a API do Mercado Pago falhou. O motivo do checkout nao foi determinado.',
+     support_required:true};
+    return {...base,attempts:null,api_error:e?.mpDiagnostic||null,error_diagnosis,
+     diagnosis:error_diagnosis.message};
    }
   }));
   return NextResponse.json({mode:'sandbox',checked_at:new Date().toISOString(),
-    match_count:groups.length,groups,read_only:true},
+    diagnostics_version:2,match_count:groups.length,groups,read_only:true},
     {headers:{'Cache-Control':'no-store, max-age=0','X-Robots-Tag':'noindex'}});
  }catch(e){return fail(e)}
 }
