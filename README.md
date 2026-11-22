@@ -4,6 +4,8 @@ Loja de moda masculina em **Next.js 15 / React 19**, deploy na **Vercel**, banco
 
 **Este repositório é a base de trabalho em equipe.** Não está homologado para produção comercial; checkout real permanece desabilitado por padrão. A implantação na Vercel é separada do versionamento Git.
 
+> **Nova arquitetura em preparação:** o modelo comercial desejado é VELLOR como vendedor principal (owner) e fornecedores como parceiros (partners). O Split 1:N oficial exige Checkout Transparente/Orders API e habilitação do Mercado Pago. Esta branch disponibiliza apenas um laboratório PIX sandbox isolado em `/admin/mp-primary-1n`; o checkout comercial 1:1 permanece inalterado até a homologação. Consulte [a arquitetura 1:N](docs/MP_SPLIT_PRINCIPAL_1N.md).
+
 ## Começar
 
 ```bash
