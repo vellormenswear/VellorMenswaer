@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {canaryOrderPayload,inspectCanaryOrder,orderIdValid} from '../lib/mp-orders-canary.mjs';
+import {canaryOrderPayload,inspectCanaryOrder,orderIdValid,canaryAllowedForUser} from '../lib/mp-orders-canary.mjs';
 const uuid='abcdef01-abcd-4abc-8abc-abcdef012345';
 const reference=mode=>`vellor-orders-canary-${mode}-${uuid}`;
 const order=(mode,changes={})=>({id:'ORDTST01KS5AJ6HTK2HRQ3XJ3C2JCKP9',external_reference:reference(mode),user_id:'123',
@@ -30,7 +30,8 @@ test('resposta pertence ao vendedor integrador e ao teste sandbox',()=>{
 });
 test('o teste isolado não inclui carteira e não altera pedidos VELLOR',()=>{
  const src=readFileSync(new URL('../app/api/admin/mp-orders-canary/route.js',import.meta.url),'utf8');
- assert.match(src,/requireRole\(req,\['super_admin'\]\)/);
+ assert.match(src,/requireUser\(req\)/);
+ assert.match(src,/canaryAllowedForUser\(process.env,user\)/);
  assert.match(src,/MP_MODE==='sandbox'/);
  assert.match(src,/MP_LIVE_ENABLED!=='true'/);
  assert.match(src,/mpRequest\('\/v1\/orders'/);
@@ -38,4 +39,22 @@ test('o teste isolado não inclui carteira e não altera pedidos VELLOR',()=>{
  assert.equal(src.includes('INSERT INTO'),false);
  assert.equal(src.includes('UPDATE supplier_order_groups'),false);
  assert.equal(src.includes('reconcilePayment('),false);
+});
+
+test('somente o comprador sandbox permitido ou o superadministrador acessam o experimento',()=>{
+ const env={MP_MODE:'sandbox',MP_LIVE_ENABLED:'false',MP_SANDBOX_TEST_CUSTOMER_EMAIL:'buyer@example.com'};
+ assert.equal(canaryAllowedForUser(env,{role:'customer',email:'buyer@example.com'}),true);
+ assert.equal(canaryAllowedForUser(env,{role:'customer',email:' BUYER@example.com '}),true);
+ assert.equal(canaryAllowedForUser(env,{role:'customer',email:'intruso@example.com'}),false);
+ assert.equal(canaryAllowedForUser(env,{role:'supplier',email:'buyer@example.com'}),false);
+ assert.equal(canaryAllowedForUser(env,{role:'admin',email:'buyer@example.com'}),false);
+ assert.equal(canaryAllowedForUser(env,{role:'super_admin',email:'admin@example.com'}),true);
+ assert.equal(canaryAllowedForUser({...env,MP_MODE:'production'},{role:'super_admin'}),false);
+ assert.equal(canaryAllowedForUser({...env,MP_LIVE_ENABLED:'true'},{role:'customer',email:'buyer@example.com'}),false);
+ assert.equal(canaryAllowedForUser({...env,MP_SANDBOX_TEST_CUSTOMER_EMAIL:''},{role:'customer',email:'buyer@example.com'}),false);
+});
+test('interface permite comprador autorizado e consulta status seguro do checkout',()=>{
+ const src=readFileSync(new URL('../app/admin/mp-orders-canary/page.jsx',import.meta.url),'utf8');
+ assert.match(src,/\/api\/store\/status/);
+ assert.match(src,/user\?\.role==='customer'&&storeStatus\?\.mode==='sandbox'&&storeStatus\?\.orders_open===true/);
 });
