@@ -1,14 +1,15 @@
 import {sql,transaction} from '@/lib/db';import {ok,fail,ensure,HttpError,uuid} from '@/lib/http';import {sha256,verifyMPWebhook} from '@/lib/security';import {fetchMPOrder} from '@/lib/mercadopago';
 import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {reconcilePayment} from '@/lib/split-reconcile';
+import {recordCheckoutEvent,traceForGroup} from '@/lib/checkout-trace';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 function numCents(s){if(!/^\d+(\.\d{1,2})?$/.test(String(s)))return -1;return Math.round(Number(s)*100)}
-export async function POST(req){try{
+export async function POST(req){let auditGroup=null,auditTrace=null;try{
  const url=new URL(req.url);const body=await req.json().catch(()=>({}));const dataId=url.searchParams.get('data.id')||body?.data?.id;const type=url.searchParams.get('type')||body.type;
  if(type==='payment'){
    const id=String(dataId||'');ensure(/^\d{5,30}$/.test(id),'Pagamento inválido.',400);
    const legit=verifyMPWebhook({secret:process.env.MP_WEBHOOK_SECRET,signature:req.headers.get('x-signature'),requestId:req.headers.get('x-request-id'),dataId:id});ensure(legit,'Assinatura inválida.',401);
-   const groupId=url.searchParams.get('group'),sellerId=String(body.user_id||'');
+   const groupId=url.searchParams.get('group'),sellerId=String(body.user_id||'');auditGroup=groupId;auditTrace=await traceForGroup(groupId);await recordCheckoutEvent({trace_id:auditTrace,stage:'payment.webhook.verified',code:'MP_WEBHOOK_AUTHENTICATED',group_id:groupId,metadata:{source:'mercado_pago'}});
    // O parâmetro group não aprova pagamentos: apenas identifica com qual token consultar a API oficial.
    // O pagamento retornado pela API ainda precisa casar com grupo, vendedor, valor e moeda.
    const r=uuid(groupId)?await sql(`SELECT g.supplier_id,mp.provider_user_id FROM supplier_order_groups g
@@ -18,10 +19,10 @@ export async function POST(req){try{
    const expectedSeller=String(r.rows[0].provider_user_id);
 
    const live=process.env.MP_MODE==='production';ensure(body.live_mode===live,'Ambiente divergente.',403);
-   const token=await supplierAccessToken(r.rows[0].supplier_id);const payment=await mpRequest('/v1/payments/'+encodeURIComponent(id),token);
+   const token=await supplierAccessToken(r.rows[0].supplier_id);const payment=await mpRequest('/v1/payments/'+encodeURIComponent(id),token);await recordCheckoutEvent({trace_id:auditTrace,stage:'payment.provider.fetched',level:'success',code:'MP_PAYMENT_FETCHED',group_id:groupId,metadata:{payment_id:String(payment.id||''),provider_status:payment.status||null,status_detail:payment.status_detail||null}});
    if(payment.live_mode!==undefined)ensure(payment.live_mode===live,'Pagamento de outro ambiente.',403);
    if(uuid(groupId))ensure(String(payment.external_reference)===groupId,'Grupo informado não corresponde ao pagamento.',403);
-   const result=await reconcilePayment(payment,expectedSeller);return ok({accepted:true,...result});
+   const result=await reconcilePayment(payment,expectedSeller);await recordCheckoutEvent({trace_id:auditTrace,stage:'payment.reconciliation.completed',level:result.status==='approved'?'success':'info',code:'RECONCILIATION_'+String(result.status||'UNKNOWN').toUpperCase(),group_id:result.group_id||groupId,metadata:{status:result.status||null,payment_id:id}});return ok({accepted:true,...result});
  }
  if(type!=='order')return ok({ignored:'other_event'});
  if(process.env.MP_MODE!=='sandbox')return ok({ignored:'legacy_orders_disabled'});
@@ -58,4 +59,4 @@ export async function POST(req){try{
   return 'no_change';
  });
  await sql("UPDATE webhook_events SET status='processed',processed_at=now(),error_message=null WHERE id=$1",[evId]);return ok({accepted:true,result:affected});
- }catch(e){return fail(e)}}
+ }catch(e){if(auditGroup)await recordCheckoutEvent({trace_id:auditTrace,stage:'payment.webhook.failed',level:'error',code:e?.mpDiagnostic?.code||'WEBHOOK_PROCESSING_ERROR',message:e?.message,http_status:e?.status||500,group_id:auditGroup,metadata:{request_id:e?.mpDiagnostic?.request_id}});return fail(e)}}

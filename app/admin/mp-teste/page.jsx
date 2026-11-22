@@ -19,7 +19,7 @@ export default function IsolatedMercadoPagoTest(){
   setBusy(mode);setError('');
   try{
    const r=await fetch('/api/admin/mp-isolated-test',{method:'POST',
-    headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})});
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,trace_id:window.VellorTrace?.id||null})});
    const x=await r.json();if(!r.ok)throw Error(x.error||'Falha no teste.');
    setRuns(v=>[{...x,detail:null},...v]);
   }catch(e){setError(e.message)}finally{setBusy('')}
@@ -76,7 +76,7 @@ export default function IsolatedMercadoPagoTest(){
   {authorized&&<>
    {runs.map(t=><section key={t.preference_id} className="card">
     <h2>{t.mode==='split'?'Com Split':'Simples'} · {money(t.amount_cents)}</h2>
-    <p className="small">Preferencia: <code>{t.preference_id}</code></p>
+    <p className="small">Preferencia: <code>{t.preference_id}</code>{t.trace_id&&<> · Rastreamento: <code>{t.trace_id}</code></>}</p>
     {t.sandbox_checkout_url?<a className="btn gold" href={t.sandbox_checkout_url} target="_blank" rel="noopener noreferrer" onClick={()=>markOpened(t.preference_id)}>ABRIR CHECKOUT SANDBOX</a>:
       <p className="notice error">O Mercado Pago nao forneceu um link de sandbox valido nesta preferencia.</p>}
     <p className="small">Link enviado: <b>sandbox_init_point</b> · Dominio inicial: <b>{t.checkout_initial_host||'Nao retornado'}</b></p>

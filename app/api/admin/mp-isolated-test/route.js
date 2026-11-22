@@ -7,6 +7,7 @@ import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {validateSandboxCheckoutUrl} from '@/lib/mp-sandbox-link.mjs';
 import {safePaymentDetail} from '@/lib/mp-payment-diagnosis.mjs';
 import {isolatedPreferencePayload,isIsolatedTestPreference,getTestMode,safeCreationDiagnostic,safeHost} from '@/lib/mp-isolated-test.mjs';
+import {recordCheckoutEvent,safeTraceId,traceForPreference} from '@/lib/checkout-trace';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 
 async function scope(req){
@@ -24,13 +25,14 @@ async function scope(req){
 const result=(data,status=200)=>NextResponse.json(data,{status,headers:{'Cache-Control':'private, no-store','X-Robots-Tag':'noindex'}});
 
 export async function POST(req){
- try{
+ let tid=null;try{
   originGuard(req);
   const {sellerId,token}=await scope(req);
-  const body=await req.json().catch(()=>({}));
+  const body=await req.json().catch(()=>({}));tid=safeTraceId(body?.trace_id);
   const mode=body?.mode;
   ensure(mode==='simple'||mode==='split','Modo invalido. Escolha simple ou split.',400);
   const payload=isolatedPreferencePayload(mode);
+  await recordCheckoutEvent({trace_id:tid,stage:'payment.isolated_test.started',code:'ISOLATED_TEST_STARTED',metadata:{checkout_mode:mode,amount_cents:2000}});
   let meta=null;
   const pref=await mpRequest('/checkout/preferences',token,{
    method:'POST',data:payload,idempotency:'vellor-diag-'+randomUUID(),
@@ -40,9 +42,10 @@ export async function POST(req){
   ensure(String(pref.collector_id||sellerId)===sellerId,'Recebedor inesperado no teste.',502);
   // Nao reconstruir links: validar o sandbox_init_point exato do provedor.
   const sandboxUrl=validateSandboxCheckoutUrl(pref.sandbox_init_point);
+  await recordCheckoutEvent({trace_id:tid,stage:'payment.isolated_test.preference_created',level:'success',code:'MP_PREFERENCE_CREATED',preference_id:String(pref.id),http_status:meta?.http_status||201,metadata:{checkout_mode:mode,host:sandboxUrl?'sandbox.mercadopago.com.br':'not_available',request_id:meta?.request_id}});
   const creation_diagnostic=safeCreationDiagnostic({request:payload,preference:pref,meta,sellerId,mode});
   return result({
-   mode,sandbox:true,amount_cents:2000,
+   mode,sandbox:true,trace_id:tid,amount_cents:2000,
    marketplace_fee_cents:mode==='split'?100:0,
    preference_id:String(pref.id),
    creation_diagnostic,
@@ -54,7 +57,7 @@ export async function POST(req){
    http_status:meta?.http_status||null,request_id:meta?.request_id||null,
    order_created:false,read_only:false
   },201);
- }catch(e){return fail(e)}
+ }catch(e){await recordCheckoutEvent({trace_id:tid,stage:'payment.isolated_test.failed',level:'error',code:e?.mpDiagnostic?.code||'ISOLATED_TEST_FAILED',http_status:e?.status||500,message:e?.message});return fail(e)}
 }
 export async function GET(req){
  try{
@@ -88,6 +91,8 @@ export async function GET(req){
   // nao ha chave segura para consultar e associar pagamentos independentes.
   // Sem merchant order, informar escopo limitado em vez de afirmar ausencia global.
   const paymentLookupScope='merchant_orders_linked_payments_only';
+  const tid=await traceForPreference(id);
+  await recordCheckoutEvent({trace_id:tid,stage:'payment.isolated_test.checked',level:ordersError?'error':isApproved?'success':'info',code:ordersError?'ORDER_QUERY_INCOMPLETE':isApproved?'PAYMENT_APPROVED':orders.length?'ORDER_FOUND':'ORDER_NOT_FOUND',preference_id:id,metadata:{checkout_mode:getTestMode(pref),payment_count:paymentIds.length}});
   return result({
    preference_id:id,mode:getTestMode(pref),amount_cents:2000,marketplace_fee_cents:getTestMode(pref)==='split'?100:0,
    checkout_url_hosts:{init_point:safeHost(pref.init_point),
