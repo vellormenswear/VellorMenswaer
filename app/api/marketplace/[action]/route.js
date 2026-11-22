@@ -7,6 +7,7 @@ import {distributeDiscount} from '@/lib/marketplace-rules.mjs';
 import {checkoutReady,checkoutAllowedForUser,discountedPreferenceItems} from '@/lib/supplier-checkout.mjs';
 import {randomUUID} from 'node:crypto';
 import {checkoutBlockCode} from '@/lib/checkout-block-reasons.mjs';
+import {recordCheckoutEvent,safeTraceId} from '@/lib/checkout-trace';
 import {validateSandboxCheckoutUrl,preferenceMatchesGroup} from '@/lib/mp-sandbox-link.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const isReady=()=>checkoutReady(process.env);
@@ -45,12 +46,14 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
     WHERE g.order_id=$1 AND o.customer_id=$2 ORDER BY g.created_at,g.id`,[orderId,u.id]);
   else throw new HttpError(400,'Referência de checkout inválida.');
   ensure(r.rowCount,'Pagamento não encontrado.',404);
+  await recordCheckoutEvent({trace_id:req.headers.get('x-vellor-trace-id')||null,stage:'payment.groups.polled',code:'GROUP_STATUS_POLLED',checkout_batch_id:batch,metadata:{group_count:r.rowCount,status:r.rows.every(x=>x.payment_status==='approved')?'approved':'pending'}});
   return ok({groups:r.rows,checkout_id:batch||null,order_id:orderId||null,
    sandbox_link_test_enabled:process.env.MP_MODE==='sandbox'&&checkoutAllowedForUser(process.env,u)});
  }
  throw new HttpError(404,'Ação desconhecida.');
  }catch(e){return fail(e)}}
-async function createPreference(group,customerEmail){
+async function createPreference(group,customerEmail,tid=null){
+ await recordCheckoutEvent({trace_id:tid,stage:'payment.preference.requested',code:'MP_PREFERENCE_REQUEST',group_id:group.id,checkout_batch_id:group.checkout_batch_id,metadata:{amount_cents:group.amount_cents,fee_cents:group.marketplace_fee_cents}});
  const token=await supplierAccessToken(group.supplier_id);
  if(process.env.MP_MODE==='sandbox'){
   const r=await sql('SELECT provider_user_id FROM supplier_mp_connections WHERE supplier_id=$1',[group.supplier_id]);
@@ -84,10 +87,11 @@ async function createPreference(group,customerEmail){
  ensure(['www.mercadopago.com.br','mercadopago.com.br','www.mercadopago.com','mercadopago.com'].includes(host),
   'URL de pagamento retornada pelo Mercado Pago nao foi reconhecida.',502);
  ensure(/^https:\/\//.test(url||'')&&mp.id,'Mercado Pago não retornou uma preferência válida.',502);
- await sql('UPDATE supplier_order_groups SET preference_id=$1,checkout_url=$2,updated_at=now() WHERE id=$3 AND order_id IS NULL',[mp.id,url,group.id]);return url;
+ await sql('UPDATE supplier_order_groups SET preference_id=$1,checkout_url=$2,updated_at=now() WHERE id=$3 AND order_id IS NULL',[mp.id,url,group.id]);await recordCheckoutEvent({trace_id:tid,stage:'payment.preference.created',level:'success',code:'MP_PREFERENCE_CREATED',http_status:mpMeta?.http_status||201,group_id:group.id,checkout_batch_id:group.checkout_batch_id,preference_id:String(mp.id),metadata:{amount_cents:group.amount_cents,fee_cents:group.marketplace_fee_cents,host,request_id:mpMeta?.request_id}});return url;
 }
-export async function POST(req,{params}){try{originGuard(req);const {action}=await params;const x=await body(req,120000);
+export async function POST(req,{params}){let tid=null,operation='unknown';try{originGuard(req);const {action}=await params;operation=action;const x=await body(req,120000);tid=safeTraceId(x.trace_id);
  if(action==='checkout-create'){
+  await recordCheckoutEvent({trace_id:tid,stage:'checkout.create.server_received',code:'CHECKOUT_RECEIVED',metadata:{item_count:Array.isArray(x.items)?x.items.length:0}});
   ensure(isReady(),'Checkout Split ainda não habilitado. Configure credenciais, fornecedores e webhooks.',503);
   const u=await requireUser(req);ensure(u.role==='customer','Somente clientes podem comprar.',403);
   ensure(checkoutAllowedForUser(process.env,u),'Checkout sandbox restrito à conta compradora de teste.',403);
@@ -135,9 +139,18 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
    }
    return result;
   });
-  const links=[];for(const group of groups){try{const url=await createPreference(group,u.email);links.push({group_id:group.id,checkout_url:url,amount_cents:group.amount_cents,status:'pending'})}
-   catch(e){links.push({group_id:group.id,checkout_url:null,amount_cents:group.amount_cents,status:'setup_failed',error:'Preferência indisponível; utilize a opção gerar pagamento.'})}}
-  return ok({checkout_id:batch,groups:links,mode:process.env.MP_MODE},201);
+  await recordCheckoutEvent({trace_id:tid,stage:'checkout.groups.created',level:'success',code:'GROUPS_CREATED',checkout_batch_id:batch,metadata:{group_count:groups.length}});
+  const links=[];for(const group of groups){
+   await recordCheckoutEvent({trace_id:tid,stage:'checkout.group.created',level:'success',code:'GROUP_INTENT_CREATED',group_id:group.id,checkout_batch_id:batch,metadata:{amount_cents:group.amount_cents,fee_cents:group.marketplace_fee_cents}});
+   try{const url=await createPreference(group,u.email,tid);links.push({group_id:group.id,checkout_url:url,amount_cents:group.amount_cents,status:'pending'})}
+   catch(e){
+    await recordCheckoutEvent({trace_id:tid,stage:'payment.preference.failed',level:'error',code:e?.mpDiagnostic?.code||'PREFERENCE_CREATION_FAILED',message:e?.message,http_status:e?.mpDiagnostic?.http_status||e?.status||502,
+      group_id:group.id,checkout_batch_id:batch,metadata:{source:'mercado_pago',request_id:e?.mpDiagnostic?.request_id}});
+    links.push({group_id:group.id,checkout_url:null,amount_cents:group.amount_cents,status:'setup_failed',error:'Preferência indisponível; utilize a opção gerar pagamento.'});
+   }
+  }
+  await recordCheckoutEvent({trace_id:tid,stage:'checkout.create.server_completed',level:'success',code:'CHECKOUT_GROUPS_READY',checkout_batch_id:batch,metadata:{group_count:links.length}});
+  return ok({checkout_id:batch,groups:links,mode:process.env.MP_MODE,trace_id:tid},201);
  }
  if(action==='sandbox-link-test'){
   // Experimento comparativo somente para comprador autorizado em sandbox.
@@ -168,6 +181,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   const url=validateSandboxCheckoutUrl(pref.sandbox_init_point);
   ensure(url,'O Mercado Pago nao retornou link de sandbox valido para esta preferencia.',502);
   console.info('[mp.sandbox_link_test]',JSON.stringify({group_id:g.id,preference_id:g.preference_id}));
+  await recordCheckoutEvent({trace_id:tid,stage:'payment.sandbox_link.validated',level:'success',code:'SANDBOX_LINK_OK',group_id:g.id,preference_id:g.preference_id,metadata:{host:'sandbox.mercadopago.com.br'}});
   return ok({sandbox_checkout_url:url,mode:'sandbox',experimental:true});
  }
  if(action==='retry-preference'){
@@ -177,11 +191,12 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   const r=await sql('SELECT g.* FROM supplier_order_groups g WHERE g.id=$1 AND g.customer_id=$2 AND g.order_id IS NULL',[x.group_id,u.id]);
   ensure(r.rowCount,'Tentativa não encontrada.',404);const g=r.rows[0];ensure(g.payment_status==='pending','Não é possível repetir este pagamento.',409);
   ensure(new Date(g.checkout_expires_at).getTime()>Date.now(),'Tentativa expirada: volte ao carrinho e gere outra.',409);
-  if(g.checkout_url)return ok({checkout_url:g.checkout_url});
-  const url=await createPreference(g,u.email);return ok({checkout_url:url});
+  if(g.checkout_url){await recordCheckoutEvent({trace_id:tid,stage:'payment.retry.existing',code:'RETRY_LINK_REUSED',group_id:g.id});return ok({checkout_url:g.checkout_url});}
+  const url=await createPreference(g,u.email,tid);return ok({checkout_url:url});
  }
  throw new HttpError(404,'Ação desconhecida.');
  }catch(e){
+  await recordCheckoutEvent({trace_id:tid,stage:operation==='checkout-create'?'checkout.create.server_failed':'payment.checkout_action.failed',level:'error',code:e?.mpDiagnostic?.code||e?.code||'CHECKOUT_ACTION_FAILED',message:e?.message,http_status:e?.status||500,metadata:{source:operation,request_id:e?.mpDiagnostic?.request_id}});
   if(process.env.MP_MODE==='sandbox'&&new URL(req.url).pathname.endsWith('/checkout-create')&&e instanceof HttpError&&e.status===409){
    const code=checkoutBlockCode(e.message);
    // Nao registrar produtos, carrinho, email, endereco ou tokens nos logs.
