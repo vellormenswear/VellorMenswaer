@@ -27,7 +27,9 @@ const report={
  flags:{
   MP_SPLIT_ENABLED:exactFlag('MP_SPLIT_ENABLED'),
   MP_LIVE_ENABLED:exactFlag('MP_LIVE_ENABLED'),
-  STORE_OPEN_FOR_ORDERS:exactFlag('STORE_OPEN_FOR_ORDERS')
+  STORE_OPEN_FOR_ORDERS:exactFlag('STORE_OPEN_FOR_ORDERS'),
+  MP_PRIMARY_1N_ENABLED:exactFlag('MP_PRIMARY_1N_ENABLED'),
+  MP_PRIMARY_1N_APPROVED:exactFlag('MP_PRIMARY_1N_APPROVED')
  },
  validations:{
   SITE_URL_valid_https:!!siteUrl,
@@ -35,14 +37,14 @@ const report={
   OAUTH_REDIRECT_valid_https:!!redirectUrl,
   OAUTH_REDIRECT_matches_site:!!redirectUrl&&env.MP_OAUTH_REDIRECT_URI===expectedRedirect,
   MP_CLIENT_ID_is_numeric:/^\d+$/.test(env.MP_CLIENT_ID||''),
-  MP_CLIENT_ID_matches_last_reported_checkout_client_id:env.MP_CLIENT_ID==='2155048173380219',
   MP_SANDBOX_TEST_SELLER_ID_is_numeric:/^\d+$/.test(expectedSeller),
-  MP_SANDBOX_TEST_SELLER_ID_matches_last_reported_collector_id:expectedSeller==='3854288750',
   MP_SANDBOX_TEST_CUSTOMER_EMAIL_syntax:/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
   MP_TOKEN_ENCRYPTION_KEY_32_byte_hex:/^[a-f0-9]{64}$/i.test(env.MP_TOKEN_ENCRYPTION_KEY||''),
   MP_WEBHOOK_SECRET_present:nonempty('MP_WEBHOOK_SECRET'),
   MP_CLIENT_SECRET_present:nonempty('MP_CLIENT_SECRET'),
-  MP_TEST_ACCESS_TOKEN_is_unreferenced_legacy:nonempty('MP_TEST_ACCESS_TOKEN')
+  MP_TEST_ACCESS_TOKEN_present_for_primary_1n:nonempty('MP_TEST_ACCESS_TOKEN'),
+  MP_PRIMARY_TEST_SELLER_USER_ID_valid:/^\d+$/.test(env.MP_PRIMARY_TEST_SELLER_USER_ID||''),
+  MP_SECONDARY_TEST_RECEIVER_ID_present:nonempty('MP_SECONDARY_TEST_RECEIVER_ID')
  }
 };
 console.info('[vellor.mp.env-preflight]',JSON.stringify(report));
