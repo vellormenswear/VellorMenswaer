@@ -35,11 +35,11 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
    if(lookup.rowCount&&lookup.rows[0].checkout_batch_id)batch=lookup.rows[0].checkout_batch_id;
   }
   let r;
-  if(uuid(batch))r=await sql(`SELECT g.id,g.order_id,g.checkout_batch_id,g.amount_cents,g.payment_status,g.fulfillment_status,g.checkout_url,g.tracking_code,g.carrier,g.created_at,g.checkout_expires_at,s.business_name,o.order_number
-    FROM supplier_order_groups g JOIN suppliers s ON s.id=g.supplier_id LEFT JOIN orders o ON o.id=g.order_id
+  if(uuid(batch))r=await sql(`SELECT g.id,g.order_id,g.checkout_batch_id,g.amount_cents,g.payment_status,g.fulfillment_status,g.checkout_url,g.tracking_code,g.carrier,g.created_at,g.checkout_expires_at,o.order_number
+    FROM supplier_order_groups g LEFT JOIN orders o ON o.id=g.order_id
     WHERE g.checkout_batch_id=$1 AND g.customer_id=$2 ORDER BY g.created_at,g.id`,[batch,u.id]);
-  else if(uuid(orderId))r=await sql(`SELECT g.id,g.order_id,g.checkout_batch_id,g.amount_cents,g.payment_status,g.fulfillment_status,g.checkout_url,g.tracking_code,g.carrier,g.created_at,g.checkout_expires_at,s.business_name,o.order_number
-    FROM supplier_order_groups g JOIN suppliers s ON s.id=g.supplier_id JOIN orders o ON o.id=g.order_id
+  else if(uuid(orderId))r=await sql(`SELECT g.id,g.order_id,g.checkout_batch_id,g.amount_cents,g.payment_status,g.fulfillment_status,g.checkout_url,g.tracking_code,g.carrier,g.created_at,g.checkout_expires_at,o.order_number
+    FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id
     WHERE g.order_id=$1 AND o.customer_id=$2 ORDER BY g.created_at,g.id`,[orderId,u.id]);
   else throw new HttpError(400,'Referência de checkout inválida.');
   ensure(r.rowCount,'Pagamento não encontrado.',404);
@@ -89,19 +89,19 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   const u=await requireUser(req);ensure(u.role==='customer','Somente clientes podem comprar.',403);
   ensure(checkoutAllowedForUser(process.env,u),'Checkout sandbox restrito à conta compradora de teste.',403);
   ensure(uuid(x.address_id),'Endereço inválido.');const addr=await sql('SELECT * FROM addresses WHERE id=$1 AND user_id=$2',[x.address_id,u.id]);ensure(addr.rowCount,'Endereço não encontrado.',404);
-  const quote=await quoteCart(x.items,x.coupon);ensure(quote.shipping_cents===0,'O frete deve estar incluído no preço dos fornecedores.',409);
+  const quote=await quoteCart(x.items,x.coupon);ensure(quote.shipping_cents===0,'O frete já deve estar incluído no valor dos produtos.',409);
   const ids=quote.items.map(i=>i.variant_id);
   const rows=await sql(`SELECT v.id,v.supplier_cost_cents,p.supplier_id,s.status,EXISTS(SELECT 1 FROM supplier_mp_connections mp WHERE mp.supplier_id=s.id) AS mp_connected,
    v.stock_mode,v.stock,v.supplier_available,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM product_variants v JOIN products p ON p.id=v.product_id LEFT JOIN suppliers s ON s.id=p.supplier_id WHERE v.id=ANY($1::uuid[])`,[ids]);
   const byId=new Map(rows.rows.map(r=>[r.id,r]));
   const grouped=new Map();for(const item of quote.items){const r=byId.get(item.variant_id);
-   ensure(r?.supplier_id&&r.status==='active'&&r.mp_connected&&Number.isInteger(r.supplier_cost_cents),'Este produto ainda não está habilitado para vendas com Split. Aguarde a vinculação do fornecedor.',409);
+   ensure(r?.supplier_id&&r.status==='active'&&r.mp_connected&&Number.isInteger(r.supplier_cost_cents),'Este produto está temporariamente indisponível para compra.',409);
    ensure(r.supplier_available,'Produto indisponível.',409);
    const group=grouped.get(r.supplier_id)||{supplier_id:r.supplier_id,items:[],subtotal:0,cost:0};
    group.items.push({...item,cost_cents:r.supplier_cost_cents,stock_mode:r.stock_mode,preparation_days:r.preparation_days||2,delivery_days_min:r.delivery_days_min||5,delivery_days_max:r.delivery_days_max||15});
    group.subtotal+=item.line_cents;group.cost+=r.supplier_cost_cents*item.qty;grouped.set(r.supplier_id,group);
   }
-  ensure(grouped.size>=1&&grouped.size<=20,'Número de fornecedores excede o limite.',400);
+  ensure(grouped.size>=1&&grouped.size<=20,'Não foi possível preparar todos os itens desta compra.',400);
   const gList=distributeDiscount([...grouped.values()],quote.discount_cents);
   for(const g of gList)ensure(g.total>0&&g.total>=g.cost,'Cupom reduz o preço abaixo do custo de fornecimento.',409);
   // Cada grupo é só uma intenção de pagamento; nenhuma linha em orders antes da aprovação.
