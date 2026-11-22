@@ -6,7 +6,7 @@ import {ensure,fail,originGuard} from '@/lib/http';
 import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {validateSandboxCheckoutUrl} from '@/lib/mp-sandbox-link.mjs';
 import {safePaymentDetail} from '@/lib/mp-payment-diagnosis.mjs';
-import {isolatedPreferencePayload,isIsolatedTestPreference,getTestMode} from '@/lib/mp-isolated-test.mjs';
+import {isolatedPreferencePayload,isIsolatedTestPreference,getTestMode,safeCreationDiagnostic,safeHost} from '@/lib/mp-isolated-test.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 
 async function scope(req){
@@ -40,10 +40,14 @@ export async function POST(req){
   ensure(String(pref.collector_id||sellerId)===sellerId,'Recebedor inesperado no teste.',502);
   // Nao reconstruir links: validar o sandbox_init_point exato do provedor.
   const sandboxUrl=validateSandboxCheckoutUrl(pref.sandbox_init_point);
+  const creation_diagnostic=safeCreationDiagnostic({request:payload,preference:pref,meta,sellerId,mode});
   return result({
    mode,sandbox:true,amount_cents:2000,
    marketplace_fee_cents:mode==='split'?100:0,
    preference_id:String(pref.id),
+   creation_diagnostic,
+   checkout_field_used:'sandbox_init_point',
+   checkout_initial_host:safeHost(sandboxUrl),
    sandbox_checkout_url:sandboxUrl,
    sandbox_url_available:!!sandboxUrl,
    note:sandboxUrl?'Link alternativo de sandbox gerado.':'A preferencia foi criada, mas nao retornou sandbox_init_point valido.',
@@ -86,8 +90,9 @@ export async function GET(req){
   const paymentLookupScope='merchant_orders_linked_payments_only';
   return result({
    preference_id:id,mode:getTestMode(pref),amount_cents:2000,marketplace_fee_cents:getTestMode(pref)==='split'?100:0,
-   checkout_url_hosts:{init_point:(()=>{try{return new URL(pref.init_point).hostname}catch{return null}})(),
-    sandbox_init_point:(()=>{try{return new URL(pref.sandbox_init_point).hostname}catch{return null}})()},
+   checkout_url_hosts:{init_point:safeHost(pref.init_point),
+    sandbox_init_point:safeHost(pref.sandbox_init_point)},
+   checkout_field_used:'sandbox_init_point',
    merchant_orders:orders.map(o=>({order_id:String(o.id||''),status:o.status||null,
     order_status:o.order_status||null,payment_count:Array.isArray(o.payments)?o.payments.length:0})),
    payments,query_error:ordersError,
