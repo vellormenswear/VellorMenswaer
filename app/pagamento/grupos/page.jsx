@@ -13,6 +13,16 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
   }
  }catch(e){setError(e.message)}};
  useEffect(()=>{load();const id=setInterval(load,20000);return()=>clearInterval(id)},[]);
+ async function testSandbox(id){try{
+  setBusy(true);setError('');
+  const r=await fetch('/api/marketplace/sandbox-link-test',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({group_id:id})
+  });
+  const j=await r.json();if(!r.ok)throw Error(j.error||'Falha ao obter checkout sandbox.');
+  if(!j.experimental||!j.sandbox_checkout_url?.startsWith('https://sandbox.mercadopago.com'))throw Error('Link sandbox invalido.');
+  window.location.assign(j.sandbox_checkout_url);
+ }catch(e){setError(e.message);setBusy(false)}}
  async function retry(id){try{setBusy(true);const r=await fetch('/api/marketplace/retry-preference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({group_id:id})});const j=await r.json();if(!r.ok)throw Error(j.error);if(!j.checkout_url?.startsWith('https://'))throw Error('Link inválido.');window.location.assign(j.checkout_url)}catch(e){setError(e.message);setBusy(false)}}
  return <main className="page checkoutbox"><Link href="/"><img width="180" src="/logo-vellor.png" alt="VELLOR"/></Link><h1>Acompanhe seus pagamentos</h1>
  <p>Alguns itens podem gerar pagamentos separados. <b>Cada pedido é confirmado somente após a aprovação do pagamento correspondente.</b> As demais etapas podem continuar pendentes.</p>
@@ -21,6 +31,9 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
  {data.groups.map((g,index)=><div className="card" key={g.id}><div className="flexrow"><b>Pagamento {index+1}</b><span className="spacer"/><strong>{money(g.amount_cents)}</strong></div>
  <p>Status: <b>{labels[g.payment_status]||g.payment_status}</b>{g.order_number&&<> · Pedido #{g.order_number}</>}</p>
  {g.payment_status==='pending'&&(!g.checkout_expires_at||new Date(g.checkout_expires_at)>new Date())&&(g.checkout_url?<a className="btn gold" href={g.checkout_url}>CONTINUAR PAGAMENTO</a>:<button className="btn gold" disabled={busy} onClick={()=>retry(g.id)}>GERAR LINK DE PAGAMENTO</button>)}
+ {data.sandbox_link_test_enabled&&g.payment_status==='pending'&&g.checkout_url&&(!g.checkout_expires_at||new Date(g.checkout_expires_at)>new Date())&&
+  <div><button className="btn ghost" disabled={busy} onClick={()=>testSandbox(g.id)}>TESTAR LINK SANDBOX (ALTERNATIVO)</button>
+   <p className="small">Experimento somente com conta compradora de teste. O checkout principal permanece inalterado.</p></div>}
  {g.payment_status==='pending'&&g.checkout_expires_at&&new Date(g.checkout_expires_at)<=new Date()&&<p className="notice error">Este checkout expirou. Volte ao carrinho e gere novos pagamentos.</p>}
  {g.payment_status==='pending'&&g.checkout_expires_at&&<p className="small">Link válido até {new Date(g.checkout_expires_at).toLocaleString('pt-BR')}.</p>}
  {g.payment_status==='refund_pending'&&<p className="notice error">Pagamento recebido, mas há uma pendência que exige verificação administrativa. Não será enviado antes de ser resolvido.</p>}
