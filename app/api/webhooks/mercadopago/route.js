@@ -8,7 +8,9 @@ export async function POST(req){let auditGroup=null,auditTrace=null;try{
  const url=new URL(req.url);const body=await req.json().catch(()=>({}));const dataId=url.searchParams.get('data.id')||body?.data?.id;const type=url.searchParams.get('type')||body.type;
  if(type==='payment'){
    const id=String(dataId||'');ensure(/^\d{5,30}$/.test(id),'Pagamento inválido.',400);
-   const legit=verifyMPWebhook({secret:process.env.MP_WEBHOOK_SECRET,signature:req.headers.get('x-signature'),requestId:req.headers.get('x-request-id'),dataId:id});ensure(legit,'Assinatura inválida.',401);
+   const legit=verifyMPWebhook({secret:process.env.MP_WEBHOOK_SECRET,signature:req.headers.get('x-signature'),requestId:req.headers.get('x-request-id'),dataId:id});
+   if(!legit)console.warn('[mp.webhook.signature_rejected]',JSON.stringify({event:'payment',code:'INVALID_SIGNATURE',signature_present:!!req.headers.get('x-signature')}));
+   ensure(legit,'Assinatura inválida.',401);
    const groupId=url.searchParams.get('group'),sellerId=String(body.user_id||'');auditGroup=groupId;auditTrace=await traceForGroup(groupId);await recordCheckoutEvent({trace_id:auditTrace,stage:'payment.webhook.verified',code:'MP_WEBHOOK_AUTHENTICATED',group_id:groupId,metadata:{source:'mercado_pago'}});
    // O parâmetro group não aprova pagamentos: apenas identifica com qual token consultar a API oficial.
    // O pagamento retornado pela API ainda precisa casar com grupo, vendedor, valor e moeda.
