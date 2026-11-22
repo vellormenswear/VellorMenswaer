@@ -1,4 +1,8 @@
 
+const tr=(stage,meta)=>window.VellorTrace?.event(stage,meta||{});
+const ts=(stage,meta)=>window.VellorTrace?.success(stage,meta||{});
+const te=(stage,code,message,meta)=>window.VellorTrace?.error(stage,code,message,meta||{});
+const tid=()=>window.VellorTrace?.id||null;
 const CATEGORIES=['Todos','Relógios','Vestuário','Acessórios','Calçados','Vestuário Esportivo'];
 let PRODUCTS=JSON.parse(document.getElementById('catalog').textContent);
 let models=[...new Map(PRODUCTS.map(p=>[p.slug,p])).values()];
@@ -22,7 +26,7 @@ const sort=document.getElementById('sort').value;
 const low=p=>Math.min(...groupFor(p).filter(available).map(x=>x.price_brl),Infinity);
 if(sort==='low')a.sort((p,q)=>low(p)-low(q));else if(sort==='high')a.sort((p,q)=>low(q)-low(p));else if(sort==='az')a.sort((p,q)=>p.name.localeCompare(q.name,'pt-BR'));return a}
 function render(){document.getElementById('nav').innerHTML=CATEGORIES.map(c=>`<button type="button" class="nav-item ${c===active?'active':''}" aria-current="${c===active?'page':'false'}" data-category="${htmlEsc(c)}">${htmlEsc(c)}</button>`).join('');document.querySelectorAll('[data-category]').forEach(b=>b.onclick=()=>choose(b.dataset.category));const items=modelsSorted();document.getElementById('count').textContent=`${items.length} ${items.length===1?'modelo':'modelos'}`;document.getElementById('size-filter').hidden=active==='Relógios'||active==='Acessórios';document.getElementById('grid').innerHTML=items.length?items.map(m=>{const group=groupFor(m),priced=group.filter(available),display=priced[0]||m,price=priced.length?Math.min(...priced.map(x=>x.price_brl)):null;return `<article class="card"><div class="photo-wrap" style="position:relative">${photo(display)}<button class="hover-quick" onclick="showProduct('${htmlEsc(m.slug)}')">Visualizar produto</button></div><div class="card-meta"><span class="card-category">${htmlEsc(m.category)}</span><h3 class="card-name" onclick="showProduct('${htmlEsc(m.slug)}')">${htmlEsc(m.name)}</h3><div class="card-variants">${group.length} ${group.length===1?'opção':'opções disponíveis'}</div><div class="card-price">${priced.length&&group.length>1?'A partir de ':''}${MONEY(price)}</div><button type="button" class="card-action" onclick="showProduct('${htmlEsc(m.slug)}')">Ver detalhes ⟶</button></div></article>`}).join(''):'<div class="empty"><strong>Nenhum produto encontrado</strong>Experimente outra categoria ou ajuste os filtros.</div>';save()}
-function showProduct(slug,sku){const group=PRODUCTS.filter(p=>p.slug===slug);selected=group.find(p=>p.sku===sku)||group.find(available)||group[0];selectedSize='';renderModal()}
+function showProduct(slug,sku){const group=PRODUCTS.filter(p=>p.slug===slug);selected=group.find(p=>p.sku===sku)||group.find(available)||group[0];if(!selected){te('product.selected','PRODUCT_MISSING','Produto indisponivel no catalogo.');return}tr('product.selected',{sku:selected.sku});selectedSize='';renderModal()}
 function renderModal(){const p=selected,group=groupFor(p);document.getElementById('detail').innerHTML=`<div class="detail-photo">${photo(p)}</div><div class="detail-info"><button type="button" class="close-btn modal-close" onclick="closeProduct()" aria-label="Fechar">×</button><p class="eyebrow">${htmlEsc(p.category)} · VELLOR</p><h2>${htmlEsc(p.name)}</h2><div class="price">${MONEY(p.price_brl)}</div><label>Escolha a variação</label><div class="variants-list">${group.map(g=>`<button class="variant-pill ${g.sku===p.sku?'active':''}" type="button" onclick="changeVariant('${htmlEsc(g.sku)}')">${htmlEsc(g.variant)}</button>`).join('')}</div>${sizesFor(p).length?`<label for="modal-size">Tamanho</label><select class="size-select" id="modal-size" onchange="selectedSize=this.value"><option value="">Selecione seu tamanho</option>${sizesFor(p).map(s=>`<option value="${htmlEsc(s)}">${htmlEsc(s)}</option>`).join('')}</select>`:''}<div class="modal-actions"><button type="button" class="primary-btn" ${available(p)?'':'disabled'} onclick="addProduct(false)">Adicionar ao carrinho</button><button type="button" class="buy-now" ${available(p)?'':'disabled'} onclick="addProduct(true)">Comprar agora</button></div>${productGallery(p)}${productDisclaimer(p)}<p class="minor-note">Previsão de entrega: ${htmlEsc(supplierDeadline(p).label)}.</p><p class="sku">SKU: ${htmlEsc(p.sku)}</p></div>`;const modal=document.getElementById('product-modal');modal.classList.add('open');document.body.classList.add('lock')}
 function productDisclaimer(p){
  const notes=[];
@@ -36,9 +40,9 @@ function productGallery(p){
   return `<div class="detail-gallery" aria-label="Fotos adicionais do produto">${variants.map(x=>`<button type="button" title="${htmlEsc(x.label)}" onclick="selectGalleryImage(this,'${htmlEsc(x.url)}')"><img loading="lazy" src="${htmlEsc(x.url)}" alt="${htmlEsc(x.label)}"></button>`).join('')}</div>`;
 }
 function selectGalleryImage(el,url){const target=document.querySelector('#detail .detail-photo img');if(!target)return;target.src=url;target.parentNode.classList.add('is-loaded');document.querySelectorAll('.detail-gallery button').forEach(b=>b.classList.remove('selected'));el.classList.add('selected')}
-function changeVariant(sku){const p=bySku(sku);if(p){selected=p;selectedSize='';renderModal()}}
+function changeVariant(sku){const p=bySku(sku);if(p){selected=p;selectedSize='';tr('product.variant',{sku:p.sku});renderModal()}else te('product.variant','VARIANT_NOT_FOUND','Variacao indisponivel',{sku})}
 function closeProduct(){document.getElementById('product-modal').classList.remove('open');document.body.classList.remove('lock')}
-function addProduct(buy){const p=selected;if(!available(p))return;const sizes=sizesFor(p).length>0;if(sizes&&!selectedSize){alert('Selecione um tamanho para continuar.');document.getElementById('modal-size')?.focus();return}const existed=cart.find(x=>x.sku===p.sku&&x.size===selectedSize);if(existed){existed.qty=Math.min(existed.qty+1,10)}else cart.push({sku:p.sku,size:selectedSize,qty:1});save();closeProduct();openCart();if(buy)goCheckout()}
+function addProduct(buy){const p=selected;if(!available(p)){te('cart.blocked','PRODUCT_NOT_AVAILABLE','Produto indisponivel.');return}const sizes=sizesFor(p).length>0;if(sizes&&!selectedSize){te('cart.blocked','SIZE_REQUIRED','Selecione um tamanho antes de adicionar ao carrinho.',{sku:p.sku});alert('Selecione um tamanho para continuar.');document.getElementById('modal-size')?.focus();return}const existed=cart.find(x=>x.sku===p.sku&&x.size===selectedSize);if(existed){existed.qty=Math.min(existed.qty+1,10)}else cart.push({sku:p.sku,size:selectedSize,qty:1});save();ts('cart.added',{sku:p.sku,quantity:existed?existed.qty:1});closeProduct();openCart();if(buy)goCheckout()}
 
 // Supplier-owned delivery terms. Backend app uses preparation_days,
 // delivery_days_min, delivery_days_max; never substitute old catalog estimates.
@@ -95,8 +99,8 @@ function renderCart(){
   save();
   checkQuote();
 }
-function removeCartItem(n){if(!cart[n])return;cart.splice(n,1);save();renderCart()}
-function quantity(n,d){if(!cart[n])return;cart[n].qty+=d;if(cart[n].qty<=0)cart.splice(n,1);else cart[n].qty=Math.min(cart[n].qty,10);save();renderCart()}
+function removeCartItem(n){if(!cart[n])return;const sku=cart[n].sku;cart.splice(n,1);save();tr('cart.removed',{sku});renderCart()}
+function quantity(n,d){if(!cart[n])return;const sku=cart[n].sku;cart[n].qty+=d;if(cart[n].qty<=0)cart.splice(n,1);else cart[n].qty=Math.min(cart[n].qty,10);tr('cart.quantity',{sku,quantity:cart.find(x=>x.sku===sku)?.qty||0});save();renderCart()}
 function syncCartRoute(){
   const isCart=location.hash==='#carrinho';
   document.getElementById('catalog-page').hidden=isCart;
@@ -106,7 +110,7 @@ function syncCartRoute(){
   scrollTo({top:0,behavior:'instant'});
 }
 function openCart(){
-  closeProduct();
+  tr('cart.opened',{item_count:cart.length});closeProduct();
   if(location.hash==='#carrinho')syncCartRoute();
   else location.hash='carrinho';
 }
@@ -116,17 +120,18 @@ function closeCart(){
 }
 
 async function goCheckout(){
- if(!cart.length)return;
+ if(!cart.length){te('cart.blocked','EMPTY_CART','Carrinho vazio.');return}tr('checkout.opened',{item_count:cart.length});
  save();
  const button=document.getElementById('finish-btn');
  if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
  try{
   const response=await fetch('/api/auth/me',{credentials:'same-origin',cache:'no-store'});
-  if(!response.ok)throw new Error('Não foi possível verificar a sessão.');
+  if(!response.ok){te('checkout.auth','AUTH_HTTP_ERROR','Falha ao verificar sessao.',{status:response.status});throw new Error('Não foi possível verificar a sessão.');}
   const session=await response.json();
-  if(!session.user){window.location.assign('/conta?next=%2Ffinalizar');return;}
+  if(!session.user){tr('checkout.auth',{status:'login_required'});window.location.assign('/conta?next=%2Ffinalizar');return;}ts('checkout.auth',{status:'authenticated'});
   window.location.assign('/finalizar');
  }catch(e){
+  te('checkout.auth','AUTH_CHECK_FAILED',e.message);
   // Se a sessão não puder ser verificada, mostrar primeiro login/cadastro.
   window.location.assign('/conta?next=%2Ffinalizar');
  }finally{
@@ -143,16 +148,17 @@ function checkQuote(){
  if(!cart.length){discount.hidden=true;feedback.textContent='';return}
  const seq=++quoteSerial;
  feedback.textContent='Confirmando os valores...';
- fetch('/api/checkout/quote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:cart,coupon})})
- .then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.error||'Não foi possível validar o carrinho');return x.quote})
- .then(q=>{if(seq!==quoteSerial||location.hash!=='#carrinho')return;
+ tr('cart.quote.started',{item_count:cart.length});
+ fetch('/api/checkout/quote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:cart,coupon,trace_id:tid()})})
+ .then(async r=>{const x=await r.json();if(!r.ok){te('cart.quote.failed',x.code||'QUOTE_HTTP_ERROR',x.error||'Falha ao validar carrinho.',{status:r.status});throw Error(x.error||'Não foi possível validar o carrinho')}return x.quote})
+ .then(q=>{if(seq!==quoteSerial||location.hash!=='#carrinho')return;ts('cart.quote.success',{amount_cents:q.total_cents});
   const price=n=>MONEY(Number(n||0)/100);
   document.getElementById('cart-subtotal').textContent=price(q.subtotal_cents);
   document.getElementById('cart-total').textContent=price(q.total_cents);
   document.getElementById('cart-discount').textContent='− '+price(q.discount_cents);
   discount.hidden=!q.discount_cents;
   feedback.textContent=q.coupon?'Cupom '+q.coupon.code+' aplicado.':'Valores confirmados pelo servidor.';
- }).catch(e=>{if(seq!==quoteSerial||location.hash!=='#carrinho')return;discount.hidden=true;
+ }).catch(e=>{if(seq!==quoteSerial||location.hash!=='#carrinho')return;te('cart.quote.failed','QUOTE_UNAVAILABLE',e.message);discount.hidden=true;
   feedback.textContent=coupon?e.message:'Valores finais confirmados na próxima etapa.';
  });
 }
@@ -173,5 +179,5 @@ window.addEventListener('hashchange',syncCartRoute);
 try{coupon=sessionStorage.getItem('pg-goston-cupom')||''}catch{}
 render();syncCartRoute();
 fetch('/gallery-map.json').then(r=>r.ok?r.json():{}).then(x=>{galleryMap=x||{}}).catch(()=>{});
-fetch('/api/catalog',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('Catálogo indisponível');return r.json()}).then(data=>{if(data&&Array.isArray(data.products))hydrateProducts(data.products)}).catch(()=>{});
+fetch('/api/catalog',{cache:'no-store'}).then(async r=>{if(!r.ok){te('catalog.failed','CATALOG_HTTP_ERROR','Falha ao carregar catalogo.',{status:r.status});throw Error('Catalogo indisponivel')}return r.json()}).then(data=>{if(data&&Array.isArray(data.products)){hydrateProducts(data.products);ts('catalog.loaded',{item_count:data.products.length})}}).catch(e=>te('catalog.failed','CATALOG_LOAD_FAILED',e.message));
 
