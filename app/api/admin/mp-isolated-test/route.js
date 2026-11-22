@@ -7,6 +7,7 @@ import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {checkoutProLink,checkoutProHost} from '@/lib/mp-checkout-url.mjs';
 import {safePaymentDetail} from '@/lib/mp-payment-diagnosis.mjs';
 import {checkoutCreationIntegrity} from '@/lib/mp-checkout-creation-integrity.mjs';
+import {oauthSellerId} from '@/lib/mp-oauth-identity.mjs';
 import {isolatedPreferencePayload,isIsolatedTestPreference,getTestMode,safeCreationDiagnostic,safeHost} from '@/lib/mp-isolated-test.mjs';
 import {recordCheckoutEvent,safeTraceId,traceForPreference} from '@/lib/checkout-trace';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -21,8 +22,8 @@ async function scope(req){
  ensure(r.rowCount,'Conta vendedora de teste precisa estar conectada.',409);
  const token=await supplierAccessToken(r.rows[0].supplier_id);
  ensure(token.startsWith('APP_USR-'),'Token OAuth do vendedor de teste invalido.',409);
- const identity=await mpRequest('/users/me',token);
- ensure(String(identity?.id||'')===sellerId,'Credencial OAuth pertence a outro vendedor.',409);
+ const identityId=await oauthSellerId(token);
+ ensure(identityId===sellerId,'Credencial OAuth pertence a outro vendedor.',409);
  return {sellerId,token};
 }
 const result=(data,status=200)=>NextResponse.json(data,{status,headers:{'Cache-Control':'private, no-store','X-Robots-Tag':'noindex'}});
