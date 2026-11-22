@@ -63,7 +63,7 @@ export async function GET(req){
   ensure(validPrimaryOrderId(id),'ID de order teste invalido.',400);
   const {token,ownerId}=await primaryToken();
   const plan=planFor(ownerId);
-  const order=await mpRequest('/v1/orders/'+encodeURIComponent(id),token);
+  const order=await mpRequest('/v1/orders/'+encodeURIComponent(id),token,{testToken:true});
   const audit=inspectPrimarySplitOrder(order,{plan,reference,clientId:process.env.MP_CLIENT_ID});
   ensure(audit.safe,'Order nao corresponde ao experimento da VELLOR.',403);
   return reply({order_id:id,reference,status:audit.status,status_detail:audit.status_detail,
@@ -104,7 +104,7 @@ export async function POST(req){
    'O fornecedor nao possui consentimento ACTIVE na conta principal.',409);
   const reference='vellor-primary-1n-test-'+randomUUID();
   const payload=primarySplitPixPayload({plan,reference,payerEmail:process.env.MP_SANDBOX_TEST_CUSTOMER_EMAIL});
-  const order=await mpRequest('/v1/orders',token,{method:'POST',data:payload,idempotency:randomUUID()});
+  const order=await mpRequest('/v1/orders',token,{method:'POST',data:payload,idempotency:randomUUID(),testToken:true});
   const audit=inspectPrimarySplitOrder(order,{plan,reference,clientId:process.env.MP_CLIENT_ID});
   ensure(audit.safe,'Resposta do Mercado Pago diverge de vendedor principal, fornecedor ou valores.',502);
   return reply({order_id:order.id,reference,mode:'primary-owner-1n',amount_cents:17000,
