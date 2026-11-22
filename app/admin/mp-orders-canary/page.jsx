@@ -22,17 +22,17 @@ export default function OrdersCanary(){
   <h1>Mercado Pago · Checkout Pro Orders API</h1>
   <p><Link href="/admin/mp-teste">Voltar ao checkout clássico</Link></p>
   <section className="card"><h2>Alternativa oficial isolada — apenas sandbox</h2>
-   <p>Dois fluxos independentes de R$ 20: sem comissão e com comissão de R$ 1. Esta página usa a Orders API, não cria pedidos comerciais na VELLOR nem confirma recebimento.</p>
+   <p>Dois fluxos independentes de R$ 20: sem comissão e com comissão de R$ 10. Esta página usa a Orders API, não cria pedidos comerciais na VELLOR nem confirma recebimento.</p>
    <p className="notice">O checkout de teste deve ser utilizado como convidado, em janela anônima, com cartão e dados de teste. Não utilize cartão real.</p>
    {loading?<p>Verificando acesso...</p>:!authorized?<p className="notice error">Acesso exclusivo do superadministrador.</p>:
     <div className="flexrow" style={{gap:12,flexWrap:'wrap'}}>
      <button className="btn gold" disabled={!!busy} onClick={()=>create('simple')}>ORDERS SEM SPLIT</button>
-     <button className="btn" disabled={!!busy} onClick={()=>create('split')}>ORDERS COM SPLIT (R$ 1)</button>
+     <button className="btn" disabled={!!busy} onClick={()=>create('split')}>ORDERS COM SPLIT (R$ 10)</button>
     </div>}
   </section>
   {error&&<p className="notice error" role="alert">{error}</p>}
   {authorized&&tests.map(t=><section key={t.order_id} className="card">
-   <h2>{t.mode==='split'?'Com Split':'Sem Split'} · R$ 20,00</h2>
+   <h2>{t.mode==='split'?'Com Split · Comissão R$ 10,00':'Sem Split'} · R$ 20,00</h2>
    <p>ID da order: <code>{t.order_id}</code></p>
    <p>Estado inicial: <b>{t.status}</b></p>
    <a className="btn gold" href={t.checkout_url} target="_blank" rel="noopener noreferrer">ABRIR CHECKOUT ORDERS</a>
