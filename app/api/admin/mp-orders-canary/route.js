@@ -37,7 +37,7 @@ export async function POST(req){
   const checkoutUrl=validateCheckoutProUrl(order.checkout_url);
   ensure(checkoutUrl,'Orders API não retornou checkout_url HTTPS autorizado.',502);
   // Não registrar tokens, dados de cartão ou URLs com parâmetros de sessão nos logs.
-  return respond({order_id:order.id,mode:input.mode,amount_cents:2000,marketplace_fee_cents:input.mode==='split'?100:0,
+  return respond({order_id:order.id,mode:input.mode,amount_cents:2000,marketplace_fee_cents:input.mode==='split'?1000:0,
    checkout_url:checkoutUrl,status:audit.status,status_detail:audit.status_detail,
    checks:audit.checks,http_status:meta?.http_status||null,request_id:meta?.request_id||null,
    note:'Orders API, conta vendedora de teste, checkout convidado. Não cria pedido nem efetua conciliação na VELLOR.',read_only:false},201);
