@@ -6,6 +6,7 @@ import {connectOAuth,supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {distributeDiscount} from '@/lib/marketplace-rules.mjs';
 import {checkoutReady,checkoutAllowedForUser,discountedPreferenceItems} from '@/lib/supplier-checkout.mjs';
 import {randomUUID} from 'node:crypto';
+import {checkoutBlockCode} from '@/lib/checkout-block-reasons.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const isReady=()=>checkoutReady(process.env);
 const site=()=>{const value=(process.env.SITE_URL||'').replace(/\/$/,'');ensure(value.startsWith('https://'),'Defina SITE_URL HTTPS.',503);return value};
@@ -147,4 +148,12 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   const url=await createPreference(g,u.email);return ok({checkout_url:url});
  }
  throw new HttpError(404,'Ação desconhecida.');
- }catch(e){return fail(e)}}
+ }catch(e){
+  if(process.env.MP_MODE==='sandbox'&&new URL(req.url).pathname.endsWith('/checkout-create')&&e instanceof HttpError&&e.status===409){
+   const code=checkoutBlockCode(e.message);
+   // Nao registrar produtos, carrinho, email, endereco ou tokens nos logs.
+   console.warn('[checkout.validation_blocked]',JSON.stringify({code}));
+   return ok({error:e.message,code},409);
+  }
+  return fail(e);
+ }}
