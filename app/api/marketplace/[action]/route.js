@@ -10,6 +10,7 @@ import {checkoutBlockCode} from '@/lib/checkout-block-reasons.mjs';
 import {recordCheckoutEvent,safeTraceId} from '@/lib/checkout-trace';
 import {checkoutProLink,checkoutProHost} from '@/lib/mp-checkout-url.mjs';
 import {checkoutCreationIntegrity} from '@/lib/mp-checkout-creation-integrity.mjs';
+import {oauthSellerId} from '@/lib/mp-oauth-identity.mjs';
 import {recheckProviderPayment} from '@/lib/mp-payment-recovery';
 import {traceForGroup} from '@/lib/checkout-trace';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -61,8 +62,8 @@ async function createPreference(group,customerEmail,tid=null){
  const connection=await sql('SELECT provider_user_id FROM supplier_mp_connections WHERE supplier_id=$1',[group.supplier_id]);
  ensure(connection.rowCount,'Conta do fornecedor nao conectada.',409);
  const sellerId=String(connection.rows[0].provider_user_id||'');
- const identity=await mpRequest('/users/me',token);
- ensure(sellerId&&String(identity?.id||'')===sellerId,'Credencial OAuth nao corresponde ao vendedor conectado.',409);
+ const identityId=await oauthSellerId(token);
+ ensure(sellerId&&identityId===sellerId,'Credencial OAuth nao corresponde ao vendedor conectado.',409);
  if(process.env.MP_MODE==='sandbox'){
   const r=await sql('SELECT provider_user_id FROM supplier_mp_connections WHERE supplier_id=$1',[group.supplier_id]);
   const allowed=String(process.env.MP_SANDBOX_TEST_SELLER_USER_ID||'').trim();
