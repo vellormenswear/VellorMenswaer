@@ -1,17 +1,18 @@
 import {NextResponse} from 'next/server';
 import {randomUUID} from 'node:crypto';
-import {requireRole} from '@/lib/auth';
+import {requireUser} from '@/lib/auth';
 import {sql} from '@/lib/db';
 import {ensure,fail,originGuard,body} from '@/lib/http';
 import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {oauthSellerId} from '@/lib/mp-oauth-identity.mjs';
 import {validateCheckoutProUrl} from '@/lib/mp-checkout-url.mjs';
-import {canaryOrderPayload,inspectCanaryOrder,orderIdValid} from '@/lib/mp-orders-canary.mjs';
+import {canaryOrderPayload,inspectCanaryOrder,orderIdValid,canaryAllowedForUser} from '@/lib/mp-orders-canary.mjs';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const respond=(data,status=200)=>NextResponse.json(data,{status,headers:{'Cache-Control':'private, no-store','X-Robots-Tag':'noindex'}});
 async function scope(req){
- await requireRole(req,['super_admin']);
+ const user=await requireUser(req);
+ ensure(canaryAllowedForUser(process.env,user),'Somente a conta compradora de teste autorizada ou o superadministrador podem acessar este experimento.',403);
  ensure(process.env.MP_MODE==='sandbox'&&process.env.MP_LIVE_ENABLED!=='true','Experimento permitido somente no sandbox.',403);
  const sellerId=String(process.env.MP_SANDBOX_TEST_SELLER_USER_ID||'').trim();
  ensure(/^\d+$/.test(sellerId),'Vendedor de teste não configurado.',503);
