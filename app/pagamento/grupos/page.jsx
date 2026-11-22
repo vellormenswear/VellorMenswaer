@@ -46,7 +46,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
   {providerResult.provider_status&&<> · status: {providerResult.provider_status}</>}
   {providerResult.status_detail&&<> · detalhe: {providerResult.status_detail}</>}
   {providerResult.reason&&<> · {providerResult.reason}</>}
- </p>
+ </p>}
  {g.payment_status==='pending'&&(!g.checkout_expires_at||new Date(g.checkout_expires_at)>new Date())&&(g.checkout_url?<a className="btn gold" href={g.checkout_url} onClick={()=>trace('payment.redirect',{checkout_mode:'standard'})}>CONTINUAR PAGAMENTO</a>:<button className="btn gold" disabled={busy} onClick={()=>retry(g.id)}>GERAR LINK DE PAGAMENTO</button>)}
  {g.payment_status==='pending'&&g.checkout_expires_at&&new Date(g.checkout_expires_at)<=new Date()&&<p className="notice error">Este checkout expirou. Volte ao carrinho e gere novos pagamentos.</p>}
  {g.payment_status==='pending'&&g.checkout_expires_at&&<p className="small">Link válido até {new Date(g.checkout_expires_at).toLocaleString('pt-BR')}.</p>}

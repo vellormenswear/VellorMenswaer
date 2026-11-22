@@ -78,7 +78,7 @@ export default function IsolatedMercadoPagoTest(){
     <h2>{t.mode==='split'?'Com Split':'Simples'} · {money(t.amount_cents)}</h2>
     <p className="small">Preferencia: <code>{t.preference_id}</code>{t.trace_id&&<> · Rastreamento: <code>{t.trace_id}</code></>}</p>
     {t.checkout_url?<a className="btn gold" href={t.checkout_url} target="_blank" rel="noopener noreferrer" onClick={()=>markOpened(t.preference_id)}>ABRIR CHECKOUT DE TESTE (INIT_POINT)</a>:
-      <p className="notice error">O Mercado Pago nao forneceu um init_point valido nesta preferencia.</p>
+      <p className="notice error">O Mercado Pago nao forneceu um init_point valido nesta preferencia.</p>}
     <p className="small">Link enviado: <b>init_point</b> · Dominio inicial: <b>{t.checkout_initial_host||'Nao retornado'}</b></p>
     {t.creation_diagnostic&&<details><summary>Resposta da criacao da preferencia (dados seguros)</summary>
       <pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{JSON.stringify(t.creation_diagnostic,null,2)}</pre></details>}
