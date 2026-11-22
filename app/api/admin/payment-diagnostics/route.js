@@ -4,6 +4,7 @@ import {sql} from '@/lib/db';
 import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {ensure,fail,uuid} from '@/lib/http';
 import {deriveMpPaymentDiagnosis,safePaymentDetail} from '@/lib/mp-payment-diagnosis.mjs';
+import {sandboxCheckoutFeeAnalysis} from '@/lib/mp-sandbox-fee-analysis.mjs';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -20,7 +21,7 @@ export async function GET(req){
   ensure(!groupId||uuid(groupId),'Identificador de checkout inválido.',400);
   ensure(!preferenceId||/^\d{3,20}-[a-f\d-]{30,50}$/i.test(preferenceId),'ID da preferência inválido.',400);
   const rows=await sql(`SELECT g.id,g.supplier_id,g.amount_cents,g.created_at,g.payment_status,
-      g.preference_id,g.checkout_url,g.provider_payment_id,g.marketplace_fee_cents,g.order_id,mp.provider_user_id
+      g.preference_id,g.checkout_url,g.provider_payment_id,g.marketplace_fee_cents,g.supplier_amount_cents,g.order_id,mp.provider_user_id
     FROM supplier_order_groups g
     JOIN supplier_mp_connections mp ON mp.supplier_id=g.supplier_id
     WHERE ($1::uuid IS NULL OR g.id=$1::uuid)
@@ -32,6 +33,10 @@ export async function GET(req){
       created_at:g.created_at,amount_cents:g.amount_cents,
       local_status:g.payment_status,preference_created:!!g.preference_id,
       provider_payment_id:g.provider_payment_id||null,order_created:!!g.order_id,
+      financial_preflight:sandboxCheckoutFeeAnalysis({
+       amountCents:g.amount_cents,marketplaceFeeCents:g.marketplace_fee_cents,
+       supplierAmountCents:g.supplier_amount_cents
+      }),
       checkout_host:safeHost(g.checkout_url),seller_is_allowlisted_test_account:
        String(g.provider_user_id)===String(process.env.MP_SANDBOX_TEST_SELLER_USER_ID||'')};
    if(!g.preference_id)return {...base,
@@ -143,7 +148,7 @@ export async function GET(req){
    }
   }));
   return NextResponse.json({mode:'sandbox',checked_at:new Date().toISOString(),
-    diagnostics_version:2,match_count:groups.length,groups,read_only:true},
+    diagnostics_version:3,match_count:groups.length,groups,read_only:true},
     {headers:{'Cache-Control':'no-store, max-age=0','X-Robots-Tag':'noindex'}});
  }catch(e){return fail(e)}
 }
