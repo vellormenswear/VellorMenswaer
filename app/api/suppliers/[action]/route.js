@@ -122,7 +122,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  if(action==='request-price'){
   ensure(uuid(x.variant_id),'Variação inválida.');const cost=Number(x.cost_cents);ensure(Number.isInteger(cost)&&cost>0&&cost<=100000000,'Valor inválido.');
   const owns=await sql('SELECT 1 FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=$1 AND p.supplier_id=$2',[x.variant_id,supplier.id]);ensure(owns.rowCount,'Variação não pertence ao fornecedor.',403);
-  const r=await sql("INSERT INTO supplier_price_requests(supplier_id,variant_id,requested_cost_cents) VALUES($1,$2,$3) RETURNING id",[supplier.id,x.variant_id,cost]);await audit(user.id,'supplier.price_request','variant',x.variant_id);return ok({id:r.rows[0].id},201)
+  const r=await sql("INSERT INTO supplier_price_requests(supplier_id,variant_id,requested_cost_cents) VALUES($1,$2,$3) ON CONFLICT (variant_id) WHERE status='pending' DO NOTHING RETURNING id",[supplier.id,x.variant_id,cost]);ensure(r.rowCount,'Já existe uma solicitação de alteração de preço pendente para esta variação.',409);await audit(user.id,'supplier.price_request','variant',x.variant_id);return ok({id:r.rows[0].id},201)
  }
  if(action==='submit'){
   const variants=Array.isArray(x.variants)?x.variants:[];ensure(variants.length>0&&variants.length<=30,'Informe de 1 a 30 variações.');
