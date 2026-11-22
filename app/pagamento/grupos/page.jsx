@@ -14,13 +14,13 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
  }catch(e){setError(e.message)}};
  useEffect(()=>{load();const id=setInterval(load,20000);return()=>clearInterval(id)},[]);
  async function retry(id){try{setBusy(true);const r=await fetch('/api/marketplace/retry-preference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({group_id:id})});const j=await r.json();if(!r.ok)throw Error(j.error);if(!j.checkout_url?.startsWith('https://'))throw Error('Link inválido.');window.location.assign(j.checkout_url)}catch(e){setError(e.message);setBusy(false)}}
- return <main className="page checkoutbox"><Link href="/"><img width="180" src="/logo-vellor.png" alt="VELLOR"/></Link><h1>Pagamentos por fornecedor</h1>
- <p>Os valores são cobrados separadamente. <b>O pedido de cada fornecedor só é criado depois da aprovação do respectivo pagamento.</b> Os outros pagamentos podem continuar pendentes.</p>
+ return <main className="page checkoutbox"><Link href="/"><img width="180" src="/logo-vellor.png" alt="VELLOR"/></Link><h1>Acompanhe seus pagamentos</h1>
+ <p>Alguns itens podem gerar pagamentos separados. <b>Cada pedido é confirmado somente após a aprovação do pagamento correspondente.</b> As demais etapas podem continuar pendentes.</p>
  {error&&<p className="notice error" role="alert">{error}</p>}
  {!data?<p>Consultando pagamentos...</p>:<section className="card"><h2>Acompanhamento do checkout</h2>
- {data.groups.map(g=><div className="card" key={g.id}><div className="flexrow"><b>{g.business_name}</b><span className="spacer"/><strong>{money(g.amount_cents)}</strong></div>
+ {data.groups.map((g,index)=><div className="card" key={g.id}><div className="flexrow"><b>Pagamento {index+1}</b><span className="spacer"/><strong>{money(g.amount_cents)}</strong></div>
  <p>Status: <b>{labels[g.payment_status]||g.payment_status}</b>{g.order_number&&<> · Pedido #{g.order_number}</>}</p>
- {g.payment_status==='pending'&&(!g.checkout_expires_at||new Date(g.checkout_expires_at)>new Date())&&(g.checkout_url?<a className="btn gold" href={g.checkout_url}>PAGAR ESTE FORNECEDOR</a>:<button className="btn gold" disabled={busy} onClick={()=>retry(g.id)}>GERAR LINK DE PAGAMENTO</button>)}
+ {g.payment_status==='pending'&&(!g.checkout_expires_at||new Date(g.checkout_expires_at)>new Date())&&(g.checkout_url?<a className="btn gold" href={g.checkout_url}>CONTINUAR PAGAMENTO</a>:<button className="btn gold" disabled={busy} onClick={()=>retry(g.id)}>GERAR LINK DE PAGAMENTO</button>)}
  {g.payment_status==='pending'&&g.checkout_expires_at&&new Date(g.checkout_expires_at)<=new Date()&&<p className="notice error">Este checkout expirou. Volte ao carrinho e gere novos pagamentos.</p>}
  {g.payment_status==='pending'&&g.checkout_expires_at&&<p className="small">Link válido até {new Date(g.checkout_expires_at).toLocaleString('pt-BR')}.</p>}
  {g.payment_status==='refund_pending'&&<p className="notice error">Pagamento recebido, mas há uma pendência que exige verificação administrativa. Não será enviado antes de ser resolvido.</p>}
