@@ -36,6 +36,14 @@ try{
  const me=await get('https://api.mercadolibre.com/users/me',token);
  report('seller_identity',{http:me.http,error:me.error,id_matches:me.ok?String(me.data?.id)===id:null,site:me.ok?safe(me.data?.site_id):null,
   status:me.ok?safe(me.data?.status?.site_status):null,is_test_user:me.ok?(Array.isArray(me.data?.tags)?me.data.tags.includes('test_user'):null):null});
+ const buyerId='3854288752'; // Buyer test-user ID seen in user's Checkout Pro browser console.
+ const buyer=await get('https://api.mercadolibre.com/users/'+buyerId,token);
+ report('buyer_identity',{http:buyer.http,error:buyer.error,
+  found:buyer.ok,id_matches:buyer.ok?String(buyer.data?.id)===buyerId:null,
+  site:buyer.ok?safe(buyer.data?.site_id):null,
+  active:buyer.ok?buyer.data?.status?.site_status==='active':null,
+  is_test_user:buyer.ok?(Array.isArray(buyer.data?.tags)?buyer.data.tags.includes('test_user'):null):null,
+  buyer_and_seller_different:buyerId!==id});
  const groups=await pool.query(`SELECT g.id,g.preference_id,g.payment_status,g.amount_cents,g.marketplace_fee_cents
   FROM supplier_order_groups g JOIN supplier_mp_connections mp ON mp.supplier_id=g.supplier_id
   WHERE mp.provider_user_id=$1 AND g.preference_id IS NOT NULL AND g.created_at>=now()-interval '18 hours'
