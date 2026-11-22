@@ -5,16 +5,16 @@ import {canaryOrderPayload,inspectCanaryOrder,orderIdValid} from '../lib/mp-orde
 const uuid='abcdef01-abcd-4abc-8abc-abcdef012345';
 const reference=mode=>`vellor-orders-canary-${mode}-${uuid}`;
 const order=(mode,changes={})=>({id:'ORDTST01KS5AJ6HTK2HRQ3XJ3C2JCKP9',external_reference:reference(mode),user_id:'123',
- integration_data:{application_id:'456'},currency:'BRL',total_amount:'20.00',marketplace_fee:mode==='split'?'1.00':'0.00',status:'created',status_detail:'created',total_paid_amount:'0.00',...changes});
+ integration_data:{application_id:'456'},currency:'BRL',total_amount:'20.00',marketplace_fee:mode==='split'?'10.00':'0.00',status:'created',status_detail:'created',total_paid_amount:'0.00',...changes});
 test('Orders API canary sem split é público convidado sem payer',()=>{
  const p=canaryOrderPayload('simple',reference('simple'));
  assert.equal(p.type,'online');assert.equal(p.processing_mode,'manual');
  assert.equal(p.total_amount,'20.00');assert.equal(p.marketplace_fee,undefined);assert.equal(p.payer,undefined);
  assert.deepEqual(p.items,[{title:'Teste VELLOR Orders API',quantity:1,unit_price:'20.00'}]);
 });
-test('Orders API canary com split usa taxa fixa de R$ 1',()=>{
+test('Orders API canary com split usa taxa fixa de R$ 10',()=>{
  const p=canaryOrderPayload('split',reference('split'));
- assert.equal(p.marketplace_fee,'1.00');assert.equal(p.total_amount,'20.00');
+ assert.equal(p.marketplace_fee,'10.00');assert.equal(p.total_amount,'20.00');
  assert.throws(()=>canaryOrderPayload('split',reference('simple')));
 });
 test('resposta pertence ao vendedor integrador e ao teste sandbox',()=>{
