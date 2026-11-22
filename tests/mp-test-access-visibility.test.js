@@ -9,14 +9,14 @@ test('os dois botoes sempre aparecem no painel, mesmo antes de autenticar',()=>{
  const gated=src.indexOf('{authorized&&<>');
  assert.ok(card>=0&&gated>card,'o formulario de teste deve ficar fora do bloco condicional');
 });
-test('o teste fica indisponivel para sessoes sem superadmin',()=>{
- assert.match(src,/const authorized=user\?\.role==='super_admin'/);
+test('o teste aceita apenas as sessoes admin e superadmin',()=>{
+ assert.match(src,/const authorized=user\?\.role==='super_admin'\|\|user\?\.role==='admin'/);
  assert.match(src,/disabled=\{loading\|\|!authorized\|\|!!busy\}/);
  assert.match(src,/if\(!authorized\)/);
  assert.match(src,/ENTRAR \/ TROCAR DE CONTA/);
 });
-test('a API continua restrita a super_admin e sandbox',()=>{
+test('a API continua restrita a admin e super_admin no sandbox',()=>{
  const api=readFileSync('app/api/admin/mp-isolated-test/route.js','utf8');
- assert.match(api,/requireRole\(req,\['super_admin'\]\)/);
+ assert.match(api,/requireRole\(req,\['super_admin','admin'\]\)/);
  assert.match(api,/MP_MODE==='sandbox'/);
 });

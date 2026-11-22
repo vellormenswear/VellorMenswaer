@@ -20,9 +20,9 @@ test('o diagnostico so acessa preferencia criada para o mesmo vendedor',()=>{
  assert.equal(isIsolatedTestPreference({collector_id:'999',
   items:[{title:'Produto de teste VELLOR',unit_price:20,quantity:1}]},'123'),false);
 });
-test('somente superadmin e ambiente sandbox podem criar teste',()=>{
+test('somente administradores no ambiente sandbox podem criar teste',()=>{
  const route=readFileSync('app/api/admin/mp-isolated-test/route.js','utf8');
- assert.match(route,/requireRole\(req,\['super_admin'\]\)/);
+ assert.match(route,/requireRole\(req,\['super_admin','admin'\]\)/);
  assert.match(route,/MP_MODE==='sandbox'/);
  assert.match(route,/MP_SANDBOX_TEST_SELLER_USER_ID/);
  assert.match(route,/token\.startsWith\('APP_USR-'\)/);

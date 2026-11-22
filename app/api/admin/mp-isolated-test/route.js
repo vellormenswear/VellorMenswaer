@@ -10,7 +10,7 @@ import {isolatedPreferencePayload,isIsolatedTestPreference,getTestMode} from '@/
 export const runtime='nodejs';export const dynamic='force-dynamic';
 
 async function scope(req){
- await requireRole(req,['super_admin']);
+ await requireRole(req,['super_admin','admin']);
  ensure(process.env.MP_MODE==='sandbox','Teste isolado disponivel apenas em sandbox.',403);
  const sellerId=String(process.env.MP_SANDBOX_TEST_SELLER_USER_ID||'').trim();
  ensure(/^\d+$/.test(sellerId)&&process.env.MP_SANDBOX_TEST_CUSTOMER_EMAIL,

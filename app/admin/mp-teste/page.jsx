@@ -13,9 +13,9 @@ export default function IsolatedMercadoPagoTest(){
    .catch(()=>setError('Falha ao verificar a sessao. Atualize a pagina ou entre novamente na conta administrativa.'))
    .finally(()=>setLoading(false));
  },[]);
- const authorized=user?.role==='super_admin';
+ const authorized=user?.role==='super_admin'||user?.role==='admin';
  async function create(mode){
-  if(!authorized){setError('Entre com a conta superadministradora para gerar preferencias de teste.');return;}
+  if(!authorized){setError('Entre com uma conta administradora ou superadministradora para gerar preferencias de teste.');return;}
   setBusy(mode);setError('');
   try{
    const r=await fetch('/api/admin/mp-isolated-test',{method:'POST',
@@ -44,12 +44,12 @@ export default function IsolatedMercadoPagoTest(){
    </div>
    {loading?<p className="notice">Verificando acesso para habilitar os botoes...</p>:
     !authorized?<div className="notice error" role="status">
-      Os botoes estao visiveis, mas desabilitados porque esta sessao nao foi reconhecida como superadministradora.
-      {user?<p>Perfil identificado: <b>{user.role}</b>. Entre com uma conta <b>super_admin</b>.</p>:
+      Os botoes estao visiveis, mas desabilitados porque esta sessao nao foi reconhecida como administradora ou superadministradora.
+      {user?<p>Perfil identificado: <b>{user.role}</b>. Entre com uma conta <b>admin</b> ou <b>super_admin</b>.</p>:
        <p>Voce nao esta autenticado nesta sessao. Entre na VELLOR para habilitar os testes.</p>}
       <p><Link href="/conta">ENTRAR / TROCAR DE CONTA</Link></p>
      </div>:
-     <p className="notice">Acesso confirmado: superadministrador. Use primeiro o teste simples, depois o Split.</p>}
+     <p className="notice">Acesso administrativo confirmado. Use primeiro o teste simples, depois o Split.</p>}
    <p className="small">Essas preferencias nao criam pedidos na VELLOR. Use apenas dados e cartoes de teste do Mercado Pago.</p>
   </section>
   {error&&<p className="notice error" role="alert">{error}</p>}
