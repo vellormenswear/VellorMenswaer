@@ -14,6 +14,7 @@ test('preference integrity never tolerates collector, value, commission or curre
  assert.equal(preferenceIntegrity({...pref,items:[{quantity:3,unit_price:10}]},group),'PREFERENCE_AMOUNT_MISMATCH');
  assert.equal(preferenceIntegrity({...pref,marketplace_fee:0},group),'PREFERENCE_FEE_MISMATCH');
  assert.equal(preferenceIntegrity({...pref,external_reference:'wrong'},group),'PREFERENCE_REFERENCE_MISMATCH');
+ assert.equal(preferenceIntegrity({...pref,external_reference:undefined},group),'PREFERENCE_REFERENCE_MISMATCH');
  assert.equal(preferenceIntegrity({...pref,items:[{quantity:3,unit_price:179.90,currency_id:'USD'}]},group),'PREFERENCE_AMOUNT_MISMATCH');
 });
 test('payment must match test environment and actual group, never client values',()=>{
@@ -45,6 +46,8 @@ test('provider recheck route requires ownership, origin guard and server-side re
  assert.match(service,/paymentIntegrity\(p,group,process\.env\.MP_MODE==='production'\)/);
  assert.match(service,/reconcilePayment\(providerPayment,String\(group\.provider_user_id\)\)/);
  assert.match(service,/interval '25 seconds'/);
+ assert.match(service,/paidStatus\(providerPayment\)/);
+ assert.match(service,/PAYMENT_LOOKUP_INCOMPLETE/);
  const ui=readFileSync('app/pagamento/grupos/page.jsx','utf8');
  assert.match(ui,/VERIFICAR STATUS NO MERCADO PAGO/);
 });
