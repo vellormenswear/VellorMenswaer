@@ -6,6 +6,7 @@ import {ensure,fail,originGuard} from '@/lib/http';
 import {supplierAccessToken,mpRequest} from '@/lib/marketplace';
 import {checkoutProLink,checkoutProHost} from '@/lib/mp-checkout-url.mjs';
 import {safePaymentDetail} from '@/lib/mp-payment-diagnosis.mjs';
+import {checkoutCreationIntegrity} from '@/lib/mp-checkout-creation-integrity.mjs';
 import {isolatedPreferencePayload,isIsolatedTestPreference,getTestMode,safeCreationDiagnostic,safeHost} from '@/lib/mp-isolated-test.mjs';
 import {recordCheckoutEvent,safeTraceId,traceForPreference} from '@/lib/checkout-trace';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -20,6 +21,8 @@ async function scope(req){
  ensure(r.rowCount,'Conta vendedora de teste precisa estar conectada.',409);
  const token=await supplierAccessToken(r.rows[0].supplier_id);
  ensure(token.startsWith('APP_USR-'),'Token OAuth do vendedor de teste invalido.',409);
+ const identity=await mpRequest('/users/me',token);
+ ensure(String(identity?.id||'')===sellerId,'Credencial OAuth pertence a outro vendedor.',409);
  return {sellerId,token};
 }
 const result=(data,status=200)=>NextResponse.json(data,{status,headers:{'Cache-Control':'private, no-store','X-Robots-Tag':'noindex'}});
@@ -39,7 +42,8 @@ export async function POST(req){
    onResponseMeta:m=>{meta=m}
   });
   ensure(pref?.id,'O Mercado Pago nao retornou uma preferencia.',502);
-  ensure(String(pref.collector_id||sellerId)===sellerId,'Recebedor inesperado no teste.',502);
+  const integrity=checkoutCreationIntegrity({preference:pref,request:payload,sellerId,clientId:process.env.MP_CLIENT_ID});
+  ensure(integrity.ok,'Preferencia nao corresponde a conta, aplicativo, valor ou comissao esperados ('+integrity.code+').',502);
   // Checkout Pro OAuth APP_USR usa init_point mesmo com contas de teste.
   const checkoutUrl=checkoutProLink(pref);
   ensure(checkoutUrl,'Mercado Pago nao retornou um init_point HTTPS valido.',502);
@@ -49,7 +53,7 @@ export async function POST(req){
    mode,sandbox:true,trace_id:tid,amount_cents:2000,
    marketplace_fee_cents:mode==='split'?100:0,
    preference_id:String(pref.id),
-   creation_diagnostic,
+   creation_diagnostic,preference_integrity:integrity.checks,
    checkout_field_used:'init_point',
    checkout_initial_host:checkoutProHost(checkoutUrl),
    checkout_url:checkoutUrl,
