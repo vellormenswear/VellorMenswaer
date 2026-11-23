@@ -30,7 +30,7 @@ test('checkout envia cliente já autenticado diretamente para finalizar',async()
 test('falha na verificação envia primeiro ao login, nunca ao checkout',async()=>{
  assert.equal((await attempt(null,false)).destination,'/conta?next=%2Ffinalizar');
  assert.ok(read('app/finalizar/page.jsx').includes("window.location.replace('/conta?next=%2Ffinalizar')"));
- assert.ok(read('app/api/marketplace/[action]/route.js').includes('await requireUser(req)'));
+ assert.ok(read('app/api/asaas/[action]/route.js').includes('await requireUser(req)'));
 });
 test('comprar agora verifica sessão; adicionar ao carrinho não exige login',()=>{
  assert.match(storefront,/openCart\(\);if\(buy\)goCheckout\(\)/);
