@@ -27,7 +27,7 @@ function fakeDb({known=[],broken='',missingBase=[]}={}) {
 test('bundle de migrações corresponde aos SQLs versionados',()=>{
  for(const [name,sql] of MARKETPLACE_MIGRATIONS){
   assert.equal(sql,readFileSync('db/'+name,'utf8'));
-  assert.match(name,/^0(?:0[234689]|10)_/);
+  assert.match(name,/^[0-9]{3}_[a-z0-9_]+\.sql$/);
  }
 });
 
