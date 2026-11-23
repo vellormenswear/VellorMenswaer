@@ -96,3 +96,19 @@ test('carrinho checkout políticas e atendimento continuam disponíveis',()=>{
  for(const route of ['/entregas','/trocas-e-devolucoes','/privacidade','/termos-de-compra'])assert.ok(html.includes(route));
  assert.ok(!html.includes('Navegue por preço'));
 });
+
+test('painel financeiro mantém regras de reserva e navegação funcional',()=>{
+ const page=read('app/admin/financeiro/page.jsx'),css=read('app/admin/financeiro/finance.module.css');
+ assert.ok(page.includes('reserveSummary({approvedFees:commissions,expenses,losses,recoveries})'));
+ assert.ok(page.includes('cost=revenue-commissions'));
+ assert.ok(page.includes('pct(commissions)')&&page.includes('pct(profit)'));
+ assert.ok(page.includes('parts.every(p=>p.value>=0)'));
+ assert.ok(page.includes('Disponibilidade gerencial estimada, não saldo bancário'));
+ assert.ok(page.includes('Tarifas não conciliadas podem reduzir o resultado'));
+ for(const tab of ['summary','movement','refunds','reports'])assert.ok(page.includes("tab==='"+tab+"'"));
+ assert.ok(page.includes("req('admin-finance-adjustment','POST'"));
+ assert.ok(page.includes("['refunded','refund_pending','refund_failed']"));
+ assert.ok(page.includes("hidden?'R$ ••••':money(n)"));
+ assert.ok(css.includes('@media(max-width:520px)'));
+ assert.ok(css.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
+});
