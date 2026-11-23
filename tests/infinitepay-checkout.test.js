@@ -86,3 +86,22 @@ test('conciliacao administrativa consulta pagamento existente sem nova cobranca'
  assert.ok(page.includes('CONSULTAR PAGAMENTO OFICIAL'));
  assert.ok(page.includes("q.get('transaction_nsu')"));
 });
+
+test('cancelamento administrativo exige permissão e estorno separado com prova e valores',()=>{
+ const route=readFileSync(new URL('../app/api/admin/[resource]/route.js',import.meta.url),'utf8');
+ const cancel=readFileSync(new URL('../lib/admin-order-cancel.js',import.meta.url),'utf8');
+ const customer=readFileSync(new URL('../app/api/account/[resource]/route.js',import.meta.url),'utf8');
+ const ui=readFileSync(new URL('../app/conta/page.jsx',import.meta.url),'utf8');
+ assert.ok(route.includes("requireRole(req,['admin','super_admin']);ensure(uuid(x.id)"));
+ assert.ok(route.includes("ensure(to!=='canceled'"));
+ assert.ok(cancel.includes("fulfillment_status='canceled'"));
+ assert.ok(cancel.includes("THEN 'refund_pending'"));
+ assert.ok(cancel.includes('confirmed===true'));
+ assert.ok(cancel.includes("refund_confirmation:'manual_provider_receipt'"));
+ assert.ok(cancel.includes("batch.payment_method==='credit_card'?gs:[target]"));
+ assert.ok(cancel.includes("payment_status='refunded'"));
+ assert.ok(cancel.includes("status='committed' RETURNING variant_id,quantity"));
+ assert.ok(customer.includes("WHERE o.customer_id=$1 AND n.kind IN ('customer_order_canceled','customer_order_refunded')"));
+ assert.ok(ui.includes('O estorno de '));
+ assert.ok(ui.includes('foi confirmado para o meio de pagamento de origem'));
+});
