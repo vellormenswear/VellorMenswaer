@@ -25,9 +25,11 @@ test('rodape aprovado inclui FAQ, pagamento sem bandeiras inventadas e contato h
  const chatjs=fs.readFileSync(path.join(root,'public/vellor-support.js'),'utf8');
  assert.match(html,/id="vellor-faq-heading"/);
  assert.equal((html.match(/<details>/g)||[]).length,6);
- assert.match(html,/Pix/);
- assert.match(html,/Cartões/);
- assert.match(html,/efetivamente disponíveis são confirmados/);
+ assert.match(html,/Pix e cartões Visa, Mastercard, Elo e American Express/);
+ for(const marca of ['Pix','Visa','Mastercard','Elo','American Express','InfinitePay'])assert.ok(html.includes('alt="'+marca+'"'));
+ assert.ok(html.includes('cdn.prod.website-files.com'));
+ assert.ok(!html.includes('alt="Hipercard"'));
+ assert.match(html,/Opções e condições de pagamento confirmadas no checkout da InfinitePay/);
  assert.match(html,/id="vellor-support-toggle"/);
  assert.match(html,/vellor-support\.js\?v=20261123-rodape/);
  assert.match(html,/vellor-support\.css\?v=20261123-rodape/);
