@@ -40,9 +40,9 @@ export async function POST(req){try{
  ensure(/^[A-Za-z0-9][A-Za-z0-9 _./:-]{7,149}$/.test(reference),'Informe identificador do Pix realmente realizado.',400);
  ensure(note.length>=8,'Informe data, destinatario e referencia do comprovante.',400);
  const result=await transaction(async c=>{
-  const r=await c.query("SELECT g.*,o.payment_status AS order_payment FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id WHERE g.id=$1 FOR UPDATE OF g",[x.group_id]);
+  const r=await c.query("SELECT g.*,o.payment_status AS order_payment,o.status AS order_status FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id WHERE g.id=$1 FOR UPDATE OF g",[x.group_id]);
   ensure(r.rowCount,'Pedido de fornecedor nao encontrado.',404);const group=r.rows[0];
-  ensure(group.payment_status==='approved'&&group.order_payment==='approved'&&group.fulfillment_status==='awaiting_payout',
+  ensure(group.payment_status==='approved'&&group.order_payment==='approved'&&['paid','processing','packing'].includes(group.order_status)&&group.fulfillment_status==='awaiting_payout',
    'Repasse indisponivel: pedido nao pago, ja registrado ou em disputa.',409);
   const payment=await c.query("SELECT 1 FROM payments WHERE order_id=$1 AND provider='infinitepay' AND status='approved'",[group.order_id]);
   ensure(payment.rowCount,'Pagamento InfinitePay nao validado.',409);
