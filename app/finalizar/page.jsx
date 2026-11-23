@@ -37,7 +37,8 @@ export default function Checkout(){const [user,setUser]=useState(null),[ordersOp
   traceOk('checkout.create.success',{group_count:r.groups.length});sessionStorage.setItem('vellor-last-checkout-id',r.checkout_id);
   // A compra NÃO foi concluída ainda: o carrinho é preservado até a confirmação de TODOS os pagamentos.
   sessionStorage.setItem('vellor-last-checkout-cart',localStorage.getItem('goston-cart-preview')||'[]');
-  window.location.href='/pagamento/grupos?checkout_id='+encodeURIComponent(r.checkout_id)
+  if(!/^https:\/\/asaas\.com\/checkoutSession\/show\?id=[0-9a-f-]{36}$/i.test(r.checkout_url||''))throw new Error('Link oficial do Asaas não foi gerado.');
+  window.location.assign(r.checkout_url)
  }catch(e){traceError('checkout.create.failed',e.code||'CHECKOUT_CREATE_FAILED',e.message,{status:e.status});setMessage(e.message);setErrorCode(e.code||'');setSending(false)}}
  const ready=ordersOpen&&user?.role==='customer'&&quote&&quote.total_cents!==null&&address&&cart.length>0&&!sending;
  return <Frame user={user}><main className="page checkoutbox"><h1>Finalizar pedido · Vellor Menswear</h1>{!loading&&user&&!ordersOpen&&<div className="notice"><b>Finalização temporariamente indisponível.</b> Estamos configurando os meios de pagamento. Você pode conferir produtos e manter seu carrinho.</div>}{message&&<p role="alert" className="notice error">{message}{errorCode&&<span className="small"> · Código: {errorCode}</span>} · Rastreamento: <code>{traceId()||'indisponivel'}</code></p>}
