@@ -1,6 +1,7 @@
 'use client';
 import {useState} from 'react';
 import Link from 'next/link';
+import SupportWidget from '@/components/SupportWidget';
 import {logoutAndRedirect} from '@/lib/logout-client.mjs';
 
 export default function Frame({children,user,logout}){
@@ -16,5 +17,5 @@ export default function Frame({children,user,logout}){
   }catch(e){setLogoutError(e?.message||'Não foi possível encerrar a sessão.');}
   finally{setSigningOut(false)}
  }
- return <><header className="brandbar"><Link href="/"><img src="/logo-vellor.png" alt="Vellor Menswear"/></Link><nav><Link href="/">VITRINE</Link><Link href="/conta">MINHA CONTA</Link>{user?.role==='supplier'&&<Link href="/fornecedor">FORNECEDOR</Link>}{['employee','admin','super_admin'].includes(user?.role)&&<Link href="/admin">ADMINISTRAÇÃO</Link>}{user&&<button type="button" disabled={signingOut} onClick={handleSignOut}>{signingOut?'SAINDO...':'SAIR'}</button>}</nav></header>{logoutError&&<p className="notice" role="alert">{logoutError}</p>}{children}</>;
+ return <><header className="brandbar"><Link href="/"><img src="/logo-vellor.png" alt="Vellor Menswear"/></Link><nav><Link href="/">VITRINE</Link><Link href="/conta">MINHA CONTA</Link>{user?.role==='supplier'&&<Link href="/fornecedor">FORNECEDOR</Link>}{['employee','admin','super_admin'].includes(user?.role)&&<Link href="/admin">ADMINISTRAÇÃO</Link>}{user&&<button type="button" disabled={signingOut} onClick={handleSignOut}>{signingOut?'SAINDO...':'SAIR'}</button>}</nav></header>{logoutError&&<p className="notice" role="alert">{logoutError}</p>}{children}{!['admin','super_admin','employee','supplier'].includes(user?.role)&&<SupportWidget/>}</>;
 }

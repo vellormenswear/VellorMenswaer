@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-asaas-env.mjs && node --test tests/asaas-checkout.test.js tests/catalog.test.js tests/security.test.js && next build",
+    "build": "node scripts/check-asaas-env.mjs && node --test tests/asaas-checkout.test.js tests/catalog.test.js tests/security.test.js tests/support-faq.test.js && node scripts/migrate-support.mjs && next build",
     "start": "next start",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "node scripts/seed.mjs",
