@@ -40,7 +40,7 @@ export default function SupportWidget(){
     <div ref={endRef}/>
    </div>
    {(chatStatus==='bot'||chatStatus==='closed')&&<div className="vellor-support-actions"><button disabled={sending} type="button" onClick={()=>send('request_human')}>Falar com um atendente</button></div>}
-   <form onSubmit={e=>{e.preventDefault();send('message')}}><label className="vellor-support-sr" htmlFor="vellor-support-react-input">Sua mensagem</label><input id="vellor-support-react-input" maxLength={1200} placeholder="Digite sua dúvida..." value={input} onChange={e=>setInput(e.target.value)} required/><button type="submit" aria-label="Enviar mensagem" disabled={sending}>➤</button></form>
+   <form id="vellor-support-form" onSubmit={e=>{e.preventDefault();send('message')}}><label className="vellor-support-sr" htmlFor="vellor-support-input">Sua mensagem</label><input id="vellor-support-input" maxLength={1200} placeholder="Digite sua dúvida..." value={input} onChange={e=>setInput(e.target.value)} required/><button type="submit" aria-label="Enviar mensagem" disabled={sending}>➤</button></form>
    <p role="status" className="vellor-support-status">{notice|| (chatStatus==='waiting'?'Atendimento solicitado · aguardando resposta':chatStatus==='active'?'Conversa com a equipe VELLOR':'Atendimento automático')}</p>
   </section>}
  </div></>;
