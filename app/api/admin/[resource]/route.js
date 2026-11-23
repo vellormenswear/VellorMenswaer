@@ -1,5 +1,7 @@
 import {sql,transaction,audit} from '@/lib/db';import {requireRole,requirePermission,hasPermission} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,HttpError,txt,uuid,email} from '@/lib/http';import {passwordHash} from '@/lib/security';
+import {normalizeIdentity,IDENTITY_FIELDS} from '@/lib/store-identity.mjs';
+import {shippingAlerts} from '@/lib/shipping-deadline.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const staffRoles=['employee','admin','super_admin'];
 const allowedStatus={paid:['processing','cancel_requested'],processing:['packing','cancel_requested'],packing:['shipped','cancel_requested'],shipped:['delivered','return_requested'],delivered:['return_requested'],cancel_requested:['canceled','processing'],return_requested:['refunded','delivered'],awaiting_payment:['canceled'],payment_failed:['canceled']};
@@ -13,6 +15,21 @@ export async function GET(req,{params}){try{const u=await requireRole(req,staffR
   sql('SELECT o.id,o.order_number,o.status,o.payment_status,o.total_cents,o.created_at,u.full_name FROM orders o JOIN users u ON u.id=o.customer_id ORDER BY o.created_at DESC LIMIT 12'),
   sql("SELECT COUNT(*)::int AS count FROM customer_requests WHERE status='open'")
   ]);return ok({status:statuses.rows,totals:money.rows[0],recent:recent.rows,requests:requests.rows[0]});
+ }
+ if(resource==='shipping-deadlines'){
+  ensure(await hasPermission(u,'orders.read'),'Sem permissão de pedidos.',403);
+  const r=await sql(`SELECT o.id,o.order_number,o.paid_at,o.created_at,o.status,o.payment_status,u.full_name AS customer_name,
+   (SELECT count(*)::int FROM supplier_order_groups g WHERE g.order_id=o.id) AS shipment_count,
+   (SELECT count(*)::int FROM supplier_order_groups g
+    WHERE g.order_id=o.id AND (g.posted_at IS NOT NULL OR g.fulfillment_status IN ('shipped','delivered','canceled'))) AS shipments_finished
+   FROM orders o JOIN users u ON u.id=o.customer_id
+   WHERE o.payment_status='approved' AND o.paid_at IS NOT NULL
+   AND o.status NOT IN ('canceled','refunded','delivered')
+   ORDER BY o.paid_at ASC LIMIT 250`);
+  const orders=shippingAlerts(r.rows);
+  return ok({orders,totals:{all:orders.length,late:orders.filter(x=>x.shipping_sla.alert==='late').length,
+   urgent:orders.filter(x=>x.shipping_sla.alert==='urgent').length,on_track:orders.filter(x=>x.shipping_sla.alert==='on_track').length},
+   rule:'Até 72 horas corridas após a confirmação do pagamento',policy_href:'/entregas'});
  }
  if(resource==='orders'){
   ensure(await hasPermission(u,'orders.read'),'Sem permissão.',403);
@@ -104,6 +121,21 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
   const perms=Array.isArray(x.permissions)?x.permissions.filter(p=>['orders.read','orders.process','products.read'].includes(p)):[];
   await transaction(async c=>{await c.query('DELETE FROM staff_permissions WHERE user_id=$1',[x.id]);for(const p of perms)await c.query('INSERT INTO staff_permissions(user_id,permission) VALUES($1,$2)',[x.id,p]);if(x.suspended)await c.query('DELETE FROM sessions WHERE user_id=$1',[x.id])});
   await audit(u.id,'staff.update','user',x.id,{role:existing.rows[0].role},{role,suspended:Boolean(x.suspended),permissions:perms});return ok({updated:true});
+ }
+ if(resource==='legal-identity'){
+  await requireRole(req,['super_admin']);
+  const identity=normalizeIdentity(x);
+  ensure(identity.complete,'Informe nome legal, CPF/CNPJ válido, endereço comercial completo e e-mail de contato.',400);
+  await transaction(async c=>{
+   for(const key of IDENTITY_FIELDS){
+    await c.query(`INSERT INTO store_settings(key,value,sensitive,updated_by) VALUES($1,$2,false,$3)
+      ON CONFLICT(key) DO UPDATE SET value=$2,sensitive=false,updated_by=$3,updated_at=now()`,
+     [key,JSON.stringify(identity[key]),u.id]);
+   }
+  });
+  // Auditoria sem incluir documento ou endereço nos logs.
+  await audit(u.id,'store.legal_identity.updated','setting','legal_identity',null,{complete:true});
+  return ok({updated:true,complete:true});
  }
  if(resource==='settings'){
   await requireRole(req,['admin','super_admin']);const key=txt(x.key,80);const allowedGeneral=['store_name','support_email','support_whatsapp'];const sensitive=['shipping_flat_cents','storefront_sales_enabled'];

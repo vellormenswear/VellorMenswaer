@@ -32,7 +32,7 @@ test('rodape aprovado inclui FAQ, pagamento sem bandeiras inventadas e contato h
  assert.match(html,/Opções e condições de pagamento confirmadas no checkout da InfinitePay/);
  assert.match(html,/id="vellor-support-toggle"/);
  assert.match(html,/vellor-support\.js\?v=20261123-final-chat/);
- assert.match(html,/vellor-support\.css\?v=20261123-final-chat/);
+ assert.match(html,/vellor-support\.css\?v=20261123-chat-circular/);
  assert.match(css,/\.vellor-footer-faq/);
  assert.ok(chatjs.includes('/api/support/chat'));
  assert.ok(fs.existsSync(path.join(root,'public/vellor-support.css')));

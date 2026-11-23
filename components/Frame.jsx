@@ -2,6 +2,7 @@
 import {useState} from 'react';
 import Link from 'next/link';
 import SupportWidget from '@/components/SupportWidget';
+import StoreIdentity from '@/components/StoreIdentity';
 import {logoutAndRedirect} from '@/lib/logout-client.mjs';
 
 export default function Frame({children,user,logout}){
@@ -89,6 +90,7 @@ export default function Frame({children,user,logout}){
      <Link href="/privacidade">Política de privacidade</Link>
      <Link href="/termos-de-compra">Termos de compra</Link>
     </nav>
+    <StoreIdentity/>
     <div className="vll-footer-bottom"><span>VELLOR MENSWEAR</span><span>Atendimento e informações para sua compra.</span></div>
    </div>
   </footer>

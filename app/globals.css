@@ -157,3 +157,13 @@ body{background:#faf9f6;color:#15241e;font-size:14px}
 @media(max-width:1050px){.vll-trust-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px 24px}}
 @media(max-width:850px){.vll-policy-layout{grid-template-columns:1fr;gap:20px}.vll-policy-side{position:static;grid-row:1}.vll-policy-side h2{font-size:20px}.vll-policy-side{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}.vll-policy-side h2{grid-column:1/-1}}
 @media(max-width:550px){.vll-trust{padding:36px 0}.vll-trust-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vll-trust-item{flex-direction:column;gap:9px;padding:12px 3px}.vll-trust-item svg{height:36px;width:36px}.vll-trust-item strong{font-size:11px}.vll-trust-item small{font-size:10px}.vll-policy-links{justify-content:flex-start;gap:13px 18px}.page.vll-policy{padding:27px 17px 65px}.vll-policy-section p{font-size:13px}.vll-policy-side{padding:18px 16px}.vll-policy-side a{font-size:11px}.vll-policy-contact{padding:22px 17px}}
+
+
+/* Identificação oficial do responsável comercial e prazo administrativo de envio. */
+.vll-legal-identity{border-top:1px solid rgba(225,210,172,.23);padding:23px 0 25px;color:#d8e1d8}
+.vll-legal-identity strong{display:block;color:#f0d89f;font-size:11px;letter-spacing:.65px;margin-bottom:10px}
+.vll-legal-identity p{font-size:11px;line-height:1.7;margin:5px 0;color:#cad8cb;overflow-wrap:anywhere}
+.vll-legal-identity a{font-size:11px;color:#f0d89f;overflow-wrap:anywhere}
+.shipping-sla-late{color:#a52322;font-weight:750}
+.shipping-sla-urgent{color:#98621e;font-weight:750}
+.shipping-sla-on_track{color:#1b6840;font-weight:650}

@@ -47,13 +47,14 @@ function renderDiscovery(){
   const product=model&&groupFor(model).find(available);
   return product?{name:entry.name,product}:null;
  }).filter(Boolean);
+ const currentCategory=categoryForSearch(document.getElementById('search')?.value)||active;
  categories.innerHTML=tiles.map(({name,product})=>
-  `<button type="button" class="vellor-category-tile ${active===name?'active':''}" data-browse-category="${htmlEsc(name)}" aria-pressed="${active===name}" aria-label="Explorar ${htmlEsc(name)}">
+  `<button type="button" class="vellor-category-tile ${currentCategory===name?'active':''}" data-browse-category="${htmlEsc(name)}" aria-pressed="${currentCategory===name}" aria-label="Explorar ${htmlEsc(name)}">
    <span class="vellor-category-picture"><img src="${htmlEsc(product.image_url)}" alt="Produto VELLOR: ${htmlEsc(name)}" loading="lazy" decoding="async"></span>
    <span class="vellor-category-name">${htmlEsc(name)}<span aria-hidden="true">↗</span></span>
   </button>`).join('');
  categories.querySelectorAll('[data-browse-category]').forEach(el=>el.addEventListener('click',()=>browseCategory(el.dataset.browseCategory)));
- const all=document.getElementById('vellor-show-all');if(all){all.classList.toggle('active',active==='Todos');all.setAttribute('aria-pressed',String(active==='Todos'));}
+ const all=document.getElementById('vellor-show-all');if(all){all.classList.toggle('active',currentCategory==='Todos');all.setAttribute('aria-pressed',String(currentCategory==='Todos'));}
 }
 function slideProducts(direction){
  const rail=document.getElementById('grid'),card=rail?.querySelector('.card');
@@ -68,8 +69,28 @@ function updateProductNav(){
  next.disabled=!overflow||rail.scrollLeft+rail.clientWidth>=rail.scrollWidth-5;
 }
 
-function modelsSorted(){let a=models.filter(p=>{const all=groupFor(p),max=document.getElementById('max-price').value,search=normalize(document.getElementById('search').value),color=normalize(document.getElementById('color').value),size=document.getElementById('size').value;
-return (active==='Todos'||p.category===active)&&(!search||normalize(p.name+' '+all.map(x=>x.variant+' '+x.sku).join(' ')).includes(search))&&(!color||all.some(x=>normalize(x.variant).includes(color)))&&(!size||all.some(x=>sizesFor(x).includes(size)))&&(!max||all.some(x=>available(x)&&x.price_brl<=Number(max)))});
+/* Busca por categoria: termo completo (singular/plural, com ou sem acento)
+   mostra TODOS os produtos da categoria, mesmo sem o termo no título. */
+const CATEGORY_SEARCH_ALIASES={
+ 'relogio':'Relógios','relogios':'Relógios',
+ 'calcado':'Calçados','calcados':'Calçados','sapatos':'Calçados',
+ 'acessorio':'Acessórios','acessorios':'Acessórios',
+ 'vestuario':'Vestuário','roupas':'Vestuário',
+ 'vestuario esportivo':'Vestuário Esportivo','esportivo':'Vestuário Esportivo',
+ 'roupa esportiva':'Vestuário Esportivo','roupas esportivas':'Vestuário Esportivo'
+};
+function categoryForSearch(raw){
+ const term=normalize(raw).trim().replace(/\s+/g,' ');
+ return CATEGORY_SEARCH_ALIASES[term]||CATEGORIES.find(c=>c!=='Todos'&&normalize(c)===term)||null;
+}
+function productMatchesSearch(p,all,search){
+ if(!search)return true;
+ const category=categoryForSearch(search);
+ if(category)return p.category===category;
+ return normalize(p.name+' '+p.category+' '+all.map(x=>x.variant+' '+x.sku).join(' ')).includes(search);
+}
+function modelsSorted(){let a=models.filter(p=>{const all=groupFor(p),max=document.getElementById('max-price').value,search=normalize(document.getElementById('search').value).trim(),color=normalize(document.getElementById('color').value),size=document.getElementById('size').value,searchCategory=categoryForSearch(search);
+return (searchCategory?p.category===searchCategory:(active==='Todos'||p.category===active))&&productMatchesSearch(p,all,search)&&(!color||all.some(x=>normalize(x.variant).includes(color)))&&(!size||all.some(x=>sizesFor(x).includes(size)))&&(!max||all.some(x=>available(x)&&x.price_brl<=Number(max)))});
 const sort=document.getElementById('sort').value;
 const low=p=>Math.min(...groupFor(p).filter(available).map(x=>x.price_brl),Infinity);
 if(sort==='low')a.sort((p,q)=>low(p)-low(q));else if(sort==='high')a.sort((p,q)=>low(q)-low(p));else if(sort==='az')a.sort((p,q)=>p.name.localeCompare(q.name,'pt-BR'));return a}

@@ -41,7 +41,9 @@ test('categorias com imagens substituem menu superior e não são duplicadas',()
  assert.ok(!html.includes('id="nav"'),'Menu textual antigo removido');
  assert.ok(!html.includes('id="descobrir"'),'Categorias inferiores duplicadas removidas');
  assert.ok(js.includes('function browseCategory(category)'));
- assert.ok(js.includes('vellor-category-tile ${active===name?'));
+ assert.ok(js.includes('vellor-category-tile ${currentCategory===name?'));
+ assert.ok(js.includes('categoryForSearch'));
+ assert.ok(!html.includes('class="vellor-carousel-controls"'));
 });
 test('navegue por preço foi removido sem eliminar o filtro normal',()=>{
  assert.ok(!html.includes('Navegue por preço'));
