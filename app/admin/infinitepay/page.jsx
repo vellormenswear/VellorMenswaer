@@ -12,10 +12,11 @@ export default function InfinitepayAdmin(){
   setU(a.user);setData(j);setErr('');
  }catch(e){setErr(e.message)}}
  useEffect(()=>{refresh()},[]);
- async function record(g){if(!confirm('O Pix ja foi efetivamente enviado ao fornecedor e o comprovante conferido? Esta acao nao faz a transferencia.'))return;
+ async function record(g){if(!g.pix_key||!g.pix_updated_at){setErr('Aguarde o fornecedor cadastrar uma chave Pix válida.');return;}
+  if(!confirm('Confirma que já enviou '+brl(g.supplier_amount_cents)+' ao titular '+g.pix_holder_name+' usando a chave Pix informada abaixo, e conferiu o comprovante? Esta ação NÃO transfere dinheiro.'))return;
   setBusy(g.id);setErr('');
   try{const r=await fetch('/api/admin/infinitepay',{method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({action:'record_payout',group_id:g.id,transfer_reference:reference[g.id]||'',notes:notes[g.id]||''})});
+   body:JSON.stringify({action:'record_payout',group_id:g.id,transfer_reference:reference[g.id]||'',notes:notes[g.id]||'',pix_updated_at:g.pix_updated_at})});
    const x=await r.json();if(!r.ok)throw Error(x.error||'Falha ao registrar Pix');await refresh();
   }catch(e){setErr(e.message)}finally{setBusy('')}}
  async function reconcile(e){e.preventDefault();setBusy('reconcile');setErr('');setResult(null);
@@ -56,11 +57,17 @@ export default function InfinitepayAdmin(){
     <p><b>{g.business_name}</b> · Pedido #{g.order_number}</p>
     <p>Venda: {brl(g.amount_cents)} · Repasse ao fornecedor: <b>{brl(g.supplier_amount_cents)}</b></p>
     <p>Pagamento: {g.payment_status} · Preparação: {g.fulfillment_status}</p>
-    {g.transfer_reference?<p className="notice ok">Pix registrado: {g.transfer_reference}</p>:
+    {g.transfer_reference?<p className="notice ok">Pix registrado: {g.transfer_reference}{g.payout_holder_name?' · '+g.payout_holder_name:''}{g.payout_pix_suffix?' · chave final '+g.payout_pix_suffix:''}</p>:
     g.fulfillment_status==='awaiting_payout'?<>
+     {g.pix_key?<div className="notice ok" role="group" aria-label="Destinatário do repasse Pix">
+      <p><b>Destinatário Pix:</b> {g.pix_holder_name}</p>
+      <p>Tipo: <b>{g.pix_type?.toUpperCase()}</b> · Chave: <code style={{overflowWrap:'anywhere'}}>{g.pix_key}</code></p>
+      <button className="tiny" type="button" onClick={()=>navigator.clipboard.writeText(g.pix_key).catch(()=>setErr('Não foi possível copiar. Selecione a chave acima.'))}>COPIAR CHAVE PIX</button>
+      <p className="small">No aplicativo do banco, confira o nome e os dados retornados para o beneficiário antes de enviar. A VELLOR registra o repasse somente após o pagamento real.</p>
+     </div>:<div className="notice error" role="status">Chave Pix pendente: o fornecedor deve cadastrá-la em seu portal antes do repasse. Não registre pagamentos sem os dados do destinatário.</div>}
      <div className="field"><label>Referência do Pix enviado (obrigatória)</label><input value={reference[g.id]||''} onChange={e=>setReference(x=>({...x,[g.id]:e.target.value}))}/></div>
      <div className="field"><label>Data, destinatário e comprovante conferido</label><textarea value={notes[g.id]||''} onChange={e=>setNotes(x=>({...x,[g.id]:e.target.value}))}/></div>
-     <button className="btn gold" disabled={!!busy} onClick={()=>record(g)}>REGISTRAR PIX JÁ REALIZADO</button>
+     <button className="btn gold" disabled={!!busy||!g.pix_key||!g.pix_updated_at} onClick={()=>record(g)}>REGISTRAR PIX JÁ REALIZADO</button>
     </>:<p>Acompanhamento financeiro indisponível para este status.</p>}
    </div>)}</section>}
  </main></Frame>

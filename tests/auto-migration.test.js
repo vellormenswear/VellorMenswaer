@@ -27,15 +27,15 @@ function fakeDb({known=[],broken='',missingBase=[]}={}) {
 test('bundle de migrações corresponde aos SQLs versionados',()=>{
  for(const [name,sql] of MARKETPLACE_MIGRATIONS){
   assert.equal(sql,readFileSync('db/'+name,'utf8'));
-  assert.match(name,/^00[2346]_/);
+  assert.match(name,/^0(?:0[234689]|10)_/);
  }
 });
 
 test('instala somente migrações pendentes e registra versões',async()=>{
  const f=fakeDb({known:['002_marketplace.sql']});
  const r=await applyMarketplaceMigrations(f.connect);
- assert.deepEqual(r.applied,['003_supplier_changes.sql','004_paid_orders_only.sql','006_asaas.sql']);
- assert.equal(f.applied.size,4);
+ assert.deepEqual(r.applied,MARKETPLACE_MIGRATIONS.filter(([name])=>name!=='002_marketplace.sql').map(([name])=>name));
+ assert.equal(f.applied.size,MARKETPLACE_MIGRATIONS.length);
  assert.equal(f.committed,true);
  assert.equal(f.released,true);
 });

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-asaas-env.mjs && node --test tests/asaas-checkout.test.js tests/infinitepay-checkout.test.js tests/supplier-notifications.test.js tests/catalog.test.js tests/storefront-discovery.test.js tests/security.test.js tests/support-faq.test.js tests/policies.test.js tests/unified-fixes.test.js && node scripts/migrate-support.mjs && next build",
+    "build": "node scripts/check-asaas-env.mjs && node --test tests/asaas-checkout.test.js tests/infinitepay-checkout.test.js tests/supplier-notifications.test.js tests/supplier-pix.test.js tests/auto-migration.test.js tests/catalog.test.js tests/storefront-discovery.test.js tests/security.test.js tests/support-faq.test.js tests/policies.test.js tests/unified-fixes.test.js && node scripts/migrate-support.mjs && next build",
     "start": "next start",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "node scripts/seed.mjs",

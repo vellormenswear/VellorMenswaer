@@ -1,8 +1,10 @@
-import {sql,transaction,audit} from '@/lib/db';
+import {sql,db,transaction,audit} from '@/lib/db';
+import {applyMarketplaceMigrations} from '@/lib/marketplace-auto-schema.mjs';
 import {requireUser,requireRole} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,uuid,txt,email,HttpError} from '@/lib/http';
 import {randomToken,sha256} from '@/lib/security';
 import {randomUUID} from 'node:crypto';
+import {parseSupplierPix,supplierPixSummary} from '@/lib/supplier-pix.mjs';
 import {supplierSubmissionValid,generatedSupplierSku,resolveApprovedProductImage} from '@/lib/marketplace-rules.mjs';
 import {supplierVariantValid,supplierCommission as feeOf} from '@/lib/marketplace-rules.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -31,7 +33,7 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  if(action==='invite-check'){const token=txt(q.get('token'),200);const r=await sql('SELECT email,expires_at FROM supplier_invites WHERE token_hash=$1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at>now()',[sha256(token)]);ensure(r.rowCount,'Convite inválido, vencido ou utilizado.',404);return ok({invite:r.rows[0]})}
  if(action.startsWith('admin-')){await requireRole(req,adminRoles);
   if(action==='admin-list'){const [suppliers,invites,queue,categories,unlinked]=await Promise.all([
-   sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_asaas_wallets aw WHERE aw.supplier_id=s.id) AS asaas_connected FROM suppliers s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC`),
+   sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_asaas_wallets aw WHERE aw.supplier_id=s.id) AS asaas_connected,EXISTS(SELECT 1 FROM supplier_pix_accounts pix WHERE pix.supplier_id=s.id) AS pix_registered FROM suppliers s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC`),
    sql('SELECT id,email,expires_at,used_at,revoked_at,created_at FROM supplier_invites ORDER BY created_at DESC LIMIT 70'),
    sql(`SELECT sub.*,s.business_name FROM supplier_submissions sub JOIN suppliers s ON s.id=sub.supplier_id ORDER BY (sub.status='pending') DESC,sub.created_at DESC LIMIT 100`),
    sql('SELECT id,name FROM categories WHERE active ORDER BY name'),
@@ -61,21 +63,23 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  const {supplier}=await currentSupplier(req);
  if(action==='notifications')return ok({notifications:await supplierNotices(supplier.id)});
  if(action==='dashboard'){
-  const [subs,products,orders,asaas,changes,notices]=await Promise.all([
+  const [subs,products,orders,asaas,changes,notices,pixAccount]=await Promise.all([
    sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    sql(`SELECT p.id,p.name,p.slug,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
    sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.amount_cents,g.supplier_amount_cents,g.mp_fee_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
    COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
    sql('SELECT wallet_id,verified_at FROM supplier_asaas_wallets WHERE supplier_id=$1',[supplier.id]),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
-   supplierNotices(supplier.id)]);
-  return ok({supplier,submissions:subs.rows,products:products.rows,orders:orders.rows,asaas_wallet:asaas.rows[0]||null,price_requests:changes.rows,notifications:notices})
+   supplierNotices(supplier.id),
+   sql('SELECT pix_type,pix_key,holder_name,updated_at FROM supplier_pix_accounts WHERE supplier_id=$1',[supplier.id])]);
+  return ok({supplier,submissions:subs.rows,products:products.rows,orders:orders.rows,asaas_wallet:asaas.rows[0]||null,pix_account:supplierPixSummary(pixAccount.rows[0]),price_requests:changes.rows,notifications:notices})
  }
  throw new HttpError(404,'Recurso desconhecido.');
  }catch(e){return fail(e)}}
 export async function POST(req,{params}){try{originGuard(req);const {action}=await params;const x=await body(req,120000);
  if(action.startsWith('admin-')){const u=await requireRole(req,adminRoles);
   if(action==='admin-invite'){
+   await applyMarketplaceMigrations(()=>db().connect());
    const token=randomToken();
    await sql("INSERT INTO supplier_invites(email,token_hash,created_by,expires_at) VALUES($1,$2,$3,now()+interval '7 days')",['',sha256(token),u.id]);
    await audit(u.id,'supplier.invite','supplier_invite',null,null,{delivery:'manual_link'});
@@ -133,6 +137,16 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   throw new HttpError(404,'Ação desconhecida.');
  }
  const {user,supplier}=await currentSupplier(req);
+ if(action==='pix-account'){
+  const pix=parseSupplierPix(x);
+  ensure(pix,'Informe um tipo de chave Pix válido, a chave e o nome do titular.',400);
+  await sql(`INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name)
+   VALUES($1,$2,$3,$4) ON CONFLICT(supplier_id)
+   DO UPDATE SET pix_type=$2,pix_key=$3,holder_name=$4,updated_at=now()`,
+   [supplier.id,pix.pix_type,pix.pix_key,pix.holder_name]);
+  await audit(user.id,'supplier.pix_updated','supplier',supplier.id,null,{pix_type:pix.pix_type});
+  return ok({updated:true,pix_account:supplierPixSummary({...pix,updated_at:new Date()})});
+ }
  if(action==='notification-read'){
   ensure(uuid(x.notification_id),'Aviso inválido.',400);
   // Prova de titularidade usando o grupo de pedido e o ID do aviso (nunca user_id do cliente).

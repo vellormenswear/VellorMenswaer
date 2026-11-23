@@ -3,8 +3,8 @@ import {useEffect,useState} from 'react';import Frame from '@/components/Frame';
 const brl=n=>(Number(n||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const newProduct=()=>({name:'',description:'',category_id:'',variants:[{sku:'',label:'',cost_cents:'',stock_mode:'quantity',stock:'0',image_url:'',sizes:'',preparation_days:2,delivery_days_min:5,delivery_days_max:15}]});
 const req=async(method,path,data)=>{const r=await fetch('/api/'+path,{method,headers:{'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined,cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Falha na operação');return j};
-export default function Supplier(){const [user,setUser]=useState(null),[data,setData]=useState(null),[msg,setMsg]=useState(''),[tab,setTab]=useState('products'),[product,setProduct]=useState(newProduct()),[busy,setBusy]=useState(false),[categories,setCategories]=useState([]),[loading,setLoading]=useState(true);
- async function load(){setLoading(true);setMsg('');try{const [me,source,cats]=await Promise.all([req('GET','auth/me'),req('GET','suppliers/dashboard'),req('GET','catalog/categories').catch(()=>({categories:[]}))]);setUser(me.user);setData(source);setCategories(cats.categories||[])}catch(e){setData(null);setMsg(e.message)}finally{setLoading(false)}}
+export default function Supplier(){const [user,setUser]=useState(null),[data,setData]=useState(null),[msg,setMsg]=useState(''),[tab,setTab]=useState('products'),[product,setProduct]=useState(newProduct()),[busy,setBusy]=useState(false),[categories,setCategories]=useState([]),[loading,setLoading]=useState(true),[pixForm,setPixForm]=useState({pix_type:'',pix_key:'',pix_holder_name:''});
+ async function load(){setLoading(true);setMsg('');try{const [me,source,cats]=await Promise.all([req('GET','auth/me'),req('GET','suppliers/dashboard'),req('GET','catalog/categories').catch(()=>({categories:[]}))]);setUser(me.user);setData(source);setCategories(cats.categories||[]);setPixForm(v=>({pix_type:source.pix_account?.pix_type||v.pix_type||'',pix_key:'',pix_holder_name:source.pix_account?.pix_holder_name||v.pix_holder_name||''}))}catch(e){setData(null);setMsg(e.message)}finally{setLoading(false)}}
  useEffect(()=>{load()},[]);
  useEffect(()=>{const refreshId=setInterval(()=>{
   req('GET','suppliers/notifications')
@@ -19,6 +19,14 @@ export default function Supplier(){const [user,setUser]=useState(null),[data,set
  }
  const changeVariant=(i,k,v)=>setProduct(p=>({...p,variants:p.variants.map((item,j)=>j===i?{...item,[k]:v}:item)}));
  async function post(action,payload){try{setBusy(true);setMsg('');await req('POST','suppliers/'+action,payload);setMsg('Operação registrada.');await load()}catch(e){setMsg(e.message)}finally{setBusy(false)}}
+ async function savePix(e){
+  e.preventDefault();
+  if(data?.pix_account?.registered&&!window.confirm('Deseja substituir a chave Pix utilizada para seus próximos repasses?'))return;
+  try{setBusy(true);setMsg('');
+   await req('POST','suppliers/pix-account',pixForm);
+   await load();setMsg('Chave Pix cadastrada com sucesso. A VELLOR utilizará essa chave nos próximos repasses manuais.');
+  }catch(err){setMsg(err.message)}finally{setBusy(false)}
+ }
  async function submit(e){e.preventDefault();const variants=product.variants.map(v=>({...v,cost_cents:Math.round(Number(String(v.cost_cents).replace(',','.'))*100),stock:v.stock_mode==='quantity'?Number(v.stock):null,sizes:String(v.sizes||'').split(',').map(x=>x.trim()).filter(Boolean),preparation_days:Number(v.preparation_days),delivery_days_min:Number(v.delivery_days_min),delivery_days_max:Number(v.delivery_days_max)}));await post('submit',{name:product.name,description:product.description,category_id:product.category_id,variants});setProduct(newProduct())}
  const paymentRows=(data?.orders||[]).filter(x=>x.payment_status==='approved');
  const notices=data?.notifications||[];
@@ -28,6 +36,22 @@ export default function Supplier(){const [user,setUser]=useState(null),[data,set
   :'O cliente confirmou o pagamento. Seu valor de fornecimento é '+brl(n.supplier_amount_cents)+'. Aguarde a VELLOR realizar e confirmar seu repasse antes de preparar ou enviar.';
  return <Frame user={user}><main className="page"><h1>Portal do fornecedor</h1><p>Seus produtos, pedidos e entregas na VELLOR MENSWEAR</p>{msg&&<p className="notice" role="status">{msg}</p>}{!data?<section className="card"><p>{loading?'Carregando dados...':msg?'Não foi possível carregar os dados. Confira sua autorização e a configuração do banco Neon.':'Entre com a conta criada pelo convite para acessar o painel.'}</p><p><a href="/conta">Fazer login</a></p><button type="button" className="btn ghost" onClick={load}>TENTAR NOVAMENTE</button></section>:<><div className="cols3"><div className="metric"><strong>{data.products.length}</strong><small>Variações aprovadas</small></div><div className="metric"><strong>{paymentRows.length}</strong><small>Pedidos pagos</small></div><div className="metric"><strong>{brl(paymentRows.reduce((s,g)=>s+g.supplier_amount_cents,0))}</strong><small>Valores brutos de fornecimento</small></div></div><section className="card"><h2>{data.supplier.business_name}</h2>
   <p className="help">Pagamentos recebidos pela VELLOR via InfinitePay. O Pix de cada pedido é transferido manualmente ao fornecedor, e a preparação só é liberada quando o administrador confirma o repasse.</p>
+ </section>
+ <section className="card" aria-label="Conta Pix para receber os repasses">
+  <h2>Minha chave Pix para repasses</h2>
+  {data.pix_account?.registered?<p className="notice ok">
+   <b>Chave cadastrada</b> · {data.pix_account.pix_type.toUpperCase()} · {data.pix_account.pix_key_mask}<br/>
+   <small>Titular: {data.pix_account.pix_holder_name}. A chave completa fica restrita ao setor de pagamentos da VELLOR.</small>
+  </p>:<p className="notice error" role="status">Cadastre sua chave Pix para receber os pagamentos da VELLOR. Você poderá atualizar os dados neste painel.</p>}
+  <form onSubmit={savePix} className="formgrid">
+   <div className="field"><label htmlFor="supplier-pix-type">Tipo de chave Pix</label><select id="supplier-pix-type" required value={pixForm.pix_type} onChange={e=>setPixForm(v=>({...v,pix_type:e.target.value,pix_key:''}))}>
+    <option value="">Selecione o tipo</option><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Celular</option><option value="random">Chave aleatória</option>
+   </select></div>
+   <div className="field"><label htmlFor="supplier-pix-key">{data.pix_account?.registered?'Nova chave Pix':'Sua chave Pix'}</label><input id="supplier-pix-key" required maxLength={255} autoComplete="off" spellCheck={false} value={pixForm.pix_key} placeholder="Informe a chave registrada no banco" onChange={e=>setPixForm(v=>({...v,pix_key:e.target.value}))}/></div>
+   <div className="field"><label htmlFor="supplier-pix-holder">Nome ou razão social do titular da chave</label><input id="supplier-pix-holder" required minLength={3} maxLength={120} value={pixForm.pix_holder_name} onChange={e=>setPixForm(v=>({...v,pix_holder_name:e.target.value}))}/></div>
+   <div className="field"><label>Confirmação</label><p className="help">Antes de realizar o pagamento, a VELLOR confere o destinatário no banco. Não envie informações de cartão aqui.</p></div>
+   <button className="btn gold" disabled={busy}>{busy?'SALVANDO...':data.pix_account?.registered?'ATUALIZAR CHAVE PIX':'CADASTRAR CHAVE PIX'}</button>
+  </form>
  </section>
  {unreadNotices.length>0&&<section className="supplier-notice-banner" role="status" aria-live="polite">
   <div><strong>{unreadNotices.length===1?'Você tem 1 novo aviso de pedido':`Você tem ${unreadNotices.length} novos avisos de pedidos`}</strong>
