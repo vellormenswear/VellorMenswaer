@@ -176,3 +176,134 @@
 .vellor-mark-pix img{min-height:34px}
 .vellor-footer-payments p{margin:18px 0 0}
 @media(max-width:620px){.vellor-payment-mark{width:64px;height:40px;padding:5px 7px}.vellor-mark-pix{width:70px;height:44px}.vellor-mark-pix img{min-height:31px}}
+
+
+/* VELLOR 23/11 — vitrine horizontal e descoberta por categorias/preços.
+   Não altera o modal, os filtros existentes, o carrinho nem o checkout. */
+.vellor-products-heading{
+ display:flex;align-items:end;justify-content:space-between;gap:18px;
+ padding:32px 0 18px;scroll-margin-top:85px;
+}
+.vellor-products-heading h1,
+.vellor-discovery-head h2{
+ margin:5px 0 0;color:#1b3026;font:normal clamp(27px,2.65vw,37px)/1.15 Georgia,'Times New Roman',serif;
+ letter-spacing:-.4px;
+}
+.vellor-discovery-eyebrow{
+ color:#a18b64;font-size:10px;font-weight:750;letter-spacing:2px;
+}
+.vellor-carousel-controls{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.vellor-carousel-controls button{
+ width:46px;height:46px;border-radius:50%;border:1px solid #c9c8bf;
+ background:#fff;color:#163c2d;font-size:23px;line-height:1;
+ display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s,border-color .2s;
+}
+.vellor-carousel-controls button:hover:not(:disabled){background:#092f25;color:#f3e6c4;border-color:#092f25}
+.vellor-carousel-controls button:disabled{opacity:.36;cursor:not-allowed}
+#grid.vellor-product-rail{
+ display:flex;gap:26px;overflow-x:auto;overscroll-behavior-x:contain;
+ scroll-snap-type:x mandatory;scroll-padding-inline:3px;scrollbar-width:thin;
+ scrollbar-color:#c3b08b #f2f1ec;
+ padding:8px 2px 34px;margin-bottom:43px;
+ -webkit-overflow-scrolling:touch;
+}
+#grid.vellor-product-rail>.card{
+ flex:0 0 calc((100% - 78px)/4);min-width:0;
+ scroll-snap-align:start;animation:none;
+}
+#grid.vellor-product-rail>.card .photo{
+ border-radius:5px 5px 0 0;aspect-ratio:4/4.6;
+}
+#grid.vellor-product-rail>.card .card-meta{padding:15px 3px 0}
+#grid.vellor-product-rail>.card .card-name{min-height:44px}
+#grid.vellor-product-rail>.empty{
+ flex:1 0 100%;padding:55px 15px;max-width:100%;
+}
+.vellor-discovery{padding:8px 0 90px;border-top:1px solid #eae6df}
+.vellor-discovery-group{padding-top:36px}
+.vellor-discovery-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:23px}
+.vellor-category-rail{
+ display:grid;grid-auto-flow:column;
+ grid-auto-columns:calc((100% - 64px)/5);
+ gap:16px;overflow-x:auto;overscroll-behavior-x:contain;
+ scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:#c4b49a transparent;
+ padding:2px 2px 16px;
+}
+.vellor-category-tile{
+ appearance:none;min-width:0;position:relative;overflow:hidden;
+ height:230px;padding:0;border:1px solid #e9e6df;border-radius:8px;
+ background:linear-gradient(145deg,#f5f3ee,#ebeae4);
+ scroll-snap-align:start;text-align:left;isolation:isolate;
+ transition:border-color .2s,transform .2s,box-shadow .2s;
+}
+.vellor-category-tile:hover{border-color:#baa679;transform:translateY(-2px);box-shadow:0 12px 20px rgba(16,45,32,.11)}
+.vellor-category-picture{position:absolute;inset:0 0 42px;display:flex;align-items:center;justify-content:center}
+.vellor-category-picture img{
+ width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;
+ padding:8px;transition:transform .35s ease;
+}
+.vellor-category-tile:hover .vellor-category-picture img{transform:scale(1.045)}
+.vellor-category-name{
+ position:absolute;bottom:0;left:0;right:0;display:flex;
+ align-items:center;justify-content:space-between;gap:6px;
+ padding:13px 15px;background:#092f25;color:#f5f0e3;
+ font-size:12px;letter-spacing:.4px;font-weight:650;
+}
+.vellor-category-name span{color:#d8c18c;font-size:17px}
+.vellor-prices-group{padding-top:49px}
+.vellor-price-rail{
+ display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:13px;
+}
+.vellor-price-tile{
+ min-width:0;min-height:160px;display:flex;flex-direction:column;
+ align-items:flex-start;justify-content:space-between;
+ position:relative;overflow:hidden;border-radius:8px;
+ border:1px solid #1d4839;
+ color:#f8f4e9;background:linear-gradient(145deg,#0b3b2d,#061f18 76%);
+ padding:17px 15px 22px;text-align:left;
+ transition:transform .2s,box-shadow .2s,border-color .2s;
+}
+.vellor-price-tile:after{content:"";position:absolute;right:-35px;top:-70px;
+ width:150px;height:150px;pointer-events:none;border:1px solid rgba(226,201,148,.13);border-radius:50%}
+.vellor-price-tile:hover,.vellor-price-tile.active{
+ transform:translateY(-2px);border-color:#c4a46d;
+ box-shadow:0 9px 22px rgba(7,34,25,.17);
+}
+.vellor-price-tile.active{outline:2px solid #a98d59;outline-offset:2px}
+.vellor-price-kicker{width:100%;display:flex;justify-content:space-between;gap:5px;
+ font-size:9px;font-weight:750;letter-spacing:1.4px;color:#dac48e}
+.vellor-price-kicker span{color:#91b1a2;font-size:9px;letter-spacing:.2px;white-space:nowrap}
+.vellor-price-lead{margin-top:20px;font-size:10px;letter-spacing:1.1px;color:#d1dfd4;font-weight:650}
+.vellor-price-value{color:#f7e4bc;font:normal clamp(25px,2.4vw,35px)/1 Georgia,'Times New Roman',serif;
+ letter-spacing:-.8px;white-space:nowrap}
+.vellor-price-value small{font:600 13px Inter,Arial,sans-serif;color:#d9d4c5;margin-right:6px;letter-spacing:0}
+@media(max-width:1160px){
+ #grid.vellor-product-rail>.card{flex-basis:calc((100% - 52px)/3)}
+ .vellor-category-rail{grid-auto-columns:calc((100% - 32px)/3)}
+ .vellor-price-rail{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+ #grid.vellor-product-rail{gap:16px;margin-bottom:24px}
+ #grid.vellor-product-rail>.card{flex-basis:calc((100% - 16px)/2)}
+ .vellor-products-heading{padding-top:25px}
+ .vellor-carousel-controls button{width:40px;height:40px}
+ .vellor-category-rail{grid-auto-columns:calc((100% - 16px)/2);gap:12px}
+ .vellor-category-tile{height:210px}
+ .vellor-price-rail{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+ .vellor-price-tile{min-height:148px}
+ .vellor-prices-group{padding-top:32px}
+}
+@media(max-width:480px){
+ #grid.vellor-product-rail>.card{flex-basis:79%}
+ .vellor-category-rail{grid-auto-columns:73%}
+ .vellor-category-tile{height:218px}
+ .vellor-price-tile{min-height:143px;padding:13px 10px 17px}
+ .vellor-price-value{font-size:clamp(23px,6.3vw,31px)}
+ .vellor-price-kicker{font-size:8px;letter-spacing:.7px}
+ .vellor-price-kicker span{font-size:8px}
+ .vellor-discovery{padding-bottom:48px}
+}
+@media(prefers-reduced-motion:reduce){
+ #grid.vellor-product-rail,.vellor-category-rail{scroll-behavior:auto}
+ .vellor-category-tile,.vellor-category-picture img,.vellor-price-tile{transition:none}
+}
