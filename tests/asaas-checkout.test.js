@@ -86,7 +86,7 @@ test('API e pagina de finalizacao compartilham o contrato de resposta do Asaas',
 });
 
 test('recuperar wallet principal no formato oficial do Asaas',()=>{
- const official='0000c712-0a0b-a0b0-0000-031e7ac51a2';
+ const official='0000c712-0a0b-a0b0-0000-031e7ac51a20';
  assert.equal(validWalletId(official),true);
  assert.equal(asaasPrimaryWalletId({object:'list',hasMore:false,totalCount:1,data:[{object:'wallet',id:official}]}),official);
  assert.equal(asaasPrimaryWalletId({id:a}),a);
