@@ -74,6 +74,21 @@ export default function Frame({children,user,logout}){
       <p>Pix e cartões Visa, Mastercard, Elo e American Express. Opções e condições confirmadas no checkout da InfinitePay. Nunca informe dados de cartão pelo chat.</p>
      </section>
     </div>
+    <section className="vll-trust" aria-label="Compre com tranquilidade">
+     <div className="vll-trust-heading"><span>VELLOR MENSWEAR</span><h2>Compre com tranquilidade.</h2></div>
+     <div className="vll-trust-grid">
+      <Link href="/termos-de-compra" className="vll-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2 20 6v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg><span><strong>Pagamento protegido</strong><small>Checkout processado pela InfinitePay.</small></span></Link>
+      <Link href="/entregas" className="vll-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="12" height="12" rx="1"/><path d="M14.5 10h4l3 3v5h-7"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg><span><strong>Envio em até 3 dias</strong><small>Postagem após a confirmação do pagamento.</small></span></Link>
+      <Link href="/conta" className="vll-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7 12 3l9 4-9 4-9-4ZM3 7v10l9 4 9-4V7M12 11v10"/><path d="m9 16 2 2 4-4"/></svg><span><strong>Acompanhe seu pedido</strong><small>Atualizações disponíveis na sua conta.</small></span></Link>
+      <Link href="/trocas-e-devolucoes" className="vll-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9M3 4v8h8"/><path d="m8 13 3 3 5-6"/></svg><span><strong>Devolução em 7 dias</strong><small>Seu direito de arrependimento é respeitado.</small></span></Link>
+     </div>
+    </section>
+    <nav className="vll-policy-links" aria-label="Informações e políticas da VELLOR">
+     <Link href="/entregas">Entrega e prazos</Link>
+     <Link href="/trocas-e-devolucoes">Trocas e devoluções</Link>
+     <Link href="/privacidade">Política de privacidade</Link>
+     <Link href="/termos-de-compra">Termos de compra</Link>
+    </nav>
     <div className="vll-footer-bottom"><span>VELLOR MENSWEAR</span><span>Atendimento e informações para sua compra.</span></div>
    </div>
   </footer>

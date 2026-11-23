@@ -298,3 +298,24 @@
 @media(max-width:1160px){.vellor-category-nav .vellor-category-rail{grid-auto-columns:calc((100% - 32px)/3)}.vellor-category-nav .vellor-category-tile{height:175px}}
 @media(max-width:760px){.vellor-category-nav-inner{padding:14px 18px 18px}.vellor-category-nav .vellor-category-rail{grid-auto-columns:calc((100% - 12px)/2);gap:12px}.vellor-category-nav .vellor-category-tile{height:166px}.vellor-category-nav .vellor-category-name{font-size:11px}.vellor-footer-faq{padding-bottom:88px}}
 @media(max-width:480px){.vellor-category-nav-inner{padding:13px 12px 16px}.vellor-nav-eyebrow{font-size:9px;letter-spacing:1.6px}.vellor-nav-all{font-size:9px}.vellor-category-nav .vellor-category-rail{grid-auto-columns:61%;gap:11px}.vellor-category-nav .vellor-category-tile{height:168px}.vellor-category-nav .vellor-category-picture{inset:0 0 40px}.vellor-footer-faq{padding-bottom:90px}}
+
+
+/* Área de credibilidade e acesso transparente às políticas — 23/11/2026 */
+.vellor-trust{border-top:1px solid rgba(225,210,172,.2);padding:48px 0 44px}
+.vellor-trust-title{margin-bottom:27px}
+.vellor-trust-title>span{font-size:9px;font-weight:750;letter-spacing:2.3px;color:#d9bd84}
+.vellor-trust-title h2{font:400 clamp(26px,2.3vw,33px) Georgia,'Times New Roman',serif;color:#f0e7d4;margin:7px 0 0}
+.vellor-trust-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.vellor-trust-item{display:flex;gap:14px;align-items:flex-start;min-width:0;padding:17px 10px 18px 0;border-top:1px solid rgba(225,210,172,.22);text-decoration:none;transition:border-color .2s}
+.vellor-trust-item:hover{border-top-color:#d9bd84}
+.vellor-trust-icon{width:37px;height:37px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid rgba(225,210,172,.44);border-radius:50%;color:#e2c58b}
+.vellor-trust-icon svg{width:21px;height:21px}
+.vellor-trust-item strong{display:block;color:#f2eee1;font-size:12px;font-weight:600;line-height:1.5;margin-top:3px}
+.vellor-trust-item small{display:block;color:#bbc9bd;font-size:11px;line-height:1.7;margin-top:6px;font-weight:400}
+.vellor-footer-policies{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:11px 26px;border-top:1px solid rgba(225,210,172,.23);padding:22px 0 24px}
+.vellor-footer-policies a{font-size:11px;color:#d7decf;text-decoration:none;letter-spacing:.2px}
+.vellor-footer-policies a:hover{color:#f0d89f;text-decoration:underline;text-underline-offset:4px}
+.vellor-faq-items details p a{color:#e0cb94;text-decoration:underline;text-underline-offset:3px}
+.cart-summary-note a{color:#a28a55;text-decoration:underline;text-underline-offset:2px}
+@media(max-width:1050px){.vellor-trust-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 22px}}
+@media(max-width:600px){.vellor-trust{padding:40px 0 30px}.vellor-trust-grid{grid-template-columns:1fr 1fr;gap:10px 12px}.vellor-trust-item{flex-direction:column;gap:9px;padding:14px 3px}.vellor-trust-icon{height:35px;width:35px}.vellor-trust-item strong{font-size:11px}.vellor-trust-item small{font-size:10px}.vellor-footer-policies{justify-content:flex-start;gap:13px 19px}.vellor-footer-policies a{font-size:11px}}

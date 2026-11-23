@@ -112,3 +112,48 @@ body{background:#faf9f6;color:#15241e;font-size:14px}
  background-position:center center;
  background-size:cover;
 }
+
+
+/* Confiança e políticas comerciais — páginas Next.js e área de cliente */
+.vll-trust{padding:46px 0 42px;border-top:1px solid rgba(225,210,172,.2)}
+.vll-trust-heading{margin-bottom:26px}
+.vll-trust-heading>span{color:#d9bd84;font-size:9px;font-weight:750;letter-spacing:2.3px}
+.vll-trust-heading h2{font:400 clamp(26px,2.3vw,33px) Georgia,'Times New Roman',serif;color:#f0e7d4;margin:7px 0 0}
+.vll-trust-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.vll-trust-item{display:flex;align-items:flex-start;gap:14px;min-width:0;color:#f5f1e8;text-decoration:none;padding:18px 10px 18px 0;border-top:1px solid rgba(225,210,172,.22);transition:border-color .2s}
+.vll-trust-item:hover{border-top-color:#d9bd84}
+.vll-trust-item svg{height:37px;width:37px;flex:none;border:1px solid rgba(225,210,172,.44);border-radius:50%;padding:8px;color:#e2c58b}
+.vll-trust-item strong{display:block;font-weight:600;font-size:12px;line-height:1.5;margin-top:3px}
+.vll-trust-item small{display:block;color:#bbc9bd;font-size:11px;line-height:1.7;margin-top:6px;font-weight:400}
+.vll-policy-links{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:11px 26px;border-top:1px solid rgba(225,210,172,.23);padding:22px 0 24px}
+.vll-policy-links a{font-size:11px;color:#d7decf;text-decoration:none}
+.vll-policy-links a:hover{color:#f0d89f;text-decoration:underline;text-underline-offset:4px}
+/* Informações transparentes, sem selos de certificação fictícios. */
+.page.vll-policy{width:min(1250px,100%);max-width:1250px;margin:0 auto;padding:35px 28px 85px;color:#193027}
+.vll-policy-crumb{display:flex;align-items:center;flex-wrap:wrap;gap:11px;color:#6e766e;font-size:11px;letter-spacing:.65px;margin-bottom:30px}
+.vll-policy-crumb a{text-decoration:none;color:#3c6a51;font-weight:650}
+.vll-policy-crumb a:hover{text-decoration:underline}
+.vll-policy-hero{padding:29px 0 37px;border-bottom:1px solid #e2e1da;margin-bottom:36px}
+.vll-policy-eyebrow{font-size:10px;color:#a18b61;font-weight:750;letter-spacing:2px;margin-bottom:11px}
+.vll-policy-hero h1{font:400 clamp(34px,4vw,52px)/1.16 Georgia,'Times New Roman',serif;color:#143224;margin:0 0 16px}
+.vll-policy-hero>p:not(.vll-policy-eyebrow){font-size:14px;line-height:1.85;color:#4e5d52;max-width:800px}
+.vll-policy-hero .vll-policy-date{font-size:11px!important;color:#8a8d83!important;margin-top:13px}
+.vll-policy-layout{display:grid;grid-template-columns:minmax(0,1fr) 255px;gap:58px;align-items:start}
+.vll-policy-article{min-width:0}
+.vll-policy-section{padding:0 0 30px;margin:0 0 31px;border-bottom:1px solid #e8e6df}
+.vll-policy-section h2{font:400 clamp(23px,2.2vw,30px)/1.2 Georgia,'Times New Roman',serif;color:#1a3a2a;margin-bottom:17px}
+.vll-policy-section p{font-size:14px;line-height:1.95;color:#445147;margin:0 0 14px;max-width:780px}
+.vll-policy-side{border:1px solid #e2e1d9;background:#fff;padding:24px 22px;display:grid;gap:0;position:sticky;top:22px;border-radius:4px}
+.vll-policy-side h2{font:400 23px Georgia,'Times New Roman',serif;margin:0 0 14px;color:#1c3729}
+.vll-policy-side a{display:flex;justify-content:space-between;gap:10px;padding:12px 0;font-size:12px;text-decoration:none;color:#3e5545;border-bottom:1px solid #f0eee9;line-height:1.5}
+.vll-policy-side a:hover,.vll-policy-side a[aria-current="page"]{color:#8b6e35}
+.vll-policy-side a span{color:#b49965}
+.vll-policy-contact{background:#eaf0e9;padding:26px 28px;border-left:3px solid #a8956b;border-radius:3px}
+.vll-policy-contact h2{font:400 26px Georgia,'Times New Roman',serif;color:#19392a;margin-bottom:11px}
+.vll-policy-contact p{font-size:13px;line-height:1.8;color:#4b5b4e;margin-bottom:18px}
+.vll-policy-contact>div{display:flex;gap:15px;align-items:center;flex-wrap:wrap}
+.vll-policy-contact a{color:#1d4934;font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.vll-policy-contact .vll-policy-action{text-decoration:none;color:#faf5e7;background:#0a3828;padding:12px 18px;border-radius:3px}
+@media(max-width:1050px){.vll-trust-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px 24px}}
+@media(max-width:850px){.vll-policy-layout{grid-template-columns:1fr;gap:20px}.vll-policy-side{position:static;grid-row:1}.vll-policy-side h2{font-size:20px}.vll-policy-side{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}.vll-policy-side h2{grid-column:1/-1}}
+@media(max-width:550px){.vll-trust{padding:36px 0}.vll-trust-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vll-trust-item{flex-direction:column;gap:9px;padding:12px 3px}.vll-trust-item svg{height:36px;width:36px}.vll-trust-item strong{font-size:11px}.vll-trust-item small{font-size:10px}.vll-policy-links{justify-content:flex-start;gap:13px 18px}.page.vll-policy{padding:27px 17px 65px}.vll-policy-section p{font-size:13px}.vll-policy-side{padding:18px 16px}.vll-policy-side a{font-size:11px}.vll-policy-contact{padding:22px 17px}}

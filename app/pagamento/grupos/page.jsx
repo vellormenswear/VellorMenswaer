@@ -51,7 +51,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
  }
  async function retry(id){try{setBusy(true);const r=await fetch(data?.provider==='infinitepay'?'/api/infinitepay/retry-checkout':'/api/asaas/retry-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({checkout_id:data?.checkout_id,trace_id:window.VellorTrace?.id||null})});const j=await r.json();if(!r.ok)throw Error(j.error);if(!j.checkout_url?.startsWith('https://'))throw Error('Link inválido.');trace('payment.redirect',{checkout_mode:'standard'});window.location.assign(j.checkout_url)}catch(e){traceError('payment.failed','RETRY_PREFERENCE_FAILED',e.message);setError(e.message);setBusy(false)}}
  return <Frame user={null}><main className="page checkoutbox"><h1>Acompanhe seus pagamentos</h1>
- <p>O checkout reúne os fornecedores em uma única cobrança e os repasses são feitos pela VELLOR após a confirmação. <b>Cada pedido é confirmado somente após a aprovação do pagamento correspondente.</b> As demais etapas podem continuar pendentes.</p>
+ <p>Sua compra é acompanhada pela VELLOR em uma única cobrança. <b>O pedido é confirmado somente após a aprovação do pagamento.</b> O envio é providenciado em até 3 dias após a confirmação; acompanhe o andamento na sua conta.</p>
  {providerResult?.group_id===null&&<p className="notice" role="status">Conferência automática: <b>{providerResult.confirmed?'Pagamento confirmado pelo provedor':'Aguardando confirmação oficial'}</b></p>}
  {error&&<p className="notice error" role="alert">{error} · Rastreamento: <code>{window.VellorTrace?.id||'indisponivel'}</code></p>}
  {!data?<p>Consultando pagamentos...</p>:<section className="card"><h2>Acompanhamento do checkout</h2>
@@ -72,6 +72,6 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
  {g.payment_status==='refund_pending'&&<p className="notice error">Pagamento recebido, mas há uma pendência que exige verificação administrativa. Não será enviado antes de ser resolvido.</p>}
  {g.tracking_code&&<p className="small">Rastreio: {g.carrier} — {g.tracking_code}</p>}</div>)}
  <button className="btn ghost" onClick={load}>ATUALIZAR SITUAÇÃO</button>
- <p className="help">A página de retorno não confirma pagamentos. Somente o servidor valida o pagamento com o provedor e cria o pedido após aprovação. O fornecedor aguarda o Pix manual da VELLOR.</p></section>}
+ <p className="help">A página de retorno não confirma pagamentos. A VELLOR consulta o provedor e registra seu pedido somente após a aprovação oficial. Você pode acompanhar a compra em Minha Conta.</p></section>}
  <p><Link href="/conta">Consultar meus pedidos pagos</Link></p></main></Frame>
 }
