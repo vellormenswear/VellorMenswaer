@@ -71,5 +71,5 @@ test('checkout e webhook Asaas exigem seguranca e consultas oficiais',()=>{
  assert.match(webhook,/reconcileAsaasBatch\(batch\)/);
  assert.match(reconcile,/checkoutSession/);
  assert.match(reconcile,/FOR UPDATE/);
- assert.match(reconcile,/provider,'?asaas/);
+ assert.match(reconcile,/VALUES\(\$1,'asaas'/);
 });
