@@ -19,7 +19,8 @@ export async function POST(req){try{
  const found=await sql('SELECT checkout_batch_id FROM infinitepay_checkout_batches WHERE order_nsu=$1',[orderNsu]);
  if(!found.rowCount)return ok({ignored:'not_managed'});
  const key=createHash('sha256').update(orderNsu+'|'+transaction+'|'+slug+'|'+eventType).digest('hex');
- await sql("INSERT INTO infinitepay_webhook_events(event_key,order_nsu,event_type) VALUES($1,$2,$3) ON CONFLICT(event_key) DO NOTHING",[key,orderNsu,eventType]);
+ const logged=await sql("INSERT INTO infinitepay_webhook_events(event_key,order_nsu,event_type) VALUES($1,$2,$3) ON CONFLICT(event_key) DO UPDATE SET event_type=EXCLUDED.event_type RETURNING status",[key,orderNsu,eventType]);
+ if(logged.rows[0]?.status==='processed')return ok({duplicate:true});
  if(['refunded','canceled','payment_failed'].includes(eventType)){
   // Sem assinatura, uma mensagem externa nao pode cancelar ou estornar um pedido real.
   await sql("UPDATE infinitepay_webhook_events SET status='requires_review',processed_at=now() WHERE event_key=$1",[key]);

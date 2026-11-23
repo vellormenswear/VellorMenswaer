@@ -6,7 +6,7 @@ const traceOk=(stage,meta)=>window.VellorTrace?.success(stage,meta||{});
 const traceError=(stage,code,message,meta)=>window.VellorTrace?.error(stage,code,message,meta||{});
 const labels={pending:'Aguardando pagamento',approved:'Pago e confirmado',refunded:'Reembolsado',refund_pending:'Reembolso em análise',rejected:'Não aprovado',refund_failed:'Falha no reembolso'};
 export default function GroupCheckout(){const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[providerResult,setProviderResult]=useState(null);
- const load=async()=>{try{const params=new URLSearchParams(location.search);const checkout=params.get('checkout_id')||(!params.get('order_id')?sessionStorage.getItem('vellor-last-checkout-id'):null);
+ const load=async()=>{try{const params=new URLSearchParams(location.search);const checkout=params.get('checkout_id')||params.get('order_nsu')||(!params.get('order_id')?sessionStorage.getItem('vellor-last-checkout-id'):null);
   const order=params.get('order_id');if(!checkout&&!order)throw Error('Nenhuma tentativa de pagamento selecionada.');
   const query=checkout?'checkout_id='+encodeURIComponent(checkout):'order_id='+encodeURIComponent(order);
   trace('checkout.groups.opened',{phase:'refresh'});let r=await fetch('/api/infinitepay/groups?'+query,{cache:'no-store',headers:{'X-Vellor-Trace-ID':window.VellorTrace?.id||''}});let j=await r.json();
@@ -16,7 +16,24 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
    if(saved&&saved===current)localStorage.removeItem('goston-cart-preview');
   }
  }catch(e){traceError('checkout.groups.failed','GROUP_QUERY_FAILED',e.message);setError(e.message)}};
- useEffect(()=>{load();const id=setInterval(load,20000);return()=>clearInterval(id)},[]);
+ useEffect(()=>{
+  load();
+  const params=new URLSearchParams(location.search);
+  const transaction_nsu=params.get('transaction_nsu'),slug=params.get('slug');
+  const checkout_id=params.get('checkout_id')||params.get('order_nsu')||sessionStorage.getItem('vellor-last-checkout-id');
+  // O retorno do navegador nao comprova pagamento. A verificacao sempre ocorre no servidor
+  // e exige o payment_check oficial. E executada uma unica vez nesta abertura.
+  if(transaction_nsu&&slug&&checkout_id){
+   setBusy(true);
+   fetch('/api/infinitepay/recheck-payment',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({checkout_id,transaction_nsu,slug})})
+    .then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Falha na verificacao InfinitePay');return j})
+    .then(j=>{setProviderResult({group_id:null,...j});return load()})
+    .catch(e=>{traceError('payment.failed','RETURN_RECHECK_FAILED',e.message);setError(e.message)})
+    .finally(()=>setBusy(false));
+  }
+  const id=setInterval(load,20000);return()=>clearInterval(id)
+ },[]);
  async function checkProvider(id){
   setBusy(true);setError('');
   try{
@@ -25,7 +42,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
     body:JSON.stringify({checkout_id:data?.checkout_id,transaction_nsu:new URLSearchParams(location.search).get('transaction_nsu')||'',slug:new URLSearchParams(location.search).get('slug')||'',trace_id:window.VellorTrace?.id||null})
    });
    const x=await r.json().catch(()=>({}));
-   if(!r.ok)throw Error(x.error||'Nao foi possivel consultar o Asaas.');
+   if(!r.ok)throw Error(x.error||'Não foi possível conferir o pagamento na API.');
    setProviderResult({group_id:id,...x});
    traceOk('payment.status',{status:x.provider_status||x.result||'checked'});
    await load();
@@ -35,6 +52,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
  async function retry(id){try{setBusy(true);const r=await fetch(data?.provider==='infinitepay'?'/api/infinitepay/retry-checkout':'/api/asaas/retry-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({checkout_id:data?.checkout_id,trace_id:window.VellorTrace?.id||null})});const j=await r.json();if(!r.ok)throw Error(j.error);if(!j.checkout_url?.startsWith('https://'))throw Error('Link inválido.');trace('payment.redirect',{checkout_mode:'standard'});window.location.assign(j.checkout_url)}catch(e){traceError('payment.failed','RETRY_PREFERENCE_FAILED',e.message);setError(e.message);setBusy(false)}}
  return <main className="page checkoutbox"><Link href="/"><img width="180" src="/logo-vellor.png" alt="VELLOR"/></Link><h1>Acompanhe seus pagamentos</h1>
  <p>O checkout reúne os fornecedores em uma única cobrança e os repasses são feitos pela VELLOR após a confirmação. <b>Cada pedido é confirmado somente após a aprovação do pagamento correspondente.</b> As demais etapas podem continuar pendentes.</p>
+ {providerResult?.group_id===null&&<p className="notice" role="status">Conferência automática: <b>{providerResult.confirmed?'Pagamento confirmado pelo provedor':'Aguardando confirmação oficial'}</b></p>}
  {error&&<p className="notice error" role="alert">{error} · Rastreamento: <code>{window.VellorTrace?.id||'indisponivel'}</code></p>}
  {!data?<p>Consultando pagamentos...</p>:<section className="card"><h2>Acompanhamento do checkout</h2>
  {data.groups.map((g,index)=><div className="card" key={g.id}><div className="flexrow"><b>Pagamento {index+1}</b><span className="spacer"/><strong>{money(g.amount_cents)}</strong></div>

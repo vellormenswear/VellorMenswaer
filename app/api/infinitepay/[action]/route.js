@@ -16,14 +16,27 @@ async function createCheckout(batch,u){
  ensure(groups.rowCount&&groups.rows.every(g=>new Date(g.checkout_expires_at)>new Date()),'Checkout expirado ou itens indisponiveis.',409);
  const info=buildInfinitepayCheckout(groups.rows,{batchId:batch,site:process.env.SITE_URL.replace(/\/$/,''),
   expiresAt:groups.rows[0].checkout_expires_at});
+ // Reserva idempotente ANTES da chamada externa: dois requests simultaneos
+ // nao podem criar dois links diferentes para o mesmo lote.
+ const reserved=await sql("INSERT INTO infinitepay_checkout_batches(checkout_batch_id,customer_id,order_nsu,total_cents,supplier_cents,status) VALUES($1,$2,$3,$4,$5,'creating') ON CONFLICT(checkout_batch_id) DO NOTHING RETURNING checkout_batch_id",
+  [batch,u.id,batch,info.total_cents,info.supplier_cents]);
+ if(!reserved.rowCount){
+  const old=await sql('SELECT checkout_url,status FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1 AND customer_id=$2',[batch,u.id]);
+  ensure(old.rowCount&&old.rows[0].status==='pending'&&old.rows[0].checkout_url,
+   'Checkout em preparacao; nao gere outra cobranca para este carrinho.',409);
+  return {checkout_url:old.rows[0].checkout_url,checkout_id:batch};
+ }
+ // Falhas de rede podem deixar status=creating. Nao gerar novamente:
+ // a InfinitePay nao permite recuperar ou cancelar links por order_nsu.
  const result=await infinitepayApi('/links',{handle:process.env.INFINITEPAY_HANDLE,...info.payload});
  const url=infinitepayLink(result);ensure(url,'InfinitePay nao retornou URL de checkout valida.',502);
  await transaction(async c=>{
-  const res=await c.query('SELECT 1 FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1 FOR UPDATE',[batch]);
-  ensure(!res.rowCount,'Ja existe checkout para este carrinho.',409);
-  await c.query('INSERT INTO infinitepay_checkout_batches(checkout_batch_id,customer_id,order_nsu,total_cents,supplier_cents,checkout_url,status) VALUES($1,$2,$3,$4,$5,$6,\'pending\')',[batch,u.id,batch,info.total_cents,info.supplier_cents,url]);
+  const row=await c.query("UPDATE infinitepay_checkout_batches SET checkout_url=$1,status='pending',updated_at=now() WHERE checkout_batch_id=$2 AND customer_id=$3 AND status='creating' RETURNING checkout_batch_id",
+   [url,batch,u.id]);
+  ensure(row.rowCount,'Checkout alterado durante a criacao.',409);
   await c.query("UPDATE supplier_order_groups SET checkout_url=$1,updated_at=now() WHERE checkout_batch_id=$2 AND customer_id=$3 AND payment_status='pending'",[url,batch,u.id]);
- });return{checkout_url:url,checkout_id:batch};
+ });
+ return {checkout_url:url,checkout_id:batch};
 }
 export async function GET(req,{params}){try{
  const {action}=await params;ensure(action==='groups','Rota invalida.',404);const u=await customer(req);
@@ -36,13 +49,14 @@ export async function GET(req,{params}){try{
  }catch(e){return fail(e)}}
 export async function POST(req,{params}){try{
  originGuard(req);const {action}=await params;const u=await customer(req);
- ensure(infinitepayReady(process.env,u),'Checkout InfinitePay bloqueado ate homologacao.',503);
  const x=await body(req,120000);
  if(action==='recheck-payment'){
   ensure(uuid(x.checkout_id),'Identificador invalido.',400);
   const found=await sql('SELECT 1 FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1 AND customer_id=$2',[x.checkout_id,u.id]);
   ensure(found.rowCount,'Checkout nao pertence ao cliente.',403);ensure(safeInfiniteRef(x.transaction_nsu)&&safeInfiniteRef(x.slug),'Referencias invalidas.',400);return ok(await reconcileInfinitepayBatch(x.checkout_id,{transaction_nsu:x.transaction_nsu,invoice_slug:x.slug}));
  }
+ // Confirmar uma venda ja realizada continua possivel, mesmo que o checkout comercial seja desligado.
+ ensure(infinitepayReady(process.env,u),'Checkout InfinitePay bloqueado ate homologacao.',503);
  if(action==='retry-checkout'){
   ensure(uuid(x.checkout_id),'Identificador invalido.',400);
   return ok(await createCheckout(x.checkout_id,u));

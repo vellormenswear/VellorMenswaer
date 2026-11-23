@@ -51,3 +51,16 @@ test('reconciliacao nao sombreia funcao de transacao e respeita status de pedido
  assert.ok(source.includes("stockOk?'paid':'cancel_requested'"));
  assert.ok(source.includes("stockOk?'awaiting_payout':'cancel_requested'"));
 });
+
+test('nao duplica link externo e valida retorno mesmo com checkout desativado',()=>{
+ const route=readFileSync(new URL('../app/api/infinitepay/[action]/route.js',import.meta.url),'utf8');
+ const reservation=route.indexOf("INSERT INTO infinitepay_checkout_batches");
+ const provider=route.indexOf("infinitepayApi('/links'");
+ assert.ok(reservation>=0&&provider>reservation,'Reserva idempotente deve preceder chamada ao provedor');
+ const verify=route.indexOf("if(action==='recheck-payment')");
+ const gate=route.indexOf("ensure(infinitepayReady(process.env,u)");
+ assert.ok(verify>=0&&gate>verify,'Verificacao de compras antigas nao pode depender da chave de habilitacao');
+ const page=readFileSync(new URL('../app/pagamento/grupos/page.jsx',import.meta.url),'utf8');
+ assert.match(page,/RETURN_RECHECK_FAILED/);
+ assert.ok(page.includes("params.get('order_nsu')"));
+});
