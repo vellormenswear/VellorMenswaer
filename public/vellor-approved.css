@@ -38,7 +38,7 @@
 .cart-page-heading h1{font:normal 43px/1.13 Georgia,'Times New Roman',serif;color:#193329;letter-spacing:-.7px;margin:0}
 .cart-page-subtitle{font-size:13px;color:#878c85;margin-top:12px;line-height:1.5}
 .cart-shop-again{background:none;border:0;color:#234534;font-size:11px;font-weight:700;letter-spacing:.6px;white-space:nowrap;padding:9px 0}
-.cart-shop-again span{font-size:15px;padding-left:5px;color:#b39b6d}
+.cart-shop-again .vellor-arrow-svg{width:15px;height:15px;margin-left:5px;color:#b39b6d}
 .cart-page-grid{display:grid;grid-template-columns:minmax(0,1fr) 336px;align-items:start;column-gap:45px;padding-top:29px}
 .cart-products-panel{min-width:0;background:#fff;border:1px solid #eeece6}
 .cart-list-head{display:grid;grid-template-columns:minmax(0,1.95fr) minmax(105px,.75fr) 120px minmax(120px,.75fr);column-gap:16px;align-items:center;min-height:48px;padding:0 20px;border-bottom:1px solid #eceae5;background:#faf9f6;color:#888b83;font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:1.0px}
@@ -249,7 +249,8 @@
  padding:13px 15px;background:#092f25;color:#f5f0e3;
  font-size:12px;letter-spacing:.4px;font-weight:650;
 }
-.vellor-category-name span{color:#d8c18c;font-size:17px}
+.vellor-arrow-svg{display:inline-block;width:1em;height:1em;flex:none;vertical-align:middle}
+.vellor-category-name .vellor-arrow-svg{color:#d8c18c;width:17px;height:17px}
 @media(max-width:1160px){
  #grid.vellor-product-rail>.card{flex-basis:calc((100% - 52px)/3)}
  .vellor-category-rail{grid-auto-columns:calc((100% - 32px)/3)}
@@ -281,14 +282,14 @@
 .vellor-nav-eyebrow{color:#977e52;font-size:10px;font-weight:750;letter-spacing:2.2px}
 .vellor-nav-all{border:0;background:transparent;border-bottom:1px solid transparent;color:#24513b;text-transform:uppercase;letter-spacing:1.3px;font-size:10px;font-weight:750;padding:7px 0;white-space:nowrap}
 .vellor-nav-all:hover,.vellor-nav-all.active{color:#0a2f22;border-bottom-color:#bba06b}
-.vellor-nav-all span{color:#a89062;margin-left:5px}
+.vellor-nav-all .vellor-arrow-svg{color:#a89062;margin-left:5px;width:12px;height:12px}
 .vellor-category-nav .vellor-category-rail{grid-auto-columns:calc((100% - 64px)/5);gap:16px;padding:0 2px 6px;scroll-snap-type:x mandatory}
 .vellor-category-nav .vellor-category-tile{height:183px;border-radius:6px;border:1px solid #e3e4dc;box-shadow:0 1px 2px rgba(4,33,22,.02)}
 .vellor-category-nav .vellor-category-tile.active{border-color:#bba06b;box-shadow:0 0 0 2px rgba(187,160,107,.17)}
 .vellor-category-nav .vellor-category-picture{inset:0 0 38px}
 .vellor-category-nav .vellor-category-picture img{padding:5px 7px;max-width:100%}
 .vellor-category-nav .vellor-category-name{min-height:38px;padding:10px 12px;font-size:11px;letter-spacing:.25px}
-.vellor-category-nav .vellor-category-name span{font-size:15px}
+.vellor-category-nav .vellor-category-name .vellor-arrow-svg{width:15px;height:15px}
 #colecao{scroll-margin-top:18px}
 .site-header,.site-footer{background-color:#03271d;background-image:url('/vellor-surface-continuous.svg');background-position:center center;background-size:cover;background-repeat:no-repeat}
 .vellor-faq-chat-cta{margin-top:22px;display:inline-flex;align-items:center;gap:10px;padding:11px 17px;border:1px solid rgba(208,181,119,.65);border-radius:999px;color:#f4e9d0;background:rgba(2,24,17,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.045);font-size:11px;font-weight:650;letter-spacing:.35px;transition:background .18s,border-color .18s}
@@ -332,7 +333,7 @@
  box-shadow:0 7px 22px rgba(1,22,15,.24);
  cursor:pointer;transition:opacity .18s,background .18s,box-shadow .18s;
 }
-.vellor-carousel-arrow span{font:400 35px/1 Georgia,serif;transform:translateY(-2px)}
+.vellor-carousel-arrow .vellor-arrow-svg{width:25px;height:25px}
 .vellor-carousel-arrow:hover:not(:disabled){background:#0e4533;box-shadow:0 10px 27px rgba(1,22,15,.34)}
 .vellor-carousel-arrow:focus-visible{outline:2px solid #b69d62;outline-offset:3px}
 .vellor-carousel-arrow:disabled{opacity:0;pointer-events:none}
@@ -340,7 +341,7 @@
 .vellor-carousel-next{right:9px}
 @media(max-width:760px){
  .vellor-carousel-arrow{width:43px;height:43px;top:31%}
- .vellor-carousel-arrow span{font-size:30px}
+ .vellor-carousel-arrow .vellor-arrow-svg{width:22px;height:22px}
  .vellor-carousel-prev{left:6px}.vellor-carousel-next{right:6px}
 }
 @media(prefers-reduced-motion:reduce){.vellor-carousel-arrow{transition:none}}
