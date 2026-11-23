@@ -12,7 +12,7 @@ assert.ok(source.startsWith('async function goCheckout()'));
 async function attempt(user,fetchOk=true){
  let destination='',stored=0;
  const button={disabled:false,setAttribute(){},removeAttribute(){}};
- const context={cart:[{sku:'ITEM-1',qty:1}],save(){stored++},document:{getElementById(){return button}},window:{location:{assign(v){destination=v}}},fetch:async()=>({ok:fetchOk,json:async()=>({user})})};
+ const context={tr(){},trOk(){},trError(){},cart:[{sku:'ITEM-1',qty:1}],save(){stored++},document:{getElementById(){return button}},window:{location:{assign(v){destination=v}}},fetch:async()=>({ok:fetchOk,json:async()=>({user})})};
  vm.runInNewContext(source,context);
  await vm.runInNewContext('goCheckout()',context);
  return {destination,stored,button};
