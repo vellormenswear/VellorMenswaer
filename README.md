@@ -1,53 +1,47 @@
 # VELLOR MENSWEAR
 
-Loja de moda masculina em **Next.js 15 / React 19**, deploy na **Vercel**, banco **Neon PostgreSQL** e integração em desenvolvimento com **Mercado Pago Split 1:1**.
+Loja de moda masculina com **Next.js 15 / React 19**, **Vercel** e **Neon PostgreSQL**.
 
-**Este repositório é a base de trabalho em equipe.** Não está homologado para produção comercial; checkout real permanece desabilitado por padrão. A implantação na Vercel é separada do versionamento Git.
+## Pagamentos: Asaas Sandbox
 
-> **Nova arquitetura em preparação:** o modelo comercial desejado é VELLOR como vendedor principal (owner) e fornecedores como parceiros (partners). O Split 1:N oficial exige Checkout Transparente/Orders API e habilitação do Mercado Pago. Esta branch disponibiliza apenas um laboratório PIX sandbox isolado em `/admin/mp-primary-1n`; o checkout comercial 1:1 permanece inalterado até a homologação. Consulte [a arquitetura 1:N](docs/MP_SPLIT_PRINCIPAL_1N.md).
+O provedor ativo do novo checkout é o **Asaas**. O antigo fluxo Mercado Pago/OAuth foi retirado do código de aplicação. O histórico financeiro já gravado no banco é mantido para auditoria.
 
-## Começar
+A VELLOR é **vendedora principal** e cobra o valor total em um **único Asaas Checkout** (Pix/cartão). Cada fornecedor possui conta Asaas e é identificado por `walletId`; sua parte é enviada via Split. O saldo líquido remanescente pertence à VELLOR. **Taxas Asaas não estão descontadas nos relatórios de resultado até conciliação.**
+
+A integração está restrita ao Sandbox e **não habilita cobranças reais**. O checkout da loja fica fechado por padrão. Para liberar um comprador de teste, é necessário configurar **todos** `ASAAS_API_KEY`, `ASAAS_BASE_URL`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_SANDBOX_TEST_CUSTOMER_EMAIL`, `ASAAS_CHECKOUT_ENABLED=true`, `SITE_URL`, `DATABASE_URL`. O Sandbox nunca é liberado ao público.
+
+### Configuração e homologação
+
+1. Na conta Asaas Sandbox principal, habilitar Split e gerar chave API.
+2. Na Vercel, cadastrar `ASAAS_BASE_URL=https://api-sandbox.asaas.com/v3` e `ASAAS_API_KEY` (nunca colocar segredos no GitHub).
+3. Criar `ASAAS_WEBHOOK_TOKEN` forte (mínimo 32 caracteres), configurar Webhook Asaas de eventos `CHECKOUT_CREATED`, `CHECKOUT_PAID`, `CHECKOUT_EXPIRED`, `CHECKOUT_CANCELED` apontando a `${SITE_URL}/api/webhooks/asaas` e utilizar o mesmo token de autenticação.
+4. Abrir `/admin/fornecedores` com conta administrativa para aplicar a migração aditiva `006_asaas.sql`.
+5. Abrir `/admin/asaas` com conta **super_admin** para validar autenticação, cadastrar `walletId` de cada fornecedor e criar um checkout diagnóstico de R$ 170 (fornecedor R$ 100).
+6. Confirmar pagamento e Splits com eventos oficiais Asaas e conferir estoque, pedidos, taxas, duplicidade de notificações e cancelamentos antes de habilitar o teste ponta a ponta.
+7. Manter `ASAAS_CHECKOUT_ENABLED=false` até a homologação e nunca usar chave de produção no código Sandbox.
+
+**Atenção:** reembolsos com vários fornecedores exigem revisão administrativa. O sistema não inicia estorno automático parcial antes de homologar o procedimento Asaas. Os registros históricos das migrações antigas são mantidos, mas não há endpoints de pagamento nem telas de conexão do provedor anterior.
+
+## Páginas
+
+- `/`: vitrine e carrinho.
+- `/conta`: clientes.
+- `/admin`: administração geral.
+- `/admin/fornecedores`: convites e anúncios.
+- `/admin/financeiro`: gestão financeira.
+- `/admin/asaas`: diagnóstico e Split Sandbox.
+- `/fornecedor`: anúncios, estoque, prazos e pedidos.
+- `/finalizar`: resumo de compra e endereço.
+- `/pagamento/grupos`: acompanhamento do pagamento e pedidos derivados.
+
+## Desenvolvimento
 
 ```bash
 npm install
-cp .env.example .env.local
-npm run dev
-```
-
-No Windows, copie `.env.example` manualmente para `.env.local`. Configure as variáveis **localmente** com credenciais fornecidas pelos administradores, sem colocá-las em commits, issues ou mensagens. `npm run test` valida as regras sem dados de produção.
-
-```bash
 npm test
+npm run build
 ```
 
-### Rotas e componentes principais
+A migração preserva os 104 SKUs originais, o visual aprovado, a reserva gerencial de 20% e o controle de preços por administrador. O acréscimo de 70% é apenas referência, nunca mínimo obrigatório.
 
-- `/` — vitrine com a identidade VELLOR (verde-esmeralda/champanhe), catálogo, carrinho e favicon VL.
-- `/conta` — acesso do consumidor.
-- `/admin` — administração geral.
-- `/admin/fornecedores` — convites, revisão de anúncios, preços e alertas.
-- `/admin/financeiro` — faturamento, resultados e reserva gerencial.
-- `/fornecedor/cadastro?token=...` — cadastro por convite exclusivo.
-- `/fornecedor` — anúncios, estoque, pedidos, remessas e conexão Mercado Pago.
-- `/finalizar` e `/pagamento/grupos` — checkout por grupo/fornecedor (em testes).
-
-### Documentação
-
-- [`README_MARKETPLACE_VELLOR.md`](README_MARKETPLACE_VELLOR.md) — regras, migração Neon e Split.
-- [`docs/ESTADO_E_PRIORIDADES.md`](docs/ESTADO_E_PRIORIDADES.md) — funcionalidades entregues e pendências críticas.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — fluxo para dois desenvolvedores.
-- [`.env.example`](.env.example) — **exemplo com espaços em branco**, nunca inserir valores reais.
-- [`README_HISTORICO.md`](README_HISTORICO.md) — histórico de entregas e notas anteriores; algumas informações são legadas.
-
-## Segurança e implantação
-
-- Não compartilhe `DATABASE_URL`, tokens do Mercado Pago, segredos OAuth, chaves de criptografia ou valores do `.env.local`.
-- Migrações automáticas do marketplace estão previstas para a abertura administrativa. **Antes de abrir no banco de produção, fazer backup e testar numa branch de desenvolvimento do Neon.**
-- Os 104 SKUs históricos são preservados; os anúncios precisam ser associados aos fornecedores antes de receber Split.
-- Os preços de venda são definidos livremente pelo administrador. **70% de acréscimo é referência comercial, não bloqueio obrigatório**.
-- A reserva de segurança é de **20% do lucro positivo apurado**, como registro gerencial; não é uma retenção bancária.
-- Fornecedor pode escolher estoque por quantidade ou disponibilidade e controlar prazos, com monitoramento de atrasos.
-- Carrinhos com mais de um fornecedor geram grupos de pagamento separados. Cada grupo pago pode ser enviado independentemente.
-- Cancelamento antes da postagem pede reembolso e notifica o admin; falhas devem ser conciliadas, sem marcar reembolso como concluído até confirmação oficial.
-
-> O GitHub guarda **código e arquivos públicos do site**. Clientes, pedidos, dados pessoais e segredos ficam **apenas no banco de dados e nos serviços apropriados**, nunca versionados.
+Não compartilhar API Keys ou credenciais do Neon. Antes de aprovar deploy definitivo, revisar migrações e ter backup do banco.
