@@ -1,4 +1,4 @@
-import {sql,transaction} from '@/lib/db';import {quoteCart} from '@/lib/commerce';import {createMPOrder} from '@/lib/mercadopago';
+import {sql,transaction} from '@/lib/db';import {quoteCart} from '@/lib/commerce';
 import {requireUser} from '@/lib/auth';import {ok,fail,body,originGuard,ensure,HttpError,uuid,txt} from '@/lib/http';import {randomUUID} from 'node:crypto';
 import {recordCheckoutEvent,safeTraceId} from '@/lib/checkout-trace';
 export const runtime='nodejs';export const dynamic='force-dynamic';
