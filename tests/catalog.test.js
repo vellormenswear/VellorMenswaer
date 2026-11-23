@@ -17,3 +17,21 @@ test('13 ofertas 1/2 Dry Fit usam fotos do Drive apenas como referência de core
     assert.ok(fs.existsSync(path.join(root,'public',a.image_url.slice(1))));
   }
 });
+
+
+test('rodape aprovado inclui FAQ, pagamento sem bandeiras inventadas e contato humano',()=>{
+ const html=fs.readFileSync(path.join(root,'public/vitrine.html'),'utf8');
+ const css=fs.readFileSync(path.join(root,'public/vellor-approved.css'),'utf8');
+ const chatjs=fs.readFileSync(path.join(root,'public/vellor-support.js'),'utf8');
+ assert.match(html,/id="vellor-faq-heading"/);
+ assert.equal((html.match(/<details>/g)||[]).length,6);
+ assert.match(html,/Pix/);
+ assert.match(html,/Cartões/);
+ assert.match(html,/efetivamente disponíveis são confirmados/);
+ assert.match(html,/id="vellor-support-toggle"/);
+ assert.match(html,/vellor-support\.js\?v=20261123-rodape/);
+ assert.match(html,/vellor-support\.css\?v=20261123-rodape/);
+ assert.match(css,/\.vellor-footer-faq/);
+ assert.ok(chatjs.includes('/api/support/chat'));
+ assert.ok(fs.existsSync(path.join(root,'public/vellor-support.css')));
+});

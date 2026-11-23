@@ -124,3 +124,35 @@
   .site-header .brand { width:168px; max-width:calc(100% - 150px); }
   .site-header .brand img { width:168px; }
 }
+
+
+/* VELLOR 23/11/2026 — rodapé, FAQ e meios de pagamento. Sem alterar a vitrine aprovada. */
+.site-footer{background:#081f18;color:#e8e9df;padding:0 28px;position:relative}
+.vellor-footer-inner{max-width:1300px;margin:0 auto}
+.vellor-footer-top{display:grid;grid-template-columns:minmax(260px,1.7fr) minmax(175px,.8fr) minmax(250px,1fr);gap:60px;padding:58px 0 48px;border-bottom:1px solid rgba(219,207,169,.19)}
+.vellor-footer-top h2{font:600 13px Inter,Arial,sans-serif;color:#e9e0cc;text-transform:uppercase;letter-spacing:1.3px;margin:0 0 23px}
+.vellor-footer-brand .footer-title{margin-bottom:20px;line-height:1.15}
+.vellor-footer-subtitle{font-size:10px;letter-spacing:1.7px;font-weight:700;color:#d5c69e}
+.vellor-footer-brand p:not(.vellor-footer-subtitle){max-width:350px;font-size:12px;line-height:1.9;color:#bccbc2}
+.vellor-footer-links{display:flex;flex-direction:column;align-items:flex-start;gap:15px}
+.vellor-footer-links h2{margin-bottom:5px}
+.vellor-footer-links a,.vellor-footer-links button{font:400 12px Inter,Arial,sans-serif;color:#ccd8cf;line-height:1.5;text-decoration:none;display:block;background:transparent;border:0;padding:0;text-align:left;cursor:pointer}
+.vellor-footer-links a:hover,.vellor-footer-links button:hover{color:#e8c98b;text-decoration:underline}
+.vellor-payment-types{display:flex;flex-wrap:wrap;gap:9px}
+.vellor-payment-type{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(230,215,184,.37);padding:10px 12px;border-radius:5px;font-size:12px;color:#e7e8de}
+.vellor-payment-type svg{color:#ddc68d}
+.vellor-footer-payments p{font-size:11px;line-height:1.85;color:#b8cbc0;max-width:325px;margin:18px 0 0}
+.vellor-footer-faq{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(340px,1.7fr);gap:60px;padding:50px 0 56px}
+.vellor-footer-faq h2{font:400 clamp(25px,2.4vw,34px) Georgia,'Times New Roman',serif;color:#f3eddf;line-height:1.2;margin:4px 0 13px}
+.vellor-footer-faq-intro p:not(.vellor-footer-eyebrow){color:#b9c9bf;font-size:12px;line-height:1.6}
+.vellor-footer-eyebrow{color:#dfc891;letter-spacing:2px;font-size:10px;font-weight:700;margin:0 0 14px}
+.vellor-faq-items{border-top:1px solid rgba(219,207,169,.2)}
+.vellor-faq-items details{border-bottom:1px solid rgba(219,207,169,.2);padding:0}
+.vellor-faq-items summary{list-style:none;position:relative;cursor:pointer;padding:17px 34px 17px 0;font-size:13px;font-weight:500;line-height:1.6;color:#f2efe8}
+.vellor-faq-items summary::-webkit-details-marker{display:none}
+.vellor-faq-items summary:after{content:'+';position:absolute;right:6px;top:13px;font-size:20px;font-weight:300;color:#dfc891}
+.vellor-faq-items details[open] summary:after{content:'−'}
+.vellor-faq-items details p{font-size:12px;line-height:1.85;color:#bed0c6;max-width:660px;padding:0 34px 15px 0;margin:0}
+.vellor-footer-bottom{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid rgba(219,207,169,.2);padding:24px 0;color:#a2b5a9;font-size:10px;letter-spacing:1px}
+@media(max-width:900px){.vellor-footer-top{gap:28px;grid-template-columns:minmax(180px,1.3fr) minmax(135px,.8fr) minmax(200px,1fr)}.vellor-footer-faq{gap:28px;grid-template-columns:minmax(170px,.7fr) minmax(270px,1.4fr)}}
+@media(max-width:620px){.site-footer{padding:0 20px}.vellor-footer-top{grid-template-columns:1fr 1fr;gap:36px 26px;padding:42px 0 38px}.vellor-footer-brand{grid-column:1/-1}.vellor-footer-payments{grid-column:1/-1}.vellor-footer-faq{grid-template-columns:1fr;gap:20px;padding:40px 0}.vellor-faq-items summary{font-size:12px}.vellor-footer-bottom{line-height:1.7}}

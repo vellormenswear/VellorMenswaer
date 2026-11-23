@@ -30,7 +30,7 @@ export default function SupportWidget(){
    setNotice(d.status==='waiting'?'Solicitação enviada aos administradores. Acompanhe por aqui.':d.status==='active'?'Conversa com a equipe VELLOR':'Atendimento automático');
   }catch(e){setNotice(e.message)}finally{setSending(false)}
  }
- return <><link rel="stylesheet" href="/vellor-support.css?v=1"/><div className="vellor-support">
+ return <><link rel="stylesheet" href="/vellor-support.css?v=20261123-rodape"/><div className="vellor-support">
   <button type="button" className="vellor-support-fab" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>Atendimento <span aria-hidden="true">✦</span></button>
   {open&&<section className="vellor-support-panel" aria-label="Atendimento VELLOR">
    <header className="vellor-support-head"><div><strong>Atendimento VELLOR</strong><small>Orientações e suporte</small></div><button type="button" aria-label="Fechar atendimento" onClick={()=>setOpen(false)}>×</button></header>
