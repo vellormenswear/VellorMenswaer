@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useState} from 'react';import Link from 'next/link';
+import {useEffect,useState} from 'react';import Link from 'next/link';import Frame from '@/components/Frame';
 const money=n=>(Number(n||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const trace=(stage,meta)=>window.VellorTrace?.event(stage,meta||{});
 const traceOk=(stage,meta)=>window.VellorTrace?.success(stage,meta||{});
@@ -50,7 +50,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
   finally{setBusy(false)}
  }
  async function retry(id){try{setBusy(true);const r=await fetch(data?.provider==='infinitepay'?'/api/infinitepay/retry-checkout':'/api/asaas/retry-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({checkout_id:data?.checkout_id,trace_id:window.VellorTrace?.id||null})});const j=await r.json();if(!r.ok)throw Error(j.error);if(!j.checkout_url?.startsWith('https://'))throw Error('Link inválido.');trace('payment.redirect',{checkout_mode:'standard'});window.location.assign(j.checkout_url)}catch(e){traceError('payment.failed','RETRY_PREFERENCE_FAILED',e.message);setError(e.message);setBusy(false)}}
- return <main className="page checkoutbox"><Link href="/"><img width="180" src="/logo-vellor.png" alt="VELLOR"/></Link><h1>Acompanhe seus pagamentos</h1>
+ return <Frame user={null}><main className="page checkoutbox"><h1>Acompanhe seus pagamentos</h1>
  <p>O checkout reúne os fornecedores em uma única cobrança e os repasses são feitos pela VELLOR após a confirmação. <b>Cada pedido é confirmado somente após a aprovação do pagamento correspondente.</b> As demais etapas podem continuar pendentes.</p>
  {providerResult?.group_id===null&&<p className="notice" role="status">Conferência automática: <b>{providerResult.confirmed?'Pagamento confirmado pelo provedor':'Aguardando confirmação oficial'}</b></p>}
  {error&&<p className="notice error" role="alert">{error} · Rastreamento: <code>{window.VellorTrace?.id||'indisponivel'}</code></p>}
@@ -73,5 +73,5 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
  {g.tracking_code&&<p className="small">Rastreio: {g.carrier} — {g.tracking_code}</p>}</div>)}
  <button className="btn ghost" onClick={load}>ATUALIZAR SITUAÇÃO</button>
  <p className="help">A página de retorno não confirma pagamentos. Somente o servidor valida o pagamento com o provedor e cria o pedido após aprovação. O fornecedor aguarda o Pix manual da VELLOR.</p></section>}
- <p><Link href="/conta">Consultar meus pedidos pagos</Link></p></main>
+ <p><Link href="/conta">Consultar meus pedidos pagos</Link></p></main></Frame>
 }

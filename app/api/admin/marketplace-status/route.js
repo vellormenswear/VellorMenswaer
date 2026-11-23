@@ -11,7 +11,7 @@ const requiredTables=[
   'suppliers','supplier_invites','supplier_submissions','supplier_asaas_wallets','asaas_checkout_batches',
   'supplier_order_groups','supplier_cancel_events','supplier_price_requests',
   'finance_adjustments','supplier_stock_reservations','checkout_coupon_redemptions',
-  'infinitepay_checkout_batches','infinitepay_webhook_events','supplier_manual_payouts'
+  'infinitepay_checkout_batches','infinitepay_webhook_events','supplier_manual_payouts','supplier_notification_reads'
 ];
 
 async function diagnostic(){
@@ -32,9 +32,9 @@ async function diagnostic(){
     const migrationsTable=await sql("SELECT to_regclass('public.schema_migrations') AS table_ref");
     const versions=migrationsTable.rows[0]?.table_ref
       ? (await sql(`SELECT version FROM schema_migrations
-          WHERE version IN ('002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql','006_asaas.sql','008_infinitepay.sql')
+          WHERE version IN ('002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql','006_asaas.sql','008_infinitepay.sql','009_supplier_notifications.sql')
           ORDER BY version`)).rows.map(x=>x.version) : [];
-    const missingMigrations=['002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql','006_asaas.sql','008_infinitepay.sql'].filter(x=>!versions.includes(x));
+    const missingMigrations=['002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql','006_asaas.sql','008_infinitepay.sql','009_supplier_notifications.sql'].filter(x=>!versions.includes(x));
     return {ready:missingTables.length===0&&missingColumns.length===0&&missingMigrations.length===0,
        missing_tables:missingTables,missing_columns:missingColumns,missing_migrations:missingMigrations};
 }

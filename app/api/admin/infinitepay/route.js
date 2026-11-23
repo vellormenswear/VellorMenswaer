@@ -1,4 +1,5 @@
-import {sql,transaction,audit} from '@/lib/db';
+import {sql,db,transaction,audit} from '@/lib/db';
+import {applyMarketplaceMigrations} from '@/lib/marketplace-auto-schema.mjs';
 import {requireRole} from '@/lib/auth';
 import {ok,fail,ensure,body,originGuard,uuid,txt} from '@/lib/http';
 import {infinitepayConfigured,safeInfiniteRef} from '@/lib/infinitepay.mjs';
@@ -6,6 +7,7 @@ import {reconcileInfinitepayBatch} from '@/lib/infinitepay-reconcile';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 export async function GET(req){try{
  await requireRole(req,['super_admin']);
+ await applyMarketplaceMigrations(()=>db().connect());
  const groups=await sql(`SELECT g.id,g.supplier_id,g.order_id,g.amount_cents,g.supplier_amount_cents,g.payment_status,g.fulfillment_status,
  s.business_name,o.order_number,g.paid_at,p.transfer_reference,p.recorded_by,p.paid_at AS transferred_at
  FROM supplier_order_groups g JOIN suppliers s ON s.id=g.supplier_id
@@ -44,7 +46,7 @@ export async function POST(req){try{
    [group.id,group.supplier_id,amount,reference,note,u.id]);
   await c.query("UPDATE supplier_order_groups SET fulfillment_status='paid',updated_at=now() WHERE id=$1 AND fulfillment_status='awaiting_payout'",[group.id]);
   await c.query('INSERT INTO notifications(order_id,kind,title,payload) VALUES($1,$2,$3,$4)',
-   [group.order_id,'supplier_paid','Repasse Pix ao fornecedor registrado',JSON.stringify({group_id:group.id,supplier_id:group.supplier_id})]);
+   [group.order_id,'supplier_paid','Repasse confirmado — pedido liberado para preparação',JSON.stringify({group_id:group.id,supplier_id:group.supplier_id})]);
   return {id:group.id,amount_cents:amount};
  });
  await audit(u.id,'supplier.pix_manual_recorded','supplier_group',x.group_id,null,{amount_cents:result.amount_cents,transfer_reference:reference});

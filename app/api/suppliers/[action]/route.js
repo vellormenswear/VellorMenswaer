@@ -7,6 +7,24 @@ import {supplierSubmissionValid,generatedSupplierSku,resolveApprovedProductImage
 import {supplierVariantValid,supplierCommission as feeOf} from '@/lib/marketplace-rules.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const adminRoles=['admin','super_admin'];
+// Somente o fornecedor dono do grupo visualiza os avisos. O marcador de leitura
+// é independente do painel administrativo, que usa notifications.read_at.
+async function supplierNotices(supplierId){
+ const relation=await sql("SELECT to_regclass('public.supplier_notification_reads') AS table_ref");
+ const ready=Boolean(relation.rows[0]?.table_ref);
+ const selectRead=ready?'r.read_at':'NULL::timestamptz AS read_at';
+ const joinRead=ready?'LEFT JOIN supplier_notification_reads r ON r.notification_id=n.id AND r.supplier_id=g.supplier_id':'';
+ const result=await sql(`SELECT n.id,n.kind,n.created_at,n.title,${selectRead},
+  g.id AS group_id,g.supplier_amount_cents,g.fulfillment_status,g.payment_status,o.order_number
+  FROM supplier_order_groups g
+  JOIN orders o ON o.id=g.order_id
+  JOIN notifications n ON n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text
+  ${joinRead}
+  WHERE g.supplier_id=$1 AND n.kind IN ('supplier_payment_pending','supplier_paid')
+  ORDER BY n.created_at DESC LIMIT 80`,[supplierId]);
+ return result.rows;
+}
+
 async function currentSupplier(req){const u=await requireUser(req);ensure(u.role==='supplier','Somente fornecedores podem acessar esta operação.',403);const r=await sql('SELECT * FROM suppliers WHERE user_id=$1',[u.id]);ensure(r.rowCount&&r.rows[0].status==='active','Fornecedor não habilitado.',403);return {user:u,supplier:r.rows[0]}}
 const activeSupplier=async(id)=>{const r=await sql("SELECT id FROM suppliers WHERE id=$1 AND status='active'",[id]);ensure(r.rowCount,'Fornecedor indisponível.',409)};
 export async function GET(req,{params}){try{const {action}=await params;const q=new URL(req.url).searchParams;
@@ -41,15 +59,17 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
   throw new HttpError(404,'Ação desconhecida.');
  }
  const {supplier}=await currentSupplier(req);
+ if(action==='notifications')return ok({notifications:await supplierNotices(supplier.id)});
  if(action==='dashboard'){
-  const [subs,products,orders,asaas,changes]=await Promise.all([
+  const [subs,products,orders,asaas,changes,notices]=await Promise.all([
    sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    sql(`SELECT p.id,p.name,p.slug,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
    sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.amount_cents,g.supplier_amount_cents,g.mp_fee_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
    COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
    sql('SELECT wallet_id,verified_at FROM supplier_asaas_wallets WHERE supplier_id=$1',[supplier.id]),
-   sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id])]);
-  return ok({supplier,submissions:subs.rows,products:products.rows,orders:orders.rows,asaas_wallet:asaas.rows[0]||null,price_requests:changes.rows})
+   sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
+   supplierNotices(supplier.id)]);
+  return ok({supplier,submissions:subs.rows,products:products.rows,orders:orders.rows,asaas_wallet:asaas.rows[0]||null,price_requests:changes.rows,notifications:notices})
  }
  throw new HttpError(404,'Recurso desconhecido.');
  }catch(e){return fail(e)}}
@@ -113,6 +133,18 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   throw new HttpError(404,'Ação desconhecida.');
  }
  const {user,supplier}=await currentSupplier(req);
+ if(action==='notification-read'){
+  ensure(uuid(x.notification_id),'Aviso inválido.',400);
+  // Prova de titularidade usando o grupo de pedido e o ID do aviso (nunca user_id do cliente).
+  const found=await sql(`SELECT n.id FROM notifications n
+    JOIN supplier_order_groups g ON g.order_id=n.order_id AND n.payload->>'group_id'=g.id::text
+    WHERE n.id=$1 AND g.supplier_id=$2 AND n.kind IN ('supplier_payment_pending','supplier_paid')`,
+    [x.notification_id,supplier.id]);
+  ensure(found.rowCount===1,'Aviso não pertence ao fornecedor.',403);
+  await sql('INSERT INTO supplier_notification_reads(supplier_id,notification_id) VALUES($1,$2) ON CONFLICT DO NOTHING',
+    [supplier.id,x.notification_id]);
+  return ok({read:true});
+ }
  if(action==='request-price'){
   ensure(uuid(x.variant_id),'Variação inválida.');const cost=Number(x.cost_cents);ensure(Number.isInteger(cost)&&cost>0&&cost<=100000000,'Valor inválido.');
   const owns=await sql('SELECT 1 FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=$1 AND p.supplier_id=$2',[x.variant_id,supplier.id]);ensure(owns.rowCount,'Variação não pertence ao fornecedor.',403);
