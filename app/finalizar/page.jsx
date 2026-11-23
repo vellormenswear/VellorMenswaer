@@ -33,8 +33,8 @@ export default function Checkout(){const [user,setUser]=useState(null),[ordersOp
  },[]);
  useEffect(()=>{if(!cart.length)return;setQuote(null);trace('checkout.quote.started',{item_count:cart.length});api('checkout/quote',{items:cart,coupon,trace_id:traceId()}).then(x=>{setQuote(x.quote);setMessage('');traceOk('checkout.quote.success',{amount_cents:x.quote?.total_cents})}).catch(e=>{traceError('checkout.quote.failed',e.code||'QUOTE_FAILED',e.message,{status:e.status});setMessage(e.message)})},[cart,coupon]);
  async function finalize(){try{setSending(true);setMessage('');setErrorCode('');trace('checkout.create.started',{item_count:cart.length});const r=await api('asaas/checkout-create',{items:cart,coupon,address_id:address,trace_id:traceId()});
-  if(!r.checkout_id||!Array.isArray(r.groups))throw new Error('Não foi possível abrir os pagamentos.');
-  traceOk('checkout.create.success',{group_count:r.groups.length});sessionStorage.setItem('vellor-last-checkout-id',r.checkout_id);
+  if(!r.checkout_id||!r.checkout_url||r.provider!=='asaas'||r.mode!=='sandbox')throw new Error('Não foi possível abrir os pagamentos.');
+  traceOk('checkout.create.success',{group_count:Number(r.group_count)||0});sessionStorage.setItem('vellor-last-checkout-id',r.checkout_id);
   // A compra NÃO foi concluída ainda: o carrinho é preservado até a confirmação de TODOS os pagamentos.
   sessionStorage.setItem('vellor-last-checkout-cart',localStorage.getItem('goston-cart-preview')||'[]');
   if(!/^https:\/\/asaas\.com\/checkoutSession\/show\?id=[0-9a-f-]{36}$/i.test(r.checkout_url||''))throw new Error('Link oficial do Asaas não foi gerado.');

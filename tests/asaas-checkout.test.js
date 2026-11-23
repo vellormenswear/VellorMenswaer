@@ -73,3 +73,14 @@ test('checkout e webhook Asaas exigem seguranca e consultas oficiais',()=>{
  assert.match(reconcile,/FOR UPDATE/);
  assert.match(reconcile,/VALUES\(\$1,'asaas'/);
 });
+
+test('API e pagina de finalizacao compartilham o contrato de resposta do Asaas',()=>{
+ const route=readFileSync(new URL('../app/api/asaas/[action]/route.js',import.meta.url),'utf8');
+ const page=readFileSync(new URL('../app/finalizar/page.jsx',import.meta.url),'utf8');
+ const groups=readFileSync(new URL('../app/pagamento/grupos/page.jsx',import.meta.url),'utf8');
+ assert.match(route,/checkout_url:created\.checkout_url,group_count:list\.length,provider:'asaas',mode:'sandbox'/);
+ assert.match(page,/r\.checkout_id\|\|!r\.checkout_url/);
+ assert.match(page,/group_count:Number\(r\.group_count\)\|\|0/);
+ assert.doesNotMatch(page,/Array\.isArray\(r\.groups\)/);
+ assert.doesNotMatch(groups,/MERCADO PAGO/i);
+});

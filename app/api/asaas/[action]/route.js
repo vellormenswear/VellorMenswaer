@@ -84,5 +84,5 @@ export async function POST(req,{params}){try{
   }
  });
  const created=await createCheckout(batch,u);
- return ok({checkout_id:batch,checkout_url:created.checkout_url,provider:'asaas',mode:'sandbox'},201);
+ return ok({checkout_id:batch,checkout_url:created.checkout_url,group_count:list.length,provider:'asaas',mode:'sandbox'},201);
  }catch(e){return fail(e)}}

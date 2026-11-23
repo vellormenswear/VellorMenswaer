@@ -39,7 +39,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
  {data.groups.map((g,index)=><div className="card" key={g.id}><div className="flexrow"><b>Pagamento {index+1}</b><span className="spacer"/><strong>{money(g.amount_cents)}</strong></div>
  <p>Status: <b>{labels[g.payment_status]||g.payment_status}</b>{g.order_number&&<> · Pedido #{g.order_number}</>}</p>
  {g.payment_status==='pending'&&<div style={{marginBottom:12}}>
-   <button className="btn ghost" disabled={busy} type="button" onClick={()=>checkProvider(g.id)}>VERIFICAR STATUS NO MERCADO PAGO</button>
+   <button className="btn ghost" disabled={busy} type="button" onClick={()=>checkProvider(g.id)}>VERIFICAR STATUS NO ASAAS</button>
    <p className="small">Consulta a API do provedor e verifica pagamentos sem depender de webhook. Nao gera nova cobranca.</p>
   </div>}
  {providerResult?.group_id===g.id&&<p className="notice" role="status">Retorno do provedor: <b>{providerResult.result||'NAO_DETERMINADO'}</b>
