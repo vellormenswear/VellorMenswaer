@@ -76,3 +76,30 @@ body{background:#faf9f6;color:#15241e;font-size:14px}
  .supplier-notice-banner{align-items:flex-start;flex-direction:column;padding:15px}
  .supplier-notice-banner .btn{width:auto}
 }
+
+
+/* Compartilhar a textura oficial: mesma imagem, escala e posição da vitrine. */
+.vll-site-header{
+ background-color:#01261a;
+ background-image:url('/vellor-header-texture.webp');
+ background-repeat:no-repeat;
+ background-size:cover;
+ background-position:center center;
+}
+.vll-app-footer{
+ background-color:#01261a;
+ background-image:url('/vellor-header-texture.webp');
+ background-repeat:no-repeat;
+ background-size:cover;
+ background-position:center center;
+}
+.vll-payment-provider{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px}
+.vll-payment-provider>span{font-size:10px;color:#b8cbc0;letter-spacing:.3px}
+.vll-payment-provider>img{display:block;height:29px;max-width:148px;width:auto;object-fit:contain;background:#fff;border-radius:3px;padding:5px 9px}
+.vll-payment-brands{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.vll-payment-mark{display:flex;align-items:center;justify-content:center;width:76px;height:44px;padding:7px 9px;border:1px solid #d8d6cf;border-radius:4px;background:#fff}
+.vll-payment-brands .vll-payment-mark{padding:7px 9px}
+.vll-payment-mark img{display:block;height:100%;width:100%;object-fit:contain}
+.vll-mark-pix{width:80px;height:48px}
+.vll-mark-pix img{min-height:34px}
+@media(max-width:530px){.vll-payment-mark{width:64px;height:40px}.vll-mark-pix{width:70px;height:44px}.vll-mark-pix img{min-height:31px}}

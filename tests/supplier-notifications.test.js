@@ -57,3 +57,21 @@ test('cabeçalho e rodapé seguem a identidade da vitrine nas rotas Next',()=>{
  assert.ok(groups.includes("<Frame user={null}>"));
  assert.ok(paid.includes("<Frame user={null}>"));
 });
+
+test('logo oficial, bandeiras aceitas e textura VELLOR em ambas as interfaces',()=>{
+ const home=read('public/vitrine.html'),frame=read('components/Frame.jsx');
+ const homeStyle=read('public/vellor-approved.css'),innerStyle=read('app/globals.css');
+ const companyDomain='cdn.prod.website-files.com/65c1399ac999a342139b5069/';
+ for(const content of [home,frame]){
+  assert.ok(content.includes('InfinitePay'));
+  assert.ok(content.includes('Logo_InfinitePay.svg'));
+  for(const mark of ['Visa','Mastercard','Elo','American Express','Pix']){
+   assert.ok(content.includes('alt="'+mark+'"'));
+  }
+  assert.ok(content.includes(companyDomain));
+  assert.ok(!content.includes('Hipercard'));
+ }
+ for(const css of [homeStyle,innerStyle])assert.ok(css.includes("url('/vellor-header-texture.webp')"));
+ assert.ok(homeStyle.includes('.site-footer{')&&homeStyle.includes('.vellor-payment-mark img'));
+ assert.ok(innerStyle.includes('.vll-app-footer{')&&innerStyle.includes('.vll-payment-mark img'));
+});

@@ -63,8 +63,15 @@ export default function Frame({children,user,logout}){
      </nav>
      <section className="vll-footer-payments">
       <h2>Pagamento</h2>
-      <div className="vll-payment-methods"><span>◇ Pix</span><span>▭ Cartões</span></div>
-      <p>Os meios disponíveis são confirmados durante o checkout oficial. Nunca informe dados de cartão pelo chat.</p>
+      <div className="vll-payment-provider"><span>Pagamentos processados por</span><img src="https://upload.wikimedia.org/wikipedia/commons/0/0c/Logo_InfinitePay.svg" alt="InfinitePay" loading="lazy" decoding="async" referrerPolicy="no-referrer"/></div>
+      <div className="vll-payment-methods vll-payment-brands" aria-label="Pix e bandeiras de cartão aceitas pela InfinitePay">
+       <span className="vll-payment-mark vll-mark-pix"><img src="https://cdn.prod.website-files.com/65c1399ac999a342139b5069/65c1399ac999a342139b50c4_pix-color.svg" alt="Pix" loading="lazy" decoding="async" referrerPolicy="no-referrer"/></span>
+       <span className="vll-payment-mark vll-mark-visa"><img src="https://cdn.prod.website-files.com/65c1399ac999a342139b5069/65c1399ac999a342139b50c9_visa-color.svg" alt="Visa" loading="lazy" decoding="async" referrerPolicy="no-referrer"/></span>
+       <span className="vll-payment-mark vll-mark-mastercard"><img src="https://cdn.prod.website-files.com/65c1399ac999a342139b5069/65c1399ac999a342139b50b0_mastercard-color.svg" alt="Mastercard" loading="lazy" decoding="async" referrerPolicy="no-referrer"/></span>
+       <span className="vll-payment-mark vll-mark-elo"><img src="https://cdn.prod.website-files.com/65c1399ac999a342139b5069/66765121f809d1dbcc9d3469_elo_badge.svg" alt="Elo" loading="lazy" decoding="async" referrerPolicy="no-referrer"/></span>
+       <span className="vll-payment-mark vll-mark-amex"><img src="https://cdn.prod.website-files.com/65c1399ac999a342139b5069/65d3ebcbef002fade4c9fd32_icon-flag-amex.svg" alt="American Express" loading="lazy" decoding="async" referrerPolicy="no-referrer"/></span>
+      </div>
+      <p>Pix e cartões Visa, Mastercard, Elo e American Express. Opções e condições confirmadas no checkout da InfinitePay. Nunca informe dados de cartão pelo chat.</p>
      </section>
     </div>
     <div className="vll-footer-bottom"><span>VELLOR MENSWEAR</span><span>Atendimento e informações para sua compra.</span></div>
