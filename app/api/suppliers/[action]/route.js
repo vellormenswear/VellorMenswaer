@@ -4,8 +4,7 @@ import {ok,fail,body,originGuard,ensure,uuid,txt,email,HttpError} from '@/lib/ht
 import {randomToken,sha256} from '@/lib/security';
 import {randomUUID} from 'node:crypto';
 import {supplierSubmissionValid,generatedSupplierSku,resolveApprovedProductImage} from '@/lib/marketplace-rules.mjs';
-import {supplierVariantValid,feeOf,supplierAccessToken,mpRequest} from '@/lib/marketplace';
-import {reconcilePayment} from '@/lib/split-reconcile';
+import {supplierVariantValid,supplierCommission as feeOf} from '@/lib/marketplace-rules.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const adminRoles=['admin','super_admin'];
 async function currentSupplier(req){const u=await requireUser(req);ensure(u.role==='supplier','Somente fornecedores podem acessar esta operação.',403);const r=await sql('SELECT * FROM suppliers WHERE user_id=$1',[u.id]);ensure(r.rowCount&&r.rows[0].status==='active','Fornecedor não habilitado.',403);return {user:u,supplier:r.rows[0]}}
@@ -14,7 +13,7 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  if(action==='invite-check'){const token=txt(q.get('token'),200);const r=await sql('SELECT email,expires_at FROM supplier_invites WHERE token_hash=$1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at>now()',[sha256(token)]);ensure(r.rowCount,'Convite inválido, vencido ou utilizado.',404);return ok({invite:r.rows[0]})}
  if(action.startsWith('admin-')){await requireRole(req,adminRoles);
   if(action==='admin-list'){const [suppliers,invites,queue,categories,unlinked]=await Promise.all([
-   sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_mp_connections mp WHERE mp.supplier_id=s.id) AS mp_connected FROM suppliers s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC`),
+   sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_asaas_wallets aw WHERE aw.supplier_id=s.id) AS asaas_connected FROM suppliers s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC`),
    sql('SELECT id,email,expires_at,used_at,revoked_at,created_at FROM supplier_invites ORDER BY created_at DESC LIMIT 70'),
    sql(`SELECT sub.*,s.business_name FROM supplier_submissions sub JOIN suppliers s ON s.id=sub.supplier_id ORDER BY (sub.status='pending') DESC,sub.created_at DESC LIMIT 100`),
    sql('SELECT id,name FROM categories WHERE active ORDER BY name'),
@@ -43,14 +42,14 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  }
  const {supplier}=await currentSupplier(req);
  if(action==='dashboard'){
-  const [subs,products,orders,mp,changes]=await Promise.all([
+  const [subs,products,orders,asaas,changes]=await Promise.all([
    sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    sql(`SELECT p.id,p.name,p.slug,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
    sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.amount_cents,g.supplier_amount_cents,g.mp_fee_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,CASE WHEN g.payment_status='approved' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
    COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
-   sql('SELECT provider_user_id,connected_at,expires_at FROM supplier_mp_connections WHERE supplier_id=$1',[supplier.id]),
+   sql('SELECT wallet_id,verified_at FROM supplier_asaas_wallets WHERE supplier_id=$1',[supplier.id]),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id])]);
-  return ok({supplier,submissions:subs.rows,products:products.rows,orders:orders.rows,mp_connection:mp.rows[0]||null,price_requests:changes.rows})
+  return ok({supplier,submissions:subs.rows,products:products.rows,orders:orders.rows,asaas_wallet:asaas.rows[0]||null,price_requests:changes.rows})
  }
  throw new HttpError(404,'Recurso desconhecido.');
  }catch(e){return fail(e)}}
@@ -91,18 +90,13 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
    await audit(u.id,'supplier.legacy_assign','variant',x.variant_id,null,{supplier_id:x.supplier_id,cost_cents:cost});return ok({updated:true,product_id:v.product_id})
   }
   if(action==='admin-refund-retry'){
-   ensure(uuid(x.group_id),'Pedido inválido.');const r=await sql(`SELECT g.*,mp.provider_user_id FROM supplier_order_groups g JOIN supplier_mp_connections mp ON mp.supplier_id=g.supplier_id WHERE g.id=$1 AND g.fulfillment_status='cancel_requested' AND g.payment_status IN ('refund_failed','refund_pending')`,[x.group_id]);ensure(r.rowCount,'Não há reembolso pendente.',409);
-   const group=r.rows[0];ensure(group.provider_payment_id,'Pagamento sem identificação. A conciliação é necessária.',409);
-   const token=await supplierAccessToken(group.supplier_id);
-   const payment=await mpRequest('/v1/payments/'+encodeURIComponent(group.provider_payment_id),token);
-   const reconciled=await reconcilePayment(payment,group.provider_user_id);
-   if(reconciled.status==='refunded')return ok({refund_confirmed:true});
-   await mpRequest('/v1/payments/'+encodeURIComponent(group.provider_payment_id)+'/refunds',token,{method:'POST',idempotency:'vellor-refund-'+group.id});
-   const updated=await mpRequest('/v1/payments/'+encodeURIComponent(group.provider_payment_id),token);
-   await reconcilePayment(updated,group.provider_user_id);
-   const fin=await sql('SELECT payment_status FROM supplier_order_groups WHERE id=$1',[group.id]);return ok({refund_confirmed:fin.rows[0].payment_status==='refunded',refund_pending:fin.rows[0].payment_status!=='refunded'});
-  }
-  if(action==='admin-delivered'){
+    ensure(uuid(x.group_id),'Pedido inválido.',400);
+    const item=await sql("SELECT id,payment_status FROM supplier_order_groups WHERE id=$1 AND payment_status IN ('refund_pending','refund_failed')",[x.group_id]);
+    ensure(item.rowCount,'Não há reembolso pendente.',409);
+    return ok({requires_admin:true,refund_pending:true,refund_confirmed:false,
+     message:'Reembolso Asaas requer conciliação da cobrança e dos Splits. Nenhum valor foi devolvido automaticamente.'});
+   }
+   if(action==='admin-delivered'){
    ensure(uuid(x.group_id)&&txt(x.proof,500).length>=8,'Informe o comprovante de entrega.',400);
    const r=await sql(`UPDATE supplier_order_groups SET fulfillment_status='delivered',delivered_at=now(),updated_at=now() WHERE id=$1 AND fulfillment_status='shipped' AND payment_status='approved' RETURNING id`,[x.group_id]);ensure(r.rowCount,'Pedido ainda não está postado ou não pode ser encerrado.',409);
    await audit(u.id,'supplier.order_delivered','supplier_group',x.group_id,null,{proof:txt(x.proof,500)});return ok({updated:true});
@@ -165,21 +159,10 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
    await c.query('INSERT INTO notifications(order_id,kind,title,payload) VALUES($1,$2,$3,$4)',[g.order_id,'supplier_cancel','Fornecedor cancelou um pedido; reembolso pendente',JSON.stringify({group_id:g.id,reason,supplier_id:supplier.id})]);return g;
   });
   await audit(user.id,'supplier.order_cancel','supplier_group',x.group_id,null,{reason});
-  // Cancelamento automático: inicia a devolução via API e consulta o recurso oficial; falha não é sucesso.
-  try{
-   ensure(r.provider_payment_id,'Pagamento sem identificação para reembolso; encaminhado para conciliação.',409);
-   const token=await supplierAccessToken(supplier.id);
-   await mpRequest('/v1/payments/'+encodeURIComponent(r.provider_payment_id)+'/refunds',token,{method:'POST',idempotency:'vellor-refund-'+r.id});
-   const current=await mpRequest('/v1/payments/'+encodeURIComponent(r.provider_payment_id),token);
-   const cx=await sql('SELECT provider_user_id FROM supplier_mp_connections WHERE supplier_id=$1',[supplier.id]);
-   await reconcilePayment(current,cx.rows[0].provider_user_id);
-   const check=await sql('SELECT payment_status FROM supplier_order_groups WHERE id=$1',[r.id]);
-   return ok({cancel_requested:true,refund_pending:check.rows[0].payment_status!=='refunded',refund_confirmed:check.rows[0].payment_status==='refunded',group_id:r.id});
-  }catch(e){
-   await sql('UPDATE supplier_order_groups SET payment_status=$1,updated_at=now() WHERE id=$2 AND payment_status=$3',['refund_failed',r.id,'refund_pending']);
-   await sql('INSERT INTO supplier_cancel_events(group_id,error_message) VALUES($1,$2) ON CONFLICT(group_id) DO UPDATE SET error_message=$2,last_attempt_at=now()',[r.id,String(e.message).slice(0,250)]);
-   return ok({cancel_requested:true,refund_pending:true,requires_admin:true,group_id:r.id});
-  }
+  // O reembolso do checkout compartilhado exige tratamento administrativo do Asaas.
+   // Não iniciar estorno parcial sem validar o impacto sobre todos os fornecedores.
+   return ok({cancel_requested:true,refund_pending:true,requires_admin:true,group_id:r.id,
+    message:'Reembolso pendente de análise administrativa no Asaas.'});
  }
  throw new HttpError(404,'Recurso não encontrado.');
  }catch(e){return fail(e)}}
