@@ -2,6 +2,7 @@ import {sql,transaction,audit} from '@/lib/db';import {requireRole,requirePermis
 import {ok,fail,body,originGuard,ensure,HttpError,txt,uuid,email} from '@/lib/http';import {passwordHash} from '@/lib/security';
 import {normalizeIdentity,IDENTITY_FIELDS} from '@/lib/store-identity.mjs';
 import {shippingAlerts} from '@/lib/shipping-deadline.mjs';
+import {cancelAdminOrder,confirmAdminRefund} from '@/lib/admin-order-cancel';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const staffRoles=['employee','admin','super_admin'];
 const allowedStatus={paid:['processing','cancel_requested'],processing:['packing','cancel_requested'],packing:['shipped','cancel_requested'],shipped:['delivered','return_requested'],delivered:['return_requested'],cancel_requested:['canceled','processing'],return_requested:['refunded','delivered'],awaiting_payment:['canceled'],payment_failed:['canceled']};
@@ -37,7 +38,7 @@ export async function GET(req,{params}){try{const u=await requireRole(req,staffR
  }
  if(resource==='order'){
   ensure(await hasPermission(u,'orders.read'),'Sem permissão.',403);const id=q.get('id');ensure(uuid(id),'Pedido inválido.');const r=await sql('SELECT o.*,u.full_name AS customer_name,u.email AS customer_email FROM orders o JOIN users u ON o.customer_id=u.id WHERE o.id=$1',[id]);ensure(r.rowCount,'Pedido não encontrado.',404);
-  const [items,history,payments,requests]=await Promise.all([sql('SELECT * FROM order_items WHERE order_id=$1',[id]),sql('SELECT h.*,u.full_name AS actor FROM order_status_history h LEFT JOIN users u ON u.id=h.actor_id WHERE order_id=$1 ORDER BY created_at DESC',[id]),sql('SELECT id,provider,status,payment_method,amount_cents,environment,created_at FROM payments WHERE order_id=$1',[id]),sql('SELECT * FROM customer_requests WHERE order_id=$1',[id])]);return ok({order:r.rows[0],items:items.rows,history:history.rows,payments:payments.rows,requests:requests.rows});
+  const [items,history,payments,requests]=await Promise.all([sql('SELECT * FROM order_items WHERE order_id=$1',[id]),sql('SELECT h.*,u.full_name AS actor FROM order_status_history h LEFT JOIN users u ON u.id=h.actor_id WHERE order_id=$1 ORDER BY created_at DESC',[id]),sql('SELECT id,provider,status,payment_method,amount_cents,environment,created_at FROM payments WHERE order_id=$1',[id]),sql('SELECT * FROM customer_requests WHERE order_id=$1',[id])]);const refundInfo= u.role==='employee'?null:(await sql(`SELECT b.payment_method,b.total_cents,b.transaction_nsu,b.invoice_slug, (SELECT COUNT(*)::int FROM supplier_order_groups z WHERE z.checkout_batch_id=b.checkout_batch_id) AS group_count, (SELECT COUNT(*)::int FROM supplier_order_groups z WHERE z.checkout_batch_id=b.checkout_batch_id AND z.fulfillment_status='canceled' AND z.payment_status='refund_pending') AS canceled_count FROM supplier_order_groups g JOIN infinitepay_checkout_batches b ON b.checkout_batch_id=g.checkout_batch_id WHERE g.order_id=$1`,[id])).rows[0]||null;return ok({order:r.rows[0],items:items.rows,history:history.rows,payments:payments.rows,requests:requests.rows,refund_info:refundInfo});
  }
  if(resource==='products'){
   ensure(await hasPermission(u,'products.read'),'Sem permissão.',403);const [products,variants,categories,images]=await Promise.all([sql('SELECT p.*,c.name AS category FROM products p LEFT JOIN categories c ON c.id=p.category_id ORDER BY p.created_at DESC'),sql('SELECT * FROM product_variants ORDER BY created_at ASC'),sql('SELECT * FROM categories ORDER BY sort_order,name'),sql('SELECT * FROM product_images ORDER BY created_at DESC')]);return ok({products:products.rows,variants:variants.rows,categories:categories.rows,images:images.rows})
@@ -53,8 +54,14 @@ export async function GET(req,{params}){try{const u=await requireRole(req,staffR
  throw new HttpError(404,'Recurso não encontrado.');
  }catch(e){return fail(e)}}
 export async function POST(req,{params}){try{originGuard(req);const u=await requireRole(req,staffRoles);const {resource}=await params;const x=await body(req,100000);
+ if(resource==='cancel-order'||resource==='confirm-refund'){
+  await requireRole(req,['admin','super_admin']);ensure(uuid(x.id),'Pedido inválido.');
+  if(resource==='cancel-order'){const reason=txt(x.reason,400);ensure(reason.length>=5,'Informe o motivo do cancelamento.');return ok(await cancelAdminOrder({id:x.id,actor:u.id,reason}));}
+  return ok(await confirmAdminRefund({id:x.id,actor:u.id,reference:txt(x.reference,150),amount:x.amount_cents,confirmed:x.confirmed}));
+ }
  if(resource==='order-status'){
   ensure(await hasPermission(u,'orders.process'),'Sem permissão operacional.',403);const id=x.id,to=txt(x.status,30);ensure(uuid(id),'Pedido inválido.');
+  ensure(to!=='canceled','Utilize CANCELAR PEDIDO para bloquear o envio e tratar o estorno.',409);
   const row=await transaction(async c=>{const rr=await c.query('SELECT * FROM orders WHERE id=$1 FOR UPDATE',[id]);ensure(rr.rowCount,'Pedido não encontrado.',404);const p=rr.rows[0];ensure((allowedStatus[p.status]||[]).includes(to),'Transição de status não permitida.',409);
   if(['processing','packing','shipped','delivered'].includes(to))ensure(p.payment_status==='approved','Pedido não possui pagamento confirmado.',409);
   if(to==='shipped')ensure(txt(x.tracking,120).length>3,'Código de rastreio obrigatório.',400);
