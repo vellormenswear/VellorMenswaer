@@ -2,7 +2,7 @@ import {requireRole} from '@/lib/auth';
 import {sql} from '@/lib/db';
 import {ensure,fail,ok,body,originGuard,uuid} from '@/lib/http';
 import {asaasApi} from '@/lib/asaas-api';
-import {asaasSandboxConfigured,validWalletId,buildAsaasCheckout,asaasUrl} from '@/lib/asaas.mjs';
+import {asaasSandboxConfigured,validWalletId,asaasPrimaryWalletId,buildAsaasCheckout,asaasUrl} from '@/lib/asaas.mjs';
 import {randomUUID} from 'node:crypto';
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -15,8 +15,9 @@ export async function GET(req){
   if(configured){
    try{
     const wallet=await asaasApi('/wallets/');
-    primaryWallet=wallet.id||wallet.walletId||null;
-    connection={http_status:200,authenticated:true,primary_wallet_available:validWalletId(primaryWallet)};
+    primaryWallet=asaasPrimaryWalletId(wallet);
+    connection={http_status:200,authenticated:true,primary_wallet_available:!!primaryWallet,
+      wallet_response_count:Array.isArray(wallet?.data)?wallet.data.length:null};
    }catch(e){connectionError=e.message;connection={authenticated:false}}
   }
   let suppliers=[],schemaReady=false;
@@ -40,7 +41,7 @@ export async function POST(req){
   if(x.action==='save_wallet'){
    ensure(uuid(x.supplier_id)&&validWalletId(x.wallet_id),'Fornecedor ou walletId invalido.',400);
    const primary=await asaasApi('/wallets/');
-   const own=primary.id||primary.walletId;
+   const own=asaasPrimaryWalletId(primary);
    ensure(validWalletId(own),'Nao foi possivel validar a carteira principal.',503);
    ensure(own.toLowerCase()!==x.wallet_id.toLowerCase(),'Fornecedor nao pode utilizar carteira da propria VELLOR.',409);
    const exists=await sql("SELECT id FROM suppliers WHERE id=$1 AND status='active'",[x.supplier_id]);
@@ -51,9 +52,10 @@ export async function POST(req){
   ensure(uuid(x.supplier_id),'Fornecedor invalido.',400);
   const r=await sql("SELECT w.wallet_id FROM supplier_asaas_wallets w JOIN suppliers s ON s.id=w.supplier_id WHERE s.id=$1 AND s.status='active'",[x.supplier_id]);
   ensure(r.rowCount===1,'Fornecedor nao possui walletId Asaas validado.',409);
-  const own=await asaasApi('/wallets/');
+  const own=asaasPrimaryWalletId(await asaasApi('/wallets/'));
+  ensure(validWalletId(own),'Nao foi possivel validar a carteira principal.',503);
   const walletId=String(r.rows[0].wallet_id);
-  ensure(String(own.id||own.walletId).toLowerCase()!==walletId.toLowerCase(),'Carteira principal invalida para Split.',409);
+  ensure(own!==walletId.toLowerCase(),'Carteira principal invalida para Split.',409);
   const id=randomUUID();
   const {payload}=buildAsaasCheckout([{amount_cents:17000,supplier_amount_cents:10000,wallet_id:walletId}],
    {batchId:id,site:(process.env.SITE_URL||'https://vellormenswear.vercel.app').replace(/\/$/,'')});

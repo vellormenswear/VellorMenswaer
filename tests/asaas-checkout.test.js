@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {asaasSandboxConfigured,asaasReady,validWalletId,asaasUrl,buildAsaasCheckout,paidAsaasPayment} from '../lib/asaas.mjs';
+import {asaasSandboxConfigured,asaasReady,validWalletId,asaasPrimaryWalletId,asaasUrl,buildAsaasCheckout,paidAsaasPayment} from '../lib/asaas.mjs';
 const a='550e8400-e29b-41d4-a716-446655440000';
 const b='11111111-1111-4111-8111-111111111111';
 const env={ASAAS_BASE_URL:'https://api-sandbox.asaas.com/v3',ASAAS_API_KEY:'$aact_test_key_for_testing_only',
@@ -83,4 +83,20 @@ test('API e pagina de finalizacao compartilham o contrato de resposta do Asaas',
  assert.match(page,/group_count:Number\(r\.group_count\)\|\|0/);
  assert.doesNotMatch(page,/Array\.isArray\(r\.groups\)/);
  assert.doesNotMatch(groups,/MERCADO PAGO/i);
+});
+
+test('recuperar wallet principal no formato oficial do Asaas',()=>{
+ const official='0000c712-0a0b-a0b0-0000-031e7ac51a2';
+ assert.equal(validWalletId(official),true);
+ assert.equal(asaasPrimaryWalletId({object:'list',hasMore:false,totalCount:1,data:[{object:'wallet',id:official}]}),official);
+ assert.equal(asaasPrimaryWalletId({id:a}),a);
+ assert.equal(asaasPrimaryWalletId({walletId:a}),a);
+});
+test('nunca escolher carteira ambigua ou invalida',()=>{
+ assert.equal(asaasPrimaryWalletId({data:[]}),null);
+ assert.equal(asaasPrimaryWalletId({data:[{id:a},{id:b}],totalCount:2}),null);
+ assert.equal(asaasPrimaryWalletId({data:[{id:a}],hasMore:true}),null);
+ assert.equal(asaasPrimaryWalletId({data:[{id:a}],totalCount:2}),null);
+ assert.equal(asaasPrimaryWalletId({data:[{id:'invalido'}]}),null);
+ assert.equal(validWalletId('00000000-0000-0000-0000-000000000000'),false);
 });
