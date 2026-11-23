@@ -42,3 +42,12 @@ test('migracao preserva registros e exige repasse manual',()=>{
  assert.match(webhook,/reconcileInfinitepayBatch/);
  assert.match(webhook,/payment_check|reconcileInfinitepayBatch/);
 });
+
+test('reconciliacao nao sombreia funcao de transacao e respeita status de pedidos',()=>{
+ const source=readFileSync(new URL('../lib/infinitepay-reconcile.js',import.meta.url),'utf8');
+ assert.match(source,/const transactionNsu=String/);
+ assert.doesNotMatch(source,/const transaction=String/);
+ assert.match(source,/return transaction\\(async c=>/);
+ assert.match(source,/stockOk\\?'paid':'cancel_requested'/);
+ assert.match(source,/stockOk\\?'awaiting_payout':'cancel_requested'/);
+});
