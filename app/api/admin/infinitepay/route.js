@@ -14,7 +14,7 @@ export async function GET(req){try{
  JOIN payments pay ON pay.order_id=o.id AND pay.provider='infinitepay' AND pay.status='approved'
  WHERE g.payment_status='approved' ORDER BY g.paid_at DESC LIMIT 200`);
  const checkouts=await sql("SELECT checkout_batch_id,order_nsu,total_cents,supplier_cents,status,created_at,paid_at FROM infinitepay_checkout_batches ORDER BY created_at DESC LIMIT 40");
- return ok({checkouts:checkouts.rows,configured:infinitepayConfigured(process.env,checkout_enabled:process.env.INFINITEPAY_CHECKOUT_ENABLED==='true',
+ return ok({checkouts:checkouts.rows,configured:infinitepayConfigured(process.env),checkout_enabled:process.env.INFINITEPAY_CHECKOUT_ENABLED==='true',
   handle_set:!!process.env.INFINITEPAY_HANDLE,groups:groups.rows});
  }catch(e){return fail(e)}}
 export async function POST(req){try{
