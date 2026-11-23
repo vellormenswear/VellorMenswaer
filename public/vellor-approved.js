@@ -51,7 +51,7 @@ function renderDiscovery(){
  categories.innerHTML=tiles.map(({name,product})=>
   `<button type="button" class="vellor-category-tile ${currentCategory===name?'active':''}" data-browse-category="${htmlEsc(name)}" aria-pressed="${currentCategory===name}" aria-label="Explorar ${htmlEsc(name)}">
    <span class="vellor-category-picture"><img src="${htmlEsc(product.image_url)}" alt="Produto VELLOR: ${htmlEsc(name)}" loading="lazy" decoding="async"></span>
-   <span class="vellor-category-name">${htmlEsc(name)}<span aria-hidden="true">↗</span></span>
+   <span class="vellor-category-name">${htmlEsc(name)}<svg class="vellor-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
   </button>`).join('');
  categories.querySelectorAll('[data-browse-category]').forEach(el=>el.addEventListener('click',()=>browseCategory(el.dataset.browseCategory)));
  const all=document.getElementById('vellor-show-all');if(all){all.classList.toggle('active',currentCategory==='Todos');all.setAttribute('aria-pressed',String(currentCategory==='Todos'));}
