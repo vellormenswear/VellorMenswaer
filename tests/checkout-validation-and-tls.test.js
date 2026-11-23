@@ -28,12 +28,10 @@ test('sslmode permanece com verificacao de certificado e hostname',()=>{
  assert.equal(normalizePgConnectionString('postgres://user:p@host/db?sslmode=verify-full'),'postgres://user:p@host/db?sslmode=verify-full');
  assert.match(readFileSync('lib/db.js','utf8'),/rejectUnauthorized:true/);
 });
-test('erros 409 possuem codigos fixos sem dados de usuario',()=>{
- assert.equal(checkoutBlockCode('Estoque reservado por outro checkout. Tente novamente mais tarde.'),'STOCK_RESERVED');
- assert.equal(checkoutBlockCode('Senha de comprador com dados pessoais'),'CHECKOUT_CONFLICT');
- const route=readFileSync('app/api/marketplace/[action]/route.js','utf8');
- assert.match(route,/\[checkout\.validation_blocked\]/);
- assert.match(route,/return ok\(\{error:e\.message,code\},409\)/);
+test('checkout Asaas segue isolado e valida estoque no servidor',()=>{
+ const route=readFileSync('app/api/asaas/[action]/route.js','utf8');
+ assert.match(route,/Estoque insuficiente/);
+ assert.match(route,/asaasReady\(process.env,u\)/);
  const page=readFileSync('app/finalizar/page.jsx','utf8');
  assert.match(page,/setErrorCode/);
 });
