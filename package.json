@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-mp-env.mjs && node --test tests/mp-checkout-recovery.test.js tests/mp-sandbox-link.test.js tests/mp-isolated-test.test.js tests/mp-isolated-creation-diagnostic.test.js tests/mp-credential-preference-integrity.test.js tests/mp-oauth-identity.test.js tests/mp-orders-canary.test.js tests/mp-primary-split-1n.test.js tests/security.test.js && next build",
+    "build": "node scripts/check-asaas-env.mjs && node --test tests/asaas-checkout.test.js tests/catalog.test.js tests/security.test.js && next build",
     "start": "next start",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "node scripts/seed.mjs",

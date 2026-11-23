@@ -12,17 +12,13 @@ test('acompanhamento do pagamento identifica etapas sem divulgar lojistas parcei
  assert.match(page,/g\.tracking_code/);
 });
 
-test('API do acompanhamento de compra não retorna o nome do recebedor',()=>{
- const api=read('app/api/marketplace/[action]/route.js');
- const customerEndpoint=api.slice(api.indexOf("if(action==='groups')"),api.indexOf("async function createPreference"));
- assert.doesNotMatch(customerEndpoint,/business_name|JOIN suppliers s/);
- assert.match(customerEndpoint,/g\.customer_id=\$2/);
- assert.match(customerEndpoint,/g\.amount_cents/);
- // Internamente a plataforma preserva OAuth e a comissao de Split.
- assert.match(api,/supplierAccessToken\(group\.supplier_id\)/);
- assert.match(api,/marketplace_fee/);
+test('API Asaas do comprador nao divulga titularidade dos fornecedores',()=>{
+ const api=read('app/api/asaas/[action]/route.js');
+ const get=api.slice(api.indexOf('export async function GET'),api.indexOf('export async function POST'));
+ assert.doesNotMatch(get,/business_name|wallet_id|supplier_id/);
+ assert.match(get,/g.customer_id=\$2/);
+ assert.match(get,/g.amount_cents/);
 });
-
 test('vitrine preserva os prazos sem referencia visivel ao fornecedor',()=>{
  const storefront=read('public/vellor-approved.js');
  const html=read('public/vitrine.html');
