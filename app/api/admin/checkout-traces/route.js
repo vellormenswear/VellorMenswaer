@@ -28,7 +28,7 @@ export async function GET(req){
   const events=rows.rows;
   return NextResponse.json({
    events,limit:300,retention_days:30,storage:'neon',access:'admin_or_super_admin',
-   note:'Mensagens e metadados sao tratados. Erros internos do Mercado Pago indisponiveis na API nao podem ser recuperados automaticamente.'
+   note:'Mensagens e metadados sao tratados. Erros do provedor nao recebidos pela API podem exigir verificacao no painel Asaas.'
   },{headers:{'Cache-Control':'private, no-store','X-Robots-Tag':'noindex'}});
  }catch(e){return fail(e)}
 }
