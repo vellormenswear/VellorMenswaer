@@ -27,3 +27,6 @@ CREATE TABLE IF NOT EXISTS asaas_webhook_events (
  created_at timestamptz NOT NULL DEFAULT now(),
  processed_at timestamptz
 );
+
+-- Novo provedor padrão para inserts futuros; o histórico permanece com seu provedor original.
+ALTER TABLE payments ALTER COLUMN provider SET DEFAULT 'asaas';
