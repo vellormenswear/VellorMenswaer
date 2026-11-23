@@ -4,12 +4,24 @@ import {readFileSync} from 'node:fs';
 import {infinitepayConfigured,infinitepayReady,buildInfinitepayCheckout,verifiedInfinitepayPayment,safeInfiniteCheckoutLink} from '../lib/infinitepay.mjs';
 const id='550e8400-e29b-41d4-a716-446655440000';
 const env={INFINITEPAY_API_KEY:'inchk_test_only_not_a_real_key_1234',INFINITEPAY_HANDLE:'minha-loja',INFINITEPAY_CHECKOUT_ENABLED:'true',STORE_OPEN_FOR_ORDERS:'true',INFINITEPAY_TEST_CUSTOMER_EMAIL:'cliente@example.com',DATABASE_URL:'postgres://test',SITE_URL:'https://vellormenswear.vercel.app'};
-test('checkout real fica bloqueado sem autorizar apenas o cliente de teste',()=>{
+test('checkout liberado para todas as contas de clientes com controles comerciais ativos',()=>{
  assert.equal(infinitepayConfigured(env),true);
- assert.equal(infinitepayReady(env,{role:'customer',email:'cliente@example.com'}),true);
- for(const part of [{INFINITEPAY_CHECKOUT_ENABLED:'false'},{STORE_OPEN_FOR_ORDERS:'false'},{INFINITEPAY_API_KEY:''},{INFINITEPAY_HANDLE:''},{INFINITEPAY_TEST_CUSTOMER_EMAIL:''}])
-  assert.equal(infinitepayReady({...env,...part},{role:'customer',email:'cliente@example.com'}),false);
- assert.equal(infinitepayReady(env,{role:'customer',email:'outro@example.com'}),false);
+ const customer=(email)=>({role:'customer',email});
+ for(const e of ['cliente@example.com','outro@example.com','nova.conta@exemplo.com']){
+  assert.equal(infinitepayReady(env,customer(e)),true);
+ }
+ assert.equal(infinitepayReady({...env,INFINITEPAY_TEST_CUSTOMER_EMAIL:''},customer('nova.conta@exemplo.com')),true,
+  'O antigo e-mail de homologação não deve mais restringir compras');
+});
+test('checkout real continua bloqueado sem credenciais, chaves ou conta de cliente',()=>{
+ for(const part of [{INFINITEPAY_CHECKOUT_ENABLED:'false'},{STORE_OPEN_FOR_ORDERS:'false'},
+   {INFINITEPAY_API_KEY:''},{INFINITEPAY_HANDLE:''},{DATABASE_URL:''},{SITE_URL:'http://unsafe.example'}]){
+  assert.equal(infinitepayReady({...env,...part},{role:'customer',email:'outro@example.com'}),false);
+ }
+ for(const role of ['admin','super_admin','supplier','employee',null]){
+  assert.equal(infinitepayReady(env,{role,email:'outro@example.com'}),false);
+ }
+ assert.equal(infinitepayReady(env,null),false);
 });
 test('links de uso unico, expiracao, soma em centavos e webhook',()=>{
  const b=buildInfinitepayCheckout([{amount_cents:17000,supplier_amount_cents:10000}],
