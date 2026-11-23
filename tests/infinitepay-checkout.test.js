@@ -64,3 +64,13 @@ test('nao duplica link externo e valida retorno mesmo com checkout desativado',(
  assert.match(page,/RETURN_RECHECK_FAILED/);
  assert.ok(page.includes("params.get('order_nsu')"));
 });
+
+test('conciliacao administrativa consulta pagamento existente sem nova cobranca',()=>{
+ const route=readFileSync(new URL('../app/api/admin/infinitepay/route.js',import.meta.url),'utf8');
+ assert.ok(route.includes("x.action==='reconcile_payment'"));
+ assert.ok(route.includes("reconcileInfinitepayBatch(x.checkout_id"));
+ assert.ok(route.includes("await requireRole(req,['super_admin'])"));
+ const page=readFileSync(new URL('../app/admin/infinitepay/page.jsx',import.meta.url),'utf8');
+ assert.ok(page.includes('CONSULTAR PAGAMENTO OFICIAL'));
+ assert.ok(page.includes("q.get('transaction_nsu')"));
+});

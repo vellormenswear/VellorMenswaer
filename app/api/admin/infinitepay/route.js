@@ -1,7 +1,8 @@
 import {sql,transaction,audit} from '@/lib/db';
 import {requireRole} from '@/lib/auth';
 import {ok,fail,ensure,body,originGuard,uuid,txt} from '@/lib/http';
-import {infinitepayConfigured} from '@/lib/infinitepay.mjs';
+import {infinitepayConfigured,safeInfiniteRef} from '@/lib/infinitepay.mjs';
+import {reconcileInfinitepayBatch} from '@/lib/infinitepay-reconcile';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 export async function GET(req){try{
  await requireRole(req,['super_admin']);
@@ -12,11 +13,20 @@ export async function GET(req){try{
  LEFT JOIN supplier_manual_payouts p ON p.group_id=g.id
  JOIN payments pay ON pay.order_id=o.id AND pay.provider='infinitepay' AND pay.status='approved'
  WHERE g.payment_status='approved' ORDER BY g.paid_at DESC LIMIT 200`);
- return ok({configured:infinitepayConfigured(process.env),checkout_enabled:process.env.INFINITEPAY_CHECKOUT_ENABLED==='true',
+ const checkouts=await sql("SELECT checkout_batch_id,order_nsu,total_cents,supplier_cents,status,created_at,paid_at FROM infinitepay_checkout_batches ORDER BY created_at DESC LIMIT 40");
+ return ok({checkouts:checkouts.rows,configured:infinitepayConfigured(process.env,checkout_enabled:process.env.INFINITEPAY_CHECKOUT_ENABLED==='true',
   handle_set:!!process.env.INFINITEPAY_HANDLE,groups:groups.rows});
  }catch(e){return fail(e)}}
 export async function POST(req){try{
  originGuard(req);const u=await requireRole(req,['super_admin']);const x=await body(req,3000);
+ if(x.action==='reconcile_payment'){
+  ensure(uuid(x.checkout_id)&&safeInfiniteRef(x.transaction_nsu)&&safeInfiniteRef(x.slug),'Identificadores invalidos.',400);
+  const entry=await sql('SELECT 1 FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1',[x.checkout_id]);
+  ensure(entry.rowCount,'Compra nao localizada.',404);
+  const result=await reconcileInfinitepayBatch(x.checkout_id,{transaction_nsu:x.transaction_nsu,invoice_slug:x.slug});
+  if(result.confirmed)await audit(u.id,'infinitepay.payment_reconciled','checkout',x.checkout_id,null,{result:result.result});
+  return ok(result);
+ }
  ensure(x.action==='record_payout'&&uuid(x.group_id),'Operacao invalida.',400);
  const reference=txt(x.transfer_reference,150),note=txt(x.notes,500);
  ensure(/^[A-Za-z0-9][A-Za-z0-9 _./:-]{7,149}$/.test(reference),'Informe identificador do Pix realmente realizado.',400);
