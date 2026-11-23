@@ -1,10 +1,19 @@
 (()=>{'use strict';const root=document.getElementById('vellor-support');if(!root)return;
  const $=id=>document.getElementById(id),toggle=$('vellor-support-toggle'),panel=$('vellor-support-panel'),log=$('vellor-support-messages'),form=$('vellor-support-form'),input=$('vellor-support-input'),human=$('vellor-support-human'),status=$('vellor-support-status');let opened=false,busy=false,chatStatus='bot';
+ let faqVisible=false;
+ function syncFab(){root.classList.toggle('vellor-support-on-faq',faqVisible&&!opened)}
+ const faq=document.querySelector('.vellor-footer-faq');
+ if(faq&&typeof IntersectionObserver!=='undefined'){
+  const observer=new IntersectionObserver(entries=>{faqVisible=entries.some(entry=>entry.isIntersecting);syncFab()},
+   {threshold:0.06,rootMargin:'0px 0px -35px 0px'});
+  observer.observe(faq);
+ }
+
  function fmt(x){return x==='admin'?'Equipe VELLOR':x==='visitor'?'Você':'Assistente VELLOR'}
  function render(messages){log.replaceChildren();if(!messages.length){let intro=document.createElement('p');intro.className='vellor-support-info';intro.textContent='Olá! Posso ajudar com prazos, como comprar, tamanhos, pagamentos e trocas. Para falar com nossa equipe, use o botão abaixo.';log.append(intro)}
   for(const m of messages){const el=document.createElement('article');el.className='vellor-support-bubble '+m.sender_kind;const sender=document.createElement('small');sender.textContent=m.sender_kind==='admin'&&m.sender_name?'Equipe VELLOR · '+m.sender_name:fmt(m.sender_kind);const body=document.createElement('span');body.textContent=m.body;el.append(sender,body);log.append(el);}log.scrollTop=log.scrollHeight;
  }
  async function update(){if(!opened||busy)return;try{const r=await fetch('/api/support/chat',{cache:'no-store'});if(!r.ok)throw Error('Falha ao consultar mensagens.');const data=await r.json();chatStatus=data.status||'bot';render(data.messages||[]);human.hidden=chatStatus==='waiting'||chatStatus==='active';status.textContent=chatStatus==='waiting'?'Atendimento solicitado · aguardando resposta':chatStatus==='active'?'Conversa com a equipe VELLOR':'Atendimento automático';}catch{status.textContent='Sem conexão com o atendimento. Tente novamente.';}}
  async function send(action,message){if(busy)return;busy=true;human.disabled=true;status.textContent='Enviando...';try{const r=await fetch('/api/support/chat',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({action,message})});const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||'Não foi possível enviar a mensagem');chatStatus=data.status;render(data.messages||[]);input.value='';human.hidden=chatStatus==='waiting'||chatStatus==='active';status.textContent=chatStatus==='waiting'?'Solicitação enviada aos administradores. Acompanhe por aqui.':chatStatus==='active'?'Conversa com a equipe VELLOR':'Resposta automática';}catch(e){status.textContent=e.message}finally{busy=false;human.disabled=false}}
- toggle.addEventListener('click',()=>{opened=!opened;panel.hidden=!opened;toggle.setAttribute('aria-expanded',String(opened));if(opened){update();input.focus()}});$('vellor-support-close').addEventListener('click',()=>{opened=false;panel.hidden=true;toggle.setAttribute('aria-expanded','false')});form.addEventListener('submit',e=>{e.preventDefault();const val=input.value.trim();if(val)send('message',val)});human.addEventListener('click',()=>send('request_human',''));setInterval(()=>{if(opened&&!document.hidden)update()},10000);
+ toggle.addEventListener('click',()=>{opened=!opened;panel.hidden=!opened;toggle.setAttribute('aria-expanded',String(opened));syncFab();if(opened){update();input.focus()}});$('vellor-support-close').addEventListener('click',()=>{opened=false;panel.hidden=true;toggle.setAttribute('aria-expanded','false');syncFab()});form.addEventListener('submit',e=>{e.preventDefault();const val=input.value.trim();if(val)send('message',val)});human.addEventListener('click',()=>send('request_human',''));setInterval(()=>{if(opened&&!document.hidden)update()},10000);
 })();

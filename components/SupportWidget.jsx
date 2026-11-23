@@ -30,8 +30,10 @@ export default function SupportWidget(){
    setNotice(d.status==='waiting'?'Solicitação enviada aos administradores. Acompanhe por aqui.':d.status==='active'?'Conversa com a equipe VELLOR':'Atendimento automático');
   }catch(e){setNotice(e.message)}finally{setSending(false)}
  }
- return <><link rel="stylesheet" href="/vellor-support.css?v=20261123-rodape"/><div className="vellor-support">
-  <button type="button" className="vellor-support-fab" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>Atendimento <span aria-hidden="true">✦</span></button>
+ return <><link rel="stylesheet" href="/vellor-support.css?v=20261123-final-chat"/><div className="vellor-support">
+  <button type="button" className="vellor-support-fab" aria-label="Abrir atendimento VELLOR" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>
+   <span className="vellor-support-fab-icon"><svg className="vellor-chat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.5 11.4a8.2 8.2 0 0 1-8.4 8H7l-4 2v-5A8.5 8.5 0 1 1 20.5 11.4Z"/><path d="M8 11h8M8 14h5"/></svg></span><span className="vellor-support-fab-label">Atendimento</span>
+  </button>
   {open&&<section className="vellor-support-panel" aria-label="Atendimento VELLOR">
    <header className="vellor-support-head"><div><strong>Atendimento VELLOR</strong><small>Orientações e suporte</small></div><button type="button" aria-label="Fechar atendimento" onClick={()=>setOpen(false)}>×</button></header>
    <div className="vellor-support-messages" role="log" aria-live="polite">

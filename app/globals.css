@@ -103,3 +103,12 @@ body{background:#faf9f6;color:#15241e;font-size:14px}
 .vll-mark-pix{width:80px;height:48px}
 .vll-mark-pix img{min-height:34px}
 @media(max-width:530px){.vll-payment-mark{width:64px;height:40px}.vll-mark-pix{width:70px;height:44px}.vll-mark-pix img{min-height:31px}}
+
+/* Uma única superfície vetorial orgânica, sem ladrilhos ou distorção do bitmap antigo. */
+.vll-site-header,.vll-app-footer{
+ background-color:#03271d;
+ background-image:url('/vellor-surface-continuous.svg');
+ background-repeat:no-repeat;
+ background-position:center center;
+ background-size:cover;
+}

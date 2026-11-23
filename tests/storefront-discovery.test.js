@@ -32,15 +32,49 @@ test('categorias ilustradas so usam fotos reais e disponiveis da VELLOR',()=>{
  }
  assert.doesNotMatch(js,/unsplash\.com|placeholder\.com/);
 });
-test('navegue por preco usa 5 faixas que cobrem todos os modelos, sem inventar descontos',()=>{
- assert.match(html,/Navegue por preço/);
- assert.match(html,/id="vellor-price-rail"/);
- const bands=[[0,5999],[6000,8999],[9000,11999],[12000,15999],[16000,Infinity]];
- const prices=models.map(minPrice);
- for(const p of prices)assert.equal(bands.filter(([a,b])=>p>=a&&p<=b).length,1,'Preco nao coberto: '+p);
- for(const [a,b] of bands)assert.ok(prices.some(p=>p>=a&&p<=b),'Faixa vazia: '+a+'-'+b);
- assert.ok(js.includes('selectedPriceBand'));
- assert.ok(js.includes('lowestModelPrice(p)'));
+test('categorias com imagens substituem menu superior e não são duplicadas',()=>{
+ const nav=html.indexOf('class="category-nav vellor-category-nav"');
+ const products=html.indexOf('id="catalog-page"');
+ assert.ok(nav>0&&nav<products,'Categorias ilustradas devem aparecer antes dos produtos');
+ assert.equal((html.match(/id="vellor-category-rail"/g)||[]).length,1);
+ assert.ok(html.includes('id="vellor-show-all"'));
+ assert.ok(!html.includes('id="nav"'),'Menu textual antigo removido');
+ assert.ok(!html.includes('id="descobrir"'),'Categorias inferiores duplicadas removidas');
+ assert.ok(js.includes('function browseCategory(category)'));
+ assert.ok(js.includes('vellor-category-tile ${active===name?'));
+});
+test('navegue por preço foi removido sem eliminar o filtro normal',()=>{
+ assert.ok(!html.includes('Navegue por preço'));
+ assert.ok(!html.includes('id="vellor-price-rail"'));
+ assert.ok(!js.includes('BROWSE_PRICE_BANDS'));
+ assert.ok(!js.includes('browsePrice('));
+ assert.ok(!js.includes('selectedPriceBand'));
+ assert.ok(!css.includes('.vellor-price-tile'));
+ assert.ok(html.includes('id="max-price"'));
+ assert.ok(js.includes("const max=document.getElementById('max-price')")||js.includes("max=document.getElementById('max-price')"));
+});
+test('textura verde é uma superfície orgânica única sem mosaico',()=>{
+ const texture=read('public/vellor-surface-continuous.svg');
+ const internal=read('app/globals.css');
+ assert.ok(texture.includes('fractalNoise'));
+ assert.ok(!texture.includes('<pattern'));
+ assert.ok(css.includes("background-image:url('/vellor-surface-continuous.svg')"));
+ assert.ok(internal.includes("background-image:url('/vellor-surface-continuous.svg')"));
+ assert.ok(css.includes('background-repeat:no-repeat'));
+ assert.ok(internal.includes('background-repeat:no-repeat'));
+});
+test('botão de atendimento tem ícone de chat, acabamento redondo e acesso no FAQ',()=>{
+ const supportCss=read('public/vellor-support.css');
+ const supportJs=read('public/vellor-support.js');
+ const widget=read('components/SupportWidget.jsx');
+ assert.ok(html.includes('class="vellor-chat-icon"'));
+ assert.ok(html.includes('class="vellor-faq-chat-cta"'));
+ assert.ok(supportCss.includes('border-radius:9999px'));
+ assert.ok(supportCss.includes("vellor-surface-continuous.svg"));
+ assert.ok(supportJs.includes('IntersectionObserver'));
+ assert.ok(supportJs.includes('vellor-support-on-faq'));
+ assert.ok(widget.includes('vellor-support-fab-icon'));
+ assert.doesNotThrow(()=>new Function(supportJs));
 });
 test('codigo da vitrine nao tem erro de sintaxe JavaScript',()=>{
  assert.doesNotThrow(()=>new Function(js));

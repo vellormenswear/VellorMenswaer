@@ -250,37 +250,9 @@
  font-size:12px;letter-spacing:.4px;font-weight:650;
 }
 .vellor-category-name span{color:#d8c18c;font-size:17px}
-.vellor-prices-group{padding-top:49px}
-.vellor-price-rail{
- display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:13px;
-}
-.vellor-price-tile{
- min-width:0;min-height:160px;display:flex;flex-direction:column;
- align-items:flex-start;justify-content:space-between;
- position:relative;overflow:hidden;border-radius:8px;
- border:1px solid #1d4839;
- color:#f8f4e9;background:linear-gradient(145deg,#0b3b2d,#061f18 76%);
- padding:17px 15px 22px;text-align:left;
- transition:transform .2s,box-shadow .2s,border-color .2s;
-}
-.vellor-price-tile:after{content:"";position:absolute;right:-35px;top:-70px;
- width:150px;height:150px;pointer-events:none;border:1px solid rgba(226,201,148,.13);border-radius:50%}
-.vellor-price-tile:hover,.vellor-price-tile.active{
- transform:translateY(-2px);border-color:#c4a46d;
- box-shadow:0 9px 22px rgba(7,34,25,.17);
-}
-.vellor-price-tile.active{outline:2px solid #a98d59;outline-offset:2px}
-.vellor-price-kicker{width:100%;display:flex;justify-content:space-between;gap:5px;
- font-size:9px;font-weight:750;letter-spacing:1.4px;color:#dac48e}
-.vellor-price-kicker span{color:#91b1a2;font-size:9px;letter-spacing:.2px;white-space:nowrap}
-.vellor-price-lead{margin-top:20px;font-size:10px;letter-spacing:1.1px;color:#d1dfd4;font-weight:650}
-.vellor-price-value{color:#f7e4bc;font:normal clamp(25px,2.4vw,35px)/1 Georgia,'Times New Roman',serif;
- letter-spacing:-.8px;white-space:nowrap}
-.vellor-price-value small{font:600 13px Inter,Arial,sans-serif;color:#d9d4c5;margin-right:6px;letter-spacing:0}
 @media(max-width:1160px){
  #grid.vellor-product-rail>.card{flex-basis:calc((100% - 52px)/3)}
  .vellor-category-rail{grid-auto-columns:calc((100% - 32px)/3)}
- .vellor-price-rail{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media(max-width:760px){
  #grid.vellor-product-rail{gap:16px;margin-bottom:24px}
@@ -289,21 +261,40 @@
  .vellor-carousel-controls button{width:40px;height:40px}
  .vellor-category-rail{grid-auto-columns:calc((100% - 16px)/2);gap:12px}
  .vellor-category-tile{height:210px}
- .vellor-price-rail{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
- .vellor-price-tile{min-height:148px}
  .vellor-prices-group{padding-top:32px}
 }
 @media(max-width:480px){
  #grid.vellor-product-rail>.card{flex-basis:79%}
  .vellor-category-rail{grid-auto-columns:73%}
  .vellor-category-tile{height:218px}
- .vellor-price-tile{min-height:143px;padding:13px 10px 17px}
- .vellor-price-value{font-size:clamp(23px,6.3vw,31px)}
- .vellor-price-kicker{font-size:8px;letter-spacing:.7px}
- .vellor-price-kicker span{font-size:8px}
  .vellor-discovery{padding-bottom:48px}
 }
 @media(prefers-reduced-motion:reduce){
  #grid.vellor-product-rail,.vellor-category-rail{scroll-behavior:auto}
- .vellor-category-tile,.vellor-category-picture img,.vellor-price-tile{transition:none}
+ .vellor-category-tile,.vellor-category-picture img{transition:none}
 }
+
+/* Cabeçalho com categorias ilustradas: uma única navegação, sem duplicação. */
+.category-nav.vellor-category-nav{position:relative;top:auto;height:auto;background:#faf9f6;box-shadow:0 1px 0 #e4e3dd;z-index:12}
+.vellor-category-nav-inner{max-width:1510px;margin:0 auto;padding:20px 54px 24px}
+.vellor-category-nav-toolbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:13px}
+.vellor-nav-eyebrow{color:#977e52;font-size:10px;font-weight:750;letter-spacing:2.2px}
+.vellor-nav-all{border:0;background:transparent;border-bottom:1px solid transparent;color:#24513b;text-transform:uppercase;letter-spacing:1.3px;font-size:10px;font-weight:750;padding:7px 0;white-space:nowrap}
+.vellor-nav-all:hover,.vellor-nav-all.active{color:#0a2f22;border-bottom-color:#bba06b}
+.vellor-nav-all span{color:#a89062;margin-left:5px}
+.vellor-category-nav .vellor-category-rail{grid-auto-columns:calc((100% - 64px)/5);gap:16px;padding:0 2px 6px;scroll-snap-type:x mandatory}
+.vellor-category-nav .vellor-category-tile{height:183px;border-radius:6px;border:1px solid #e3e4dc;box-shadow:0 1px 2px rgba(4,33,22,.02)}
+.vellor-category-nav .vellor-category-tile.active{border-color:#bba06b;box-shadow:0 0 0 2px rgba(187,160,107,.17)}
+.vellor-category-nav .vellor-category-picture{inset:0 0 38px}
+.vellor-category-nav .vellor-category-picture img{padding:5px 7px;max-width:100%}
+.vellor-category-nav .vellor-category-name{min-height:38px;padding:10px 12px;font-size:11px;letter-spacing:.25px}
+.vellor-category-nav .vellor-category-name span{font-size:15px}
+#colecao{scroll-margin-top:18px}
+.site-header,.site-footer{background-color:#03271d;background-image:url('/vellor-surface-continuous.svg');background-position:center center;background-size:cover;background-repeat:no-repeat}
+.vellor-faq-chat-cta{margin-top:22px;display:inline-flex;align-items:center;gap:10px;padding:11px 17px;border:1px solid rgba(208,181,119,.65);border-radius:999px;color:#f4e9d0;background:rgba(2,24,17,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.045);font-size:11px;font-weight:650;letter-spacing:.35px;transition:background .18s,border-color .18s}
+.vellor-faq-chat-cta svg{width:17px;height:17px;flex-shrink:0;color:#e1c68a}
+.vellor-faq-chat-cta:hover{background:rgba(6,56,40,.7);border-color:#ddbf7f}
+.vellor-footer-faq{padding-bottom:74px}
+@media(max-width:1160px){.vellor-category-nav .vellor-category-rail{grid-auto-columns:calc((100% - 32px)/3)}.vellor-category-nav .vellor-category-tile{height:175px}}
+@media(max-width:760px){.vellor-category-nav-inner{padding:14px 18px 18px}.vellor-category-nav .vellor-category-rail{grid-auto-columns:calc((100% - 12px)/2);gap:12px}.vellor-category-nav .vellor-category-tile{height:166px}.vellor-category-nav .vellor-category-name{font-size:11px}.vellor-footer-faq{padding-bottom:88px}}
+@media(max-width:480px){.vellor-category-nav-inner{padding:13px 12px 16px}.vellor-nav-eyebrow{font-size:9px;letter-spacing:1.6px}.vellor-nav-all{font-size:9px}.vellor-category-nav .vellor-category-rail{grid-auto-columns:61%;gap:11px}.vellor-category-nav .vellor-category-tile{height:168px}.vellor-category-nav .vellor-category-picture{inset:0 0 40px}.vellor-footer-faq{padding-bottom:90px}}

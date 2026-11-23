@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="1536" viewBox="0 0 2048 1536" preserveAspectRatio="xMidYMid slice">
+ <title>Textura contínua verde-escura VELLOR</title>
+ <defs>
+  <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+   <stop offset="0" stop-color="#021c16"/>
+   <stop offset=".32" stop-color="#062f24"/>
+   <stop offset=".68" stop-color="#04271f"/>
+   <stop offset="1" stop-color="#021a14"/>
+  </linearGradient>
+  <radialGradient id="velvet" cx=".5" cy=".4" r=".7">
+   <stop offset="0" stop-color="#0b4937" stop-opacity=".19"/>
+   <stop offset=".6" stop-color="#061d17" stop-opacity="0"/>
+   <stop offset="1" stop-color="#010e0a" stop-opacity=".22"/>
+  </radialGradient>
+  <filter id="organic-texture" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+   <feTurbulence type="fractalNoise" baseFrequency=".011 .016" numOctaves="5" seed="27" stitchTiles="noStitch" result="cloud"/>
+   <feColorMatrix in="cloud" type="matrix" values=".13 0 0 0 0 .035 .18 .035 0 .025 .01 .08 .1 0 .006 0 0 0 .63 0"/>
+  </filter>
+  <filter id="fine-grain" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+   <feTurbulence type="fractalNoise" baseFrequency=".17 .22" numOctaves="3" seed="13" result="grain"/>
+   <feColorMatrix in="grain" type="matrix" values=".1 0 0 0 0 0 .15 0 0 .02 0 0 .08 0 0 0 0 0 .2 0"/>
+  </filter>
+ </defs>
+ <rect width="2048" height="1536" fill="url(#background)"/>
+ <rect width="2048" height="1536" fill="#063528" opacity=".65" filter="url(#organic-texture)"/>
+ <rect width="2048" height="1536" fill="#06291f" opacity=".22" filter="url(#fine-grain)"/>
+ <rect width="2048" height="1536" fill="url(#velvet)"/>
+</svg>
