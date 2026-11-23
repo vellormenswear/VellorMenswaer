@@ -4,6 +4,8 @@ import Link from 'next/link';import Frame from '@/components/Frame';
 const brl=x=>(Number(x||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 export default function InfinitepayAdmin(){
  const [u,setU]=useState(null),[data,setData]=useState(null),[err,setErr]=useState(''),[busy,setBusy]=useState(''),[reference,setReference]=useState({}),[notes,setNotes]=useState({});
+ const [lookup,setLookup]=useState({checkout_id:'',transaction_nsu:'',slug:''});
+ const [returnUrl,setReturnUrl]=useState('');const [result,setResult]=useState(null);
  async function refresh(){try{
   const [auth,r]=await Promise.all([fetch('/api/auth/me',{cache:'no-store'}),fetch('/api/admin/infinitepay',{cache:'no-store'})]);
   const a=await auth.json(),j=await r.json();if(!r.ok)throw Error(j.error||'Sem permissao');
