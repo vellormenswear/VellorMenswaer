@@ -8,16 +8,16 @@ export const dynamic='force-dynamic';
 const COOKIE='vellor_support_session';
 const AGE=60*60*24*30;
 function tokenOf(req){const c=req.headers.get('cookie')||'';return c.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1)||'';}
-async function snapshot(hash){
+async function snapshot(hash,userId=null){
  if(!hash)return {status:'bot',messages:[]};
- const result=await sql('SELECT id,status FROM support_threads WHERE visitor_token_hash=$1',[hash]);
+ const result=await sql('SELECT id,status FROM support_threads WHERE visitor_token_hash=$1 AND (customer_id IS NULL OR customer_id=$2)',[hash,userId]);
  if(!result.rowCount)return {status:'bot',messages:[]};
  const t=result.rows[0];
  const messages=await sql('SELECT m.id,m.sender_kind,m.body,m.created_at,u.full_name AS sender_name FROM support_messages m LEFT JOIN users u ON u.id=m.sender_user_id WHERE m.thread_id=$1 ORDER BY m.id DESC LIMIT 100',[t.id]);
  return {status:t.status,messages:messages.rows.reverse()};
 }
 export async function GET(req){
- try{return ok(await snapshot(tokenOf(req)?sha256(tokenOf(req)):''));}
+ try{const u=await getUser(req);return ok(await snapshot(tokenOf(req)?sha256(tokenOf(req)):'',u?.id||null));}
  catch(e){return fail(e);}
 }
 export async function POST(req){
@@ -30,8 +30,9 @@ export async function POST(req){
   if(action==='message')ensure(message.length>0&&message.length<=1200,'A mensagem deve ter até 1.200 caracteres.');
   let token=tokenOf(req);
   if(!token||token.length>120)token=randomToken();
-  const hash=sha256(token);
   const user=await getUser(req);
+  if(token){const prior=await sql('SELECT customer_id FROM support_threads WHERE visitor_token_hash=$1',[sha256(token)]);if(prior.rowCount&&prior.rows[0].customer_id&&prior.rows[0].customer_id!==user?.id)token=randomToken();}
+  const hash=sha256(token);
   const created=await sql('INSERT INTO support_threads(visitor_token_hash,customer_id) VALUES($1,$2) ON CONFLICT(visitor_token_hash) DO UPDATE SET customer_id=COALESCE(support_threads.customer_id,excluded.customer_id) RETURNING id',[hash,user?.id||null]);
   const threadId=created.rows[0].id;
   await transaction(async client=>{
@@ -58,7 +59,7 @@ export async function POST(req){
     }else await client.query("UPDATE support_threads SET last_message_at=now(),updated_at=now() WHERE id=$1",[threadId]);
    }
   });
-  const response=ok(await snapshot(hash));
+  const response=ok(await snapshot(hash,user?.id||null));
   response.cookies.set(COOKIE,token,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/',maxAge:AGE});
   return response;
  }catch(e){return fail(e);}
