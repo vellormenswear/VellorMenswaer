@@ -1,3 +1,4 @@
+import {PERMISSIONS_POLICY} from './lib/browser-policy.mjs';
 /** @type {import('next').NextConfig} */
 const nextConfig={
   reactStrictMode:true,
@@ -11,7 +12,7 @@ const nextConfig={
   async rewrites(){return {beforeFiles:[{source:'/',destination:'/vitrine.html'}],afterFiles:[],fallback:[{source:'/:categoria([a-z0-9-]+)',destination:'/vitrine.html'}]}},
   async headers(){return [
     {source:'/api/:path*',headers:[{key:'Cache-Control',value:'no-store'},{key:'X-Content-Type-Options',value:'nosniff'}]},
-    {source:'/:path*',headers:[{key:'Referrer-Policy',value:'strict-origin-when-cross-origin'},{key:'X-Frame-Options',value:'DENY'},{key:'X-Content-Type-Options',value:'nosniff'}]}
+    {source:'/:path*',headers:[{key:'Permissions-Policy',value:PERMISSIONS_POLICY},{key:'Referrer-Policy',value:'strict-origin-when-cross-origin'},{key:'X-Frame-Options',value:'DENY'},{key:'X-Content-Type-Options',value:'nosniff'}]}
   ]}
 };
 export default nextConfig;
