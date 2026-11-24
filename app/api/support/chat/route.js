@@ -2,6 +2,7 @@ import {sql,transaction} from '@/lib/db';
 import {getUser} from '@/lib/auth';
 import {randomToken,sha256} from '@/lib/security';
 import {ok,fail,body,originGuard,ensure,HttpError} from '@/lib/http';
+import {clientIp,takeLimit} from '@/lib/rate-limit';
 import {supportReply} from '@/lib/support-faq.mjs';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -23,13 +24,14 @@ export async function GET(req){
 export async function POST(req){
  try{
   originGuard(req);
+  await takeLimit('support-post-ip',clientIp(req),60,60);
   const input=await body(req,5000);
   const action=input?.action;
   ensure(action==='message'||action==='request_human','Ação inválida.');
   const message=String(input?.message||'').trim();
   if(action==='message')ensure(message.length>0&&message.length<=1200,'A mensagem deve ter até 1.200 caracteres.');
   let token=tokenOf(req);
-  if(!token||token.length>120)token=randomToken();
+  if(!/^[A-Za-z0-9_-]{43}$/.test(token))token=randomToken();
   const user=await getUser(req);
   if(token){const prior=await sql('SELECT customer_id FROM support_threads WHERE visitor_token_hash=$1',[sha256(token)]);if(prior.rowCount&&prior.rows[0].customer_id&&prior.rows[0].customer_id!==user?.id)token=randomToken();}
   const hash=sha256(token);
