@@ -20,10 +20,10 @@ export async function GET(req){try{
  if(id){ensure(uuid(id),'Solicitação inválida.');
   const r=await sql(selectBase+' WHERE r.id=$1'+(admin?'':' AND r.user_id=$2 AND o.customer_id=$2'),admin?[id]:[id,user.id]);ensure(r.rowCount,'Solicitação não encontrada.',404);
   const messages=await sql('SELECT id,sender_kind,body,created_at FROM customer_request_messages WHERE request_id=$1 ORDER BY id DESC LIMIT 200',[id]);
-  return ok({thread:r.rows[0],messages:messages.rows.reverse()});
+  return ok({thread:admin?r.rows[0]:{...r.rows[0],admin_note:undefined},messages:messages.rows.reverse()});
  }
  const r=await sql(selectBase+(admin?'':' WHERE r.user_id=$1 AND o.customer_id=$1')+" ORDER BY CASE WHEN r.status IN ('resolved','rejected') THEN 1 ELSE 0 END,last_message_at DESC LIMIT 200",admin?[]:[user.id]);
- return ok({threads:r.rows});
+ return ok({threads:admin?r.rows:r.rows.map(t=>({...t,admin_note:undefined}))});
 }catch(e){return fail(e)}}
 export async function POST(req){try{
  originGuard(req);const {admin,user}=await context(req);const x=await body(req,6000);
@@ -41,7 +41,6 @@ export async function POST(req){try{
    const rate=await c.query("SELECT count(*)::int AS n FROM customer_request_messages WHERE request_id=$1 AND sender_user_id=$2 AND created_at>now()-interval '10 seconds'",[t.id,user.id]);ensure(rate.rows[0].n<4,'Aguarde antes de enviar outra mensagem.',429);
    await c.query('INSERT INTO customer_request_messages(request_id,sender_kind,sender_user_id,body) VALUES($1,$2,$3,$4)',[t.id,admin?'admin':'customer',user.id,message]);
    if(!admin){
-    if(['resolved','rejected'].includes(t.status))await c.query("UPDATE customer_requests SET status='open',resolved_at=NULL WHERE id=$1",[t.id]);
     await c.query('INSERT INTO notifications(order_id,kind,title,payload) VALUES($1,$2,$3,$4)',[t.order_id,'request_message','Nova mensagem de solicitação',JSON.stringify({request_id:t.id,order_number:t.order_number})]);
    }
   }
