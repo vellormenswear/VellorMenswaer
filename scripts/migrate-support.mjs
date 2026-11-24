@@ -8,8 +8,7 @@ if(process.env.VERCEL_ENV!=='production'){
  process.exit(0);
 }
 if(!process.env.DATABASE_URL)throw new Error('[vellor.support] DATABASE_URL is required for production support migration');
-const file='007_support_chat.sql';
-const sqlText=await fs.readFile(new URL('../db/'+file,import.meta.url),'utf8');
+const files=['007_support_chat.sql','011_category_hierarchy.sql'];
 const connectionString=normalizePgConnectionString(process.env.DATABASE_URL);
 const pool=new pg.Pool({connectionString,ssl:{rejectUnauthorized:true},max:1,connectionTimeoutMillis:10000});
 let client;
@@ -21,10 +20,13 @@ try{
  await client.query('SELECT pg_advisory_xact_lock(8033331)');
  const base=await client.query("SELECT to_regclass('public.users')::text AS users,to_regclass('public.schema_migrations')::text AS migrations");
  if(!base.rows[0]?.users||!base.rows[0]?.migrations)throw new Error('Estrutura principal de usuarios ou migrações ausente: operação interrompida.');
+ for(const file of files){
+ const sqlText=await fs.readFile(new URL('../db/'+file,import.meta.url),'utf8');
  const applied=await client.query('SELECT 1 FROM schema_migrations WHERE version=$1',[file]);
  if(!applied.rowCount){
   await client.query(sqlText);
   await client.query('INSERT INTO schema_migrations(version) VALUES($1)',[file]);
+ }
  }
  await client.query('COMMIT');
  console.log('[vellor.support] support schema ready');
