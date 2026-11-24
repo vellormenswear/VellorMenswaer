@@ -167,3 +167,59 @@ body{background:#faf9f6;color:#15241e;font-size:14px}
 .shipping-sla-late{color:#a52322;font-weight:750}
 .shipping-sla-urgent{color:#98621e;font-weight:750}
 .shipping-sla-on_track{color:#1b6840;font-weight:650}
+
+/* Aplicativo VELLOR — escopo limitado a Minha Conta e Administração. */
+.vll-account-app,.vll-admin-app{--app-green:#103c2c;--app-border:#e3e9e3;--app-muted:#65776b;font-family:Inter,Arial,sans-serif}
+.vll-account-app{max-width:1160px;padding-top:30px}
+.app-heading,.app-admin-heading{margin:0 0 22px}
+.app-eyebrow{font-size:10px;font-weight:700;letter-spacing:1.5px;color:#728477;margin:0 0 8px}
+.vll-account-app h1,.vll-admin-app h1{font:600 clamp(26px,3vw,34px)/1.2 Inter,Arial,sans-serif;letter-spacing:-.8px;margin:0 0 8px;color:var(--app-green)}
+.vll-account-app h2,.vll-admin-app h2{font:600 19px/1.35 Inter,Arial,sans-serif;color:var(--app-green);margin-top:0}
+.vll-account-app h3,.vll-admin-app h3{font:600 15px/1.4 Inter,Arial,sans-serif;color:var(--app-green)}
+.vll-account-app .card,.vll-admin-app .card,.vll-admin-app .metric{border:1px solid var(--app-border);border-radius:17px;box-shadow:0 2px 8px #123c2605;padding:20px}
+.vll-account-app .btn,.vll-account-app .btn-small,.vll-admin-app .btn,.vll-admin-app .btn-small{border-radius:10px;text-decoration:none;font-size:12px;font-weight:600;letter-spacing:0;min-height:38px}
+.vll-account-app .btn.gold,.vll-admin-app .btn.gold{background:#bba16d;border-color:#bba16d}
+.vll-account-app .field input,.vll-account-app .field select,.vll-account-app .field textarea,.vll-admin-app .field input,.vll-admin-app .field select,.vll-admin-app .field textarea{border:1px solid #dce4dc;border-radius:10px;background:#fbfcfa;padding:12px;font-size:13px}
+.vll-account-app .field label,.vll-admin-app .field label{font-weight:600;color:#52675a}
+.vll-account-app .notice,.vll-admin-app .notice{border-radius:12px;font-size:13px}
+.vll-account-app .navtabs{background:#eef1ec;border:0;padding:6px;border-radius:14px;gap:5px;margin:16px 0}
+.vll-account-app .navtabs button,.vll-account-app .navtabs a{border:0;background:transparent;color:#51675a;letter-spacing:0;text-transform:none;border-radius:10px;padding:11px 15px;font-weight:600;font-size:13px;text-decoration:none}
+.vll-account-app .navtabs button.active{color:#174b36;background:white;box-shadow:0 2px 6px #092f2510}
+.vll-account-app .navtabs a{background:#103c2c;color:white}
+.app-profile{display:flex;align-items:center;gap:14px;padding:20px;border-radius:19px;background:linear-gradient(135deg,#092f25,#174b36);color:white}
+.app-avatar{width:48px;height:48px;display:grid;place-items:center;border-radius:50%;background:#ffffff20;color:#e9d4a4;font-size:22px}
+.app-profile b,.app-profile small{display:block}.app-profile small{color:#d9c8a4;margin-top:5px;font-size:12px}
+.vll-admin-app{max-width:1500px;grid-template-columns:218px minmax(0,1fr);gap:16px;padding:16px;background:#f5f7f3;align-items:start}
+.vll-admin-app .sidebar{border-radius:18px;padding:15px 10px;position:sticky;top:12px;background:linear-gradient(160deg,#092f25,#103b2c)}
+.app-side-brand{padding:10px 11px 20px;border-bottom:1px solid #ffffff20;margin:0 4px 10px}
+.app-side-brand span{display:block;color:#d9c18d;font:600 20px Georgia,serif;letter-spacing:3px}
+.app-side-brand small{display:block;color:#b9cdbf;font-size:11px;margin-top:6px}
+.vll-admin-app .sidebar button{display:flex;align-items:center;gap:10px;border-radius:10px;padding:11px 10px;margin:2px 0;font-size:13px;color:#e3ebe4}
+.vll-admin-app .sidebar button svg{flex:none;color:#b6cbbb}
+.vll-admin-app .sidebar button.active{background:#ffffff18;color:#e4c88e}.vll-admin-app .sidebar button.active svg{color:#e4c88e}
+.vll-admin-app .admincontent{padding:15px 12px 30px}
+.app-admin-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.app-admin-heading .small{margin:0}.app-refresh{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.app-quicklinks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:0 0 20px}
+.app-quicklinks a{display:flex;align-items:center;gap:9px;padding:12px;border:1px solid var(--app-border);border-radius:12px;background:white;color:#174b36;text-decoration:none;font-size:12px;font-weight:600;min-width:0}
+.app-quicklinks a svg{flex:none}.app-quicklinks a:hover{background:#edf3ee;opacity:1}
+.vll-admin-app .metric strong{font:650 clamp(22px,3vw,30px)/1.25 Inter,Arial,sans-serif;letter-spacing:-.6px}
+.vll-admin-app .metric small{display:block;margin-top:7px}
+.vll-admin-app .productgrid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:13px}
+.vll-admin-app .producttile{display:flex;flex-direction:column;gap:6px;border:1px solid var(--app-border);border-radius:15px;padding:12px;min-width:0;overflow:hidden}
+.vll-admin-app .producttile img{height:145px;border-radius:9px;background:#fbfcfa}
+.vll-admin-app .producttile strong{line-height:1.5;font-size:13px;color:#183c2d}
+.vll-admin-app .producttile small{line-height:1.5}
+.app-product-actions{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto;padding-top:8px}
+.vll-admin-app button.tiny,.vll-account-app button.tiny{border-radius:8px;min-height:30px;padding:7px 9px;border-color:#dce4dc}
+.app-product-actions button{display:inline-flex;align-items:center;gap:5px}
+.app-product-actions .danger{color:#a42c25!important;border-color:#edddd9!important}
+.app-archive-toggle{display:flex;align-items:center;gap:7px;font-size:12px;color:#65776b;margin:12px 0}
+.app-product-editor{scroll-margin-top:18px}.app-product-editor .flexrow h2{margin:0}
+.app-photo-editor{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:16px;align-items:center;padding:16px;background:#f3f6f2;border-radius:12px;margin:12px 0}
+.app-photo-editor h3{margin-top:0}.app-photo-editor img,.app-variant-preview{max-width:100%;height:140px;object-fit:contain;border-radius:10px;background:white}
+.app-variant-preview{display:block;margin:10px 0}
+.app-status{display:inline-block;border-radius:20px;background:#edf3ee;color:#24573e;padding:5px 9px;font-size:11px}
+.vll-admin-app .tablewrap,.vll-account-app .tablewrap{border-radius:10px}
+@media(max-width:850px){.vll-admin-app{grid-template-columns:1fr;padding:10px;gap:9px}.vll-admin-app .sidebar{position:static;display:flex;overflow-x:auto;gap:4px;padding:7px}.app-side-brand{display:none}.vll-admin-app .sidebar button{width:auto;flex:none;gap:6px;padding:9px;font-size:11px}.vll-admin-app .sidebar svg{width:17px;height:17px}.vll-admin-app .admincontent{padding:8px 5px 24px}.vll-admin-app .cols3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:530px){.vll-account-app{padding:20px 12px 55px}.vll-account-app .navtabs button,.vll-account-app .navtabs a{font-size:11px;padding:9px}.vll-admin-app .card,.vll-account-app .card,.vll-admin-app .metric{padding:14px;border-radius:14px}.app-quicklinks{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.app-quicklinks a{padding:9px;font-size:11px}.app-admin-heading .btn{width:auto}.vll-admin-app .productgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.vll-admin-app .producttile{padding:9px}.vll-admin-app .producttile img{height:115px}.app-photo-editor{grid-template-columns:1fr}.app-photo-editor img{max-width:160px}.app-product-editor .flexrow .btn{width:auto}}
