@@ -1,2 +1,2 @@
-import {redirect} from 'next/navigation';
-export default function Home(){redirect('/vitrine.html')}
+// O rewrite beforeFiles entrega a vitrine estática sem mudar a URL pública.
+export default function Home(){return null}
