@@ -20,7 +20,7 @@ test('vitrine usa uma unica fileira horizontal com navegacao acessivel',()=>{
  assert.ok(js.includes('slideProducts(direction)'));
  assert.ok(js.includes("addEventListener('scroll',updateProductNav"));
 });
-test('categorias ilustradas possuem quatro principais, trinta subcategorias e fotos do catálogo',()=>{
+test('menu textual mantém quatro principais e trinta subcategorias',()=>{
  const defaults=read('public/vellor-category-defaults.js');
  const {tree,mapping}=new Function(defaults+';return {tree:DEFAULT_CATEGORY_TREE,mapping:DEFAULT_MODEL_CATEGORIES}')();
  assert.equal(tree.filter(c=>!c.parent_slug).length,4);
@@ -31,21 +31,21 @@ test('categorias ilustradas possuem quatro principais, trinta subcategorias e fo
  assert.ok(tree.every(c=>!c.parent_slug||tree.some(p=>p.slug===c.parent_slug&&!p.parent_slug)));
  assert.ok(models.every(p=>mapping[p.slug]&&tree.some(c=>c.slug===mapping[p.slug]))); 
  for(const p of models){assert.ok(fs.existsSync(path.join(root,'public',p.image_url.slice(1))))}
- assert.match(html,/id="vellor-subcategory-rail"/);
+ assert.match(html,/id="vellor-category-rail"/);
  assert.match(js,/function renderDiscovery\(\)/);
- assert.ok(js.includes('product?.image_url')&&js.includes('entry.image_url'));
+ assert.ok(js.includes('vellor-mega-links')&&js.includes('children.map(c=>'));
  assert.doesNotMatch(js,/unsplash\.com|placeholder\.com/);
 });
-test('categorias com imagens substituem menu superior e não são duplicadas',()=>{
- const nav=html.indexOf('class="category-nav vellor-category-nav"');
+test('menu textual único substitui categorias ilustradas',()=>{
+ const nav=html.indexOf('class="category-nav vellor-category-nav vellor-clean-nav"');
  const products=html.indexOf('id="catalog-page"');
  assert.ok(nav>0&&nav<products,'Categorias ilustradas devem aparecer antes dos produtos');
  assert.equal((html.match(/id="vellor-category-rail"/g)||[]).length,1);
- assert.ok(html.includes('id="vellor-show-all"'));
+ assert.ok(!html.includes('id="vellor-show-all"'));
  assert.ok(!html.includes('id="nav"'),'Menu textual antigo removido');
  assert.ok(!html.includes('id="descobrir"'),'Categorias inferiores duplicadas removidas');
  assert.ok(js.includes('function browseCategory(category)'));
- assert.ok(js.includes('vellor-category-tile ${selected?'));
+ assert.ok(js.includes('vellor-menu-trigger ${selected?'));
  assert.ok(js.includes('categoryForSearch'));
  assert.ok(!html.includes('class="vellor-carousel-controls"'));
 });
@@ -95,20 +95,20 @@ test('carrinho, pagamento, FAQ e atendimento continuam presentes',()=>{
 test('setas da vitrine usam SVG e não caracteres sujeitos a emoji',()=>{
  assert.doesNotMatch(js,/↗/);
  assert.doesNotMatch(html,/<span[^>]*>[↗‹›]<\/span>/);
- assert.match(js,/<svg class="vellor-arrow-svg"[^>]*aria-hidden="true"[^>]*focusable="false"/);
- assert.equal((html.match(/class="vellor-arrow-svg"/g)||[]).length,4);
+ assert.match(js,/<svg viewBox="0 0 24 24"[^>]*aria-hidden="true"[^>]*focusable="false"/);
+ assert.equal((html.match(/class="vellor-arrow-svg"/g)||[]).length,3);
  assert.match(css,/\.vellor-category-name \.vellor-arrow-svg\{color:#d8c18c/);
  assert.match(css,/\.vellor-carousel-arrow \.vellor-arrow-svg\{width:25px;height:25px\}/);
- assert.ok(html.includes('/vellor-approved.js?v=20261124-category-pages'));
- assert.ok(html.includes('/vellor-approved.css?v=20261124-category-pages'));
+ assert.ok(html.includes('/vellor-approved.js?v=20261124-clean-menu'));
+ assert.ok(html.includes('/vellor-approved.css?v=20261124-clean-menu'));
 });
 
-test('categorias possuem URLs próprias e subcategorias não expandem na vitrine',()=>{
+test('menu hover textual tem toque, teclado, links próprios e nenhuma foto de categoria',()=>{
  const config=read('next.config.mjs');assert.ok(config.includes("source:'/categorias/:categoria'")&&config.includes("source:'/categorias/:categoria/:subcategoria'"));
- assert.ok(js.includes('function browseCategory(category){location.assign(categoryUrl(category))}'));
- assert.ok(js.includes('location.assign(categoryUrl(pageParent,el.dataset.browseCategory))'));
- assert.ok(js.includes('panel.hidden=isCart||(!categoryPage&&!invalid)'));
- assert.ok(js.includes("document.getElementById('catalog-page').hidden=isCart||categoryPage||invalid"));
- assert.ok(html.indexOf('</nav>')<html.indexOf('id="vellor-subcategory-panel"'));
- assert.ok(!js.includes('expandedParent'));
+ const menu=js.slice(js.indexOf('function browseCategory('),js.indexOf('function slideProducts'));
+ assert.ok(menu.includes("addEventListener('pointerover'")&&menu.includes("addEventListener('pointerleave'")&&menu.includes("addEventListener('click'"));
+ assert.ok(menu.includes("e.key==='Escape'")&&menu.includes('aria-expanded')&&menu.includes('categoryUrl(root.slug,c.slug)'));
+ assert.ok(menu.includes('categoryUrl(root.slug,\'todos\')')&&menu.includes("document.getElementById('catalog-page').hidden=isCart||invalid"));
+ assert.ok(!menu.includes('<img')&&!menu.includes('vellor-category-tile'));
+ assert.ok(css.includes('.vellor-mega-menu[hidden]')&&css.includes('@media(max-width:760px)'));
 });
