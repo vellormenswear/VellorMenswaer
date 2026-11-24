@@ -1,6 +1,7 @@
 import {sql,transaction,audit} from '@/lib/db';import {requireRole,requirePermission,hasPermission} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,HttpError,txt,uuid,email} from '@/lib/http';import {passwordHash} from '@/lib/security';
 import {normalizeIdentity,IDENTITY_FIELDS} from '@/lib/store-identity.mjs';
+import {orderFilterPredicate,ADMIN_ORDER_PAGE_SIZE} from '@/lib/admin-order-filters.mjs';
 import {shippingAlerts} from '@/lib/shipping-deadline.mjs';
 import {cancelAdminOrder,confirmAdminRefund} from '@/lib/admin-order-cancel';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -34,7 +35,13 @@ export async function GET(req,{params}){try{const u=await requireRole(req,staffR
  }
  if(resource==='orders'){
   ensure(await hasPermission(u,'orders.read'),'Sem permissão.',403);
-  const r=await sql('SELECT o.*,u.full_name AS customer_name,u.email AS customer_email FROM orders o JOIN users u ON u.id=o.customer_id ORDER BY o.created_at DESC LIMIT 200');return ok({orders:u.role==='employee'?r.rows.map(x=>({...x,customer_email:undefined})):r.rows});
+  const filter=q.get('filter')||'all',predicate=orderFilterPredicate(filter);ensure(predicate,'Filtro inválido.',400);
+  const page=Number(q.get('page')||1);ensure(Number.isSafeInteger(page)&&page>=1&&page<=100000,'Página inválida.',400);
+  const flags=" CROSS JOIN LATERAL (SELECT COALESCE(bool_or(g.payment_status='refund_pending'),false) AS group_refund_pending,COALESCE(bool_or(g.payment_status='refund_failed'),false) AS group_refund_failed FROM supplier_order_groups g WHERE g.order_id=o.id) refund_flags ";
+  const [r,count]=await Promise.all([
+   sql(`SELECT o.*,u.full_name AS customer_name,u.email AS customer_email,refund_flags.* FROM orders o JOIN users u ON u.id=o.customer_id ${flags} WHERE ${predicate} ORDER BY o.created_at DESC,o.id DESC LIMIT $1 OFFSET $2`,[ADMIN_ORDER_PAGE_SIZE,(page-1)*ADMIN_ORDER_PAGE_SIZE]),
+   sql(`SELECT COUNT(*)::int AS total FROM orders o ${flags} WHERE ${predicate}`)
+  ]);return ok({orders:u.role==='employee'?r.rows.map(x=>({...x,customer_email:undefined})):r.rows,total:count.rows[0].total,page,page_size:ADMIN_ORDER_PAGE_SIZE,filter});
  }
  if(resource==='order'){
   ensure(await hasPermission(u,'orders.read'),'Sem permissão.',403);const id=q.get('id');ensure(uuid(id),'Pedido inválido.');const r=await sql('SELECT o.*,u.full_name AS customer_name,u.email AS customer_email FROM orders o JOIN users u ON o.customer_id=u.id WHERE o.id=$1',[id]);ensure(r.rowCount,'Pedido não encontrado.',404);
