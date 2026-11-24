@@ -2,7 +2,8 @@ import {sql,transaction} from '@/lib/db';
 import {getUser} from '@/lib/auth';
 import {randomToken,sha256} from '@/lib/security';
 import {ok,fail,body,originGuard,ensure,HttpError} from '@/lib/http';
-import {supportReply} from '@/lib/support-faq.mjs';
+import {customerOrderLabel,customerPaymentLabel} from '@/lib/customer-order-status.mjs';
+import {supportReply,orderQuestion,orderNumber,humanQuestion} from '@/lib/support-faq.mjs';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const COOKIE='vellor_support_session';
@@ -29,14 +30,15 @@ export async function POST(req){
   const message=String(input?.message||'').trim();
   if(action==='message')ensure(message.length>0&&message.length<=1200,'A mensagem deve ter até 1.200 caracteres.');
   let token=tokenOf(req);
-  if(!token||token.length>120)token=randomToken();
+  if(!/^[A-Za-z0-9_-]{43}$/.test(token||''))token=randomToken();
   const user=await getUser(req);
   if(token){const prior=await sql('SELECT customer_id FROM support_threads WHERE visitor_token_hash=$1',[sha256(token)]);if(prior.rowCount&&prior.rows[0].customer_id&&prior.rows[0].customer_id!==user?.id)token=randomToken();}
-  const hash=sha256(token);
-  const created=await sql('INSERT INTO support_threads(visitor_token_hash,customer_id) VALUES($1,$2) ON CONFLICT(visitor_token_hash) DO UPDATE SET customer_id=COALESCE(support_threads.customer_id,excluded.customer_id) RETURNING id',[hash,user?.id||null]);
+  let hash=sha256(token);
+  const claim=()=>sql('INSERT INTO support_threads(visitor_token_hash,customer_id) VALUES($1,$2) ON CONFLICT(visitor_token_hash) DO UPDATE SET customer_id=COALESCE(support_threads.customer_id,excluded.customer_id) WHERE support_threads.customer_id IS NULL OR support_threads.customer_id=excluded.customer_id RETURNING id',[hash,user?.id||null]);
+  let created=await claim();if(!created.rowCount){token=randomToken();hash=sha256(token);created=await claim();}
   const threadId=created.rows[0].id;
   await transaction(async client=>{
-   const row=await client.query('SELECT status FROM support_threads WHERE id=$1 FOR UPDATE',[threadId]);
+   const row=await client.query('SELECT status FROM support_threads WHERE id=$1 AND (customer_id IS NULL OR customer_id=$2) FOR UPDATE',[threadId,user?.id||null]);
    if(!row.rowCount)throw new HttpError(404,'Conversa não encontrada.');
    const status=row.rows[0].status;
    if(action==='request_human'){
@@ -51,7 +53,21 @@ export async function POST(req){
     if(recent.rows[0].count>=2)throw new HttpError(429,'Aguarde um instante antes de enviar outra mensagem.');
     await client.query("INSERT INTO support_messages(thread_id,sender_kind,body) VALUES($1,'visitor',$2)",[threadId,message]);
     if(status==='bot'){
-     await client.query("INSERT INTO support_messages(thread_id,sender_kind,body) VALUES($1,'bot',$2)",[threadId,supportReply(message)]);
+     const recent=await client.query('SELECT sender_kind,body FROM support_messages WHERE thread_id=$1 ORDER BY id DESC LIMIT 12',[threadId]);
+     const history=recent.rows.reverse();let reply=supportReply(message,history);
+     if(humanQuestion(message)){
+      await client.query("UPDATE support_threads SET status='waiting',requested_at=now(),last_message_at=now(),updated_at=now() WHERE id=$1",[threadId]);
+      await client.query("INSERT INTO notifications(kind,title,payload) VALUES('support_requested',$1,$2::jsonb)",['Novo atendimento VELLOR solicitado',JSON.stringify({thread_id:threadId})]);
+     }else if(orderQuestion(message)||(/^#?\d{1,12}$/.test(message)&&history.some(m=>m.sender_kind==='visitor'&&orderQuestion(m.body)))){
+      const number=orderNumber(message)||(/^#?\d{1,12}$/.test(message)?message.replace('#',''):null);
+      if(!user)reply='Para proteger suas informações, entre em Minha Conta antes de consultar seu pedido. Depois, informe o número do pedido aqui.';
+      else if(!number)reply='Qual é o número do seu pedido? Você pode encontrá-lo em Minha Conta > Meus pedidos. Envie apenas o número, sem dados pessoais.';
+      else{
+       const found=await client.query('SELECT order_number,status,payment_status,tracking_code FROM orders WHERE customer_id=$1 AND order_number=$2::bigint LIMIT 1',[user.id,number]);
+       const o=found.rows[0];reply=o?'Pedido #'+o.order_number+': '+customerOrderLabel(o.status)+'. Pagamento: '+(o.status==='canceled'&&o.payment_status==='approved'?'Estorno pendente':customerPaymentLabel(o.payment_status))+'. '+(o.tracking_code?'Rastreamento: '+o.tracking_code+'. ':'')+'Consulte Minha Conta para mais detalhes ou fale com a equipe.':'Não localizei esse pedido na sua conta. Confira o número em Minha Conta ou solicite atendimento humano.';
+      }
+     }
+     await client.query("INSERT INTO support_messages(thread_id,sender_kind,body) VALUES($1,'bot',$2)",[threadId,reply.slice(0,2000)]);
     }
     if(status==='closed'){
      await client.query("UPDATE support_threads SET status='waiting',requested_at=now(),last_message_at=now(),updated_at=now() WHERE id=$1",[threadId]);
