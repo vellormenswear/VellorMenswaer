@@ -22,13 +22,13 @@ export default function Frame({children,user,logout}){
  return <>
   <header className="vll-site-header">
    <nav className="vll-header-left" aria-label="Ir à loja">
-    <a href="/vitrine.html" className="vll-hd-link">EXPLORAR</a>
+    <a href="/" className="vll-hd-link">EXPLORAR</a>
    </nav>
    <Link className="vll-brand" href="/" aria-label="VELLOR Menswear — página inicial">
     <img src="/logo-vellor.png" alt="VELLOR Menswear"/>
    </Link>
    <nav className="vll-header-right" aria-label="Acesso rápido">
-    <a href="/vitrine.html#carrinho" className="vll-icon-link" title="Carrinho" aria-label="Meu carrinho">
+    <a href="/#carrinho" className="vll-icon-link" title="Carrinho" aria-label="Meu carrinho">
      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 9h14l-1 12H6L5 9ZM9 10V7a3 3 0 0 1 6 0v3"/></svg>
     </a>
     <Link href="/conta" className="vll-icon-link" title="Minha conta" aria-label="Minha conta">
@@ -49,8 +49,8 @@ export default function Frame({children,user,logout}){
      </section>
      <nav className="vll-footer-links" aria-label="Navegação do rodapé">
       <h2>Navegação</h2>
-      <a href="/vitrine.html">Explorar produtos</a>
-      <a href="/vitrine.html#carrinho">Meu carrinho</a>
+      <a href="/">Explorar produtos</a>
+      <a href="/#carrinho">Meu carrinho</a>
       <Link href="/conta">Minha conta e pedidos</Link>
       {isSupplier&&<Link href="/fornecedor">Portal do fornecedor</Link>}
       {isAdmin&&<Link href="/admin">Administração</Link>}
