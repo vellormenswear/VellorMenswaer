@@ -2,7 +2,8 @@ import {sql,db,transaction,audit} from '@/lib/db';
 import {applyMarketplaceMigrations} from '@/lib/marketplace-auto-schema.mjs';
 import {requireUser,requireRole} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,uuid,txt,email,HttpError} from '@/lib/http';
-import {randomToken,sha256} from '@/lib/security';
+import {randomToken,sha256,passwordHash} from '@/lib/security';
+import {isBrazilianDocument} from '@/lib/store-identity.mjs';
 import {randomUUID} from 'node:crypto';
 import {parseSupplierPix,supplierPixSummary} from '@/lib/supplier-pix.mjs';
 import {supplierSubmissionValid,generatedSupplierSku,resolveApprovedProductImage} from '@/lib/marketplace-rules.mjs';
@@ -78,6 +79,27 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  }catch(e){return fail(e)}}
 export async function POST(req,{params}){try{originGuard(req);const {action}=await params;const x=await body(req,120000);
  if(action.startsWith('admin-')){const u=await requireRole(req,adminRoles);
+  if(action==='admin-create'){
+   const mail=email(x.email),name=txt(x.name,120),business=txt(x.business_name,160),document=txt(x.document,30).replace(/\D/g,''),pix=parseSupplierPix(x);
+   ensure(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)&&name.length>=3&&business.length>=3&&isBrazilianDocument(document),'Informe nome, empresa, e-mail e CPF/CNPJ válido.',400);
+   ensure(typeof x.password==='string'&&x.password.length>=12&&x.password.length<=128,'A senha inicial deve conter entre 12 e 128 caracteres.',400);
+   ensure(pix,'Informe uma chave Pix válida e o nome do titular.',400);
+   await applyMarketplaceMigrations(()=>db().connect());
+   const hashed=await passwordHash(x.password);
+   try{
+    const result=await transaction(async c=>{
+     const exists=await c.query('SELECT id FROM users WHERE lower(email)=$1',[mail]);
+     ensure(!exists.rowCount,'Já existe uma conta com este e-mail. Nenhuma conta existente será alterada.',409);
+     const account=await c.query("INSERT INTO users(full_name,email,password_hash,phone,role) VALUES($1,$2,$3,$4,'supplier') RETURNING id",[name,mail,hashed,txt(x.phone,30)]);
+     const supplier=await c.query('INSERT INTO suppliers(user_id,business_name,document_number,address_text) VALUES($1,$2,$3,$4) RETURNING id',[account.rows[0].id,business,document,txt(x.address,600)]);
+     const id=supplier.rows[0].id;
+     await c.query('INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name) VALUES($1,$2,$3,$4)',[id,pix.pix_type,pix.pix_key,pix.holder_name]);
+     await c.query('INSERT INTO audit_logs(actor_id,action,resource_type,resource_id,after_data) VALUES($1,$2,$3,$4,$5)',[u.id,'supplier.admin_created','supplier',id,JSON.stringify({registration:'manual',pix_type:pix.pix_type})]);
+     return {supplier_id:id};
+    });
+    return ok({created:true,...result},201);
+   }catch(e){if(e.code==='23505')throw new HttpError(409,'Já existe uma conta com os dados informados.');throw e;}
+  }
   if(action==='admin-invite'){
    await applyMarketplaceMigrations(()=>db().connect());
    const token=randomToken();
