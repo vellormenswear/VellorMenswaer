@@ -417,3 +417,15 @@
 .vellor-carousel-arrow[hidden],#vellor-all-products[hidden]{display:none!important}
 @media(max-width:1160px){#grid.vellor-product-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 22px}}
 @media(max-width:760px){#grid.vellor-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:25px 13px}.vellor-products-heading #vellor-all-products{font-size:10px;white-space:normal;text-align:right}}
+
+/* No celular, dois controles de cada lado reservam espaço simétrico para a marca. */
+.site-header .mobile-search-icon{display:none}
+@media(max-width:760px){
+ .site-header{display:grid;grid-template-columns:84px minmax(0,1fr) 84px;gap:4px;padding:0 10px}
+ .site-header .hd-left,.site-header .hd-right{width:84px;min-width:0;display:flex;gap:0;justify-content:space-between}
+ .site-header .hd-left .mobile-menu-icon,.site-header .hd-left .mobile-search-icon,.site-header .hd-right .account-link,.site-header .hd-right .icon-btn{display:flex;flex:0 0 42px;width:42px;height:44px;padding:8px;align-items:center;justify-content:center}
+ .site-header .hd-right .desktop-search-icon{display:none}
+ .site-header .brand{position:static;transform:none;left:auto;top:auto;width:100%;max-width:185px;min-width:0;height:70px;justify-self:center;overflow:hidden}
+ .site-header .brand img{display:block;width:100%;max-width:100%;height:auto;max-height:68px;object-fit:contain}
+ .site-header .count-dot{right:0;top:0}
+}
