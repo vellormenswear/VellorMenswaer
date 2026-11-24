@@ -218,7 +218,12 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
   await sql('INSERT INTO store_settings(key,value,updated_by) VALUES($1,$2,$3) ON CONFLICT(key) DO UPDATE SET value=$2,updated_by=$3,updated_at=now()',[key,JSON.stringify(value),u.id]);await audit(u.id,'settings.update','setting',key,null,{value});return ok({updated:true});
  }
  if(resource==='request'){
-  await requireRole(req,['admin','super_admin']);ensure(uuid(x.id)&&['open','under_review','approved','rejected','resolved'].includes(x.status),'Solicitação inválida.');await sql('UPDATE customer_requests SET status=$1,admin_note=$2,resolved_at=CASE WHEN $1 IN (\'resolved\',\'rejected\') THEN now() ELSE null END WHERE id=$3',[x.status,txt(x.note,1200),x.id]);await audit(u.id,'request.update','request',x.id,null,{status:x.status});return ok({updated:true});
+  await requireRole(req,['admin','super_admin']);ensure(uuid(x.id)&&['open','under_review','approved','rejected','resolved'].includes(x.status),'Solicitação inválida.');
+  await transaction(async c=>{const current=await c.query('SELECT status FROM customer_requests WHERE id=$1 FOR UPDATE',[x.id]);ensure(current.rowCount,'Solicitação não encontrada.',404);if(current.rows[0].status===x.status)return;
+  const labels={open:'Aberta',under_review:'Em análise',approved:'Aprovada para tratamento',rejected:'Rejeitada',resolved:'Resolvida'};
+  await c.query("UPDATE customer_requests SET status=$1,admin_note=$2,resolved_at=CASE WHEN $1 IN ('resolved','rejected') THEN now() ELSE NULL END WHERE id=$3",[x.status,txt(x.note,1200),x.id]);
+  await c.query("INSERT INTO customer_request_messages(request_id,sender_kind,sender_user_id,body) VALUES($1,'admin',$2,$3)",[x.id,u.id,'Situação da solicitação: '+labels[x.status]+'.']);
+  await c.query('INSERT INTO audit_logs(actor_id,action,resource_type,resource_id,after_data) VALUES($1,$2,$3,$4,$5)',[u.id,'request.update','request',x.id,JSON.stringify({status:x.status})]);});return ok({updated:true});
  }
  throw new HttpError(404,'Recurso não encontrado.');
  }catch(e){return fail(e)}}
