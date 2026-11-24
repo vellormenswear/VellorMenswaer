@@ -408,3 +408,12 @@
 .vellor-menu-trigger:focus-visible,.vellor-mega-links a:focus-visible{outline:2px solid #b59b65;outline-offset:4px}
 @media(max-width:760px){.vellor-clean-nav .vellor-menu-list{gap:8px 20px;flex-wrap:wrap;padding:0 12px}.vellor-menu-trigger{font-size:10px;letter-spacing:.5px;padding:14px 0}.vellor-menu-trigger:after{bottom:7px}.vellor-mega-inner{grid-template-columns:1fr;gap:16px;padding:20px}.vellor-mega-label{border-right:0;border-bottom:1px solid #e3e4dd;padding:0 0 10px}.vellor-mega-links{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.vellor-mega-menu{max-height:65dvh;overflow-y:auto}}
 @media(prefers-reduced-motion:reduce){.vellor-menu-trigger:after{transition:none}}
+
+/* Carrossel apenas de destaques; catálogo completo usa grade vertical. */
+#grid.vellor-product-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:35px 26px;overflow:visible;padding:8px 2px 50px;margin:0;scroll-snap-type:none}
+#grid.vellor-product-grid>.card{min-width:0;width:100%}
+#grid.vellor-product-grid>.card .photo{border-radius:5px 5px 0 0;aspect-ratio:4/4.6}
+#grid.vellor-product-grid>.empty{grid-column:1/-1;padding:55px 15px}
+.vellor-carousel-arrow[hidden],#vellor-all-products[hidden]{display:none!important}
+@media(max-width:1160px){#grid.vellor-product-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 22px}}
+@media(max-width:760px){#grid.vellor-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:25px 13px}.vellor-products-heading #vellor-all-products{font-size:10px;white-space:normal;text-align:right}}
