@@ -49,10 +49,12 @@ test('cabeçalho e rodapé seguem a identidade da vitrine nas rotas Next',()=>{
  const styles=read('app/globals.css');
  const groups=read('app/pagamento/grupos/page.jsx');
  const paid=read('app/pagamento/retorno/page.jsx');
- for(const section of ['vll-site-header','vll-brand','vll-category-nav','vll-app-footer']) {
+ for(const section of ['vll-site-header','vll-brand','vll-app-footer']) {
   assert.ok(frame.includes(section));
   assert.ok(styles.includes('.'+section));
  }
+ assert.ok(!frame.includes('className="vll-category-nav"'));
+ assert.ok(read('public/vitrine.html').includes('category-nav'));
  assert.ok(frame.includes('logo-vellor.png'));
  assert.ok(groups.includes("<Frame user={null}>"));
  assert.ok(paid.includes("<Frame user={null}>"));
