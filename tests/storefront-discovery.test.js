@@ -20,16 +20,20 @@ test('vitrine usa uma unica fileira horizontal com navegacao acessivel',()=>{
  assert.ok(js.includes('slideProducts(direction)'));
  assert.ok(js.includes("addEventListener('scroll',updateProductNav"));
 });
-test('categorias ilustradas so usam fotos reais e disponiveis da VELLOR',()=>{
- assert.match(html,/id="vellor-category-rail"/);
+test('categorias ilustradas possuem quatro principais, trinta subcategorias e fotos do catálogo',()=>{
+ const defaults=read('public/vellor-category-defaults.js');
+ const {tree,mapping}=new Function(defaults+';return {tree:DEFAULT_CATEGORY_TREE,mapping:DEFAULT_MODEL_CATEGORIES}')();
+ assert.equal(tree.filter(c=>!c.parent_slug).length,4);
+ assert.equal(tree.filter(c=>c.parent_slug).length,30);
+ assert.deepEqual(tree.filter(c=>!c.parent_slug).map(c=>c.name),['Vestuário','Relógios','Calçados','Acessórios']);
+ assert.equal(tree.find(c=>c.slug==='vestuario-esportivo').parent_slug,'vestuario');
+ assert.equal(new Set(tree.map(c=>c.slug)).size,34);
+ assert.ok(tree.every(c=>!c.parent_slug||tree.some(p=>p.slug===c.parent_slug&&!p.parent_slug)));
+ assert.ok(models.every(p=>mapping[p.slug]&&tree.some(c=>c.slug===mapping[p.slug]))); 
+ for(const p of models){assert.ok(fs.existsSync(path.join(root,'public',p.image_url.slice(1))))}
+ assert.match(html,/id="vellor-subcategory-rail"/);
  assert.match(js,/function renderDiscovery\(\)/);
- assert.match(js,/product.image_url/);
- for(const name of ['Vestuário','Relógios','Calçados','Acessórios','Vestuário Esportivo']){
-  assert.ok(js.includes("name:'"+name+"'"));
-  assert.ok(models.some(p=>p.category===name),'Categoria sem produto: '+name);
-  const p=models.find(p=>p.category===name);
-  assert.ok(fs.existsSync(path.join(root,'public',p.image_url.slice(1))));
- }
+ assert.ok(js.includes('product?.image_url')&&js.includes('entry.image_url'));
  assert.doesNotMatch(js,/unsplash\.com|placeholder\.com/);
 });
 test('categorias com imagens substituem menu superior e não são duplicadas',()=>{
@@ -41,7 +45,7 @@ test('categorias com imagens substituem menu superior e não são duplicadas',()
  assert.ok(!html.includes('id="nav"'),'Menu textual antigo removido');
  assert.ok(!html.includes('id="descobrir"'),'Categorias inferiores duplicadas removidas');
  assert.ok(js.includes('function browseCategory(category)'));
- assert.ok(js.includes('vellor-category-tile ${currentCategory===name?'));
+ assert.ok(js.includes('vellor-category-tile ${selected?'));
  assert.ok(js.includes('categoryForSearch'));
  assert.ok(!html.includes('class="vellor-carousel-controls"'));
 });
@@ -95,6 +99,6 @@ test('setas da vitrine usam SVG e não caracteres sujeitos a emoji',()=>{
  assert.equal((html.match(/class="vellor-arrow-svg"/g)||[]).length,4);
  assert.match(css,/\.vellor-category-name \.vellor-arrow-svg\{color:#d8c18c/);
  assert.match(css,/\.vellor-carousel-arrow \.vellor-arrow-svg\{width:25px;height:25px\}/);
- assert.ok(html.includes('/vellor-approved.js?v=20261123-svg-arrows'));
- assert.ok(html.includes('/vellor-approved.css?v=20261123-svg-arrows'));
+ assert.ok(html.includes('/vellor-approved.js?v=20261124-category-tree'));
+ assert.ok(html.includes('/vellor-approved.css?v=20261124-category-tree'));
 });
