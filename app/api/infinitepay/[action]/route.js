@@ -1,5 +1,6 @@
 import {sql,transaction} from '@/lib/db';
 import {quoteCart} from '@/lib/commerce';
+import {canPurchase} from '@/lib/purchase-role.mjs';
 import {requireUser} from '@/lib/auth';
 import {ok,fail,ensure,body,originGuard,HttpError,uuid} from '@/lib/http';
 import {randomUUID} from 'node:crypto';
@@ -8,7 +9,7 @@ import {infinitepayApi,infinitepayLink} from '@/lib/infinitepay-api';
 import {infinitepayReady,buildInfinitepayCheckout,safeInfiniteRef} from '@/lib/infinitepay.mjs';
 import {reconcileInfinitepayBatch} from '@/lib/infinitepay-reconcile';
 export const runtime='nodejs';export const dynamic='force-dynamic';
-async function customer(req){const u=await requireUser(req);ensure(u.role==='customer','Somente compradores.',403);return u}
+async function customer(req){const u=await requireUser(req);ensure(canPurchase(u),'Conta não autorizada a realizar compras.',403);return u}
 async function createCheckout(batch,u){
  const existing=await sql('SELECT * FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1 AND customer_id=$2',[batch,u.id]);
  if(existing.rowCount){ensure(existing.rows[0].checkout_url,'Checkout ainda nao finalizado.',409);return{checkout_url:existing.rows[0].checkout_url,checkout_id:batch}}
