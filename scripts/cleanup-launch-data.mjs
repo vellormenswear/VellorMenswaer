@@ -8,7 +8,7 @@ import {normalizePgConnectionString} from '../lib/postgres-ssl.mjs';
 const expected='1d3d49562233de9bcd252d46237d9c472734c847a3448c6bcc43445bcd0e7f0b';
 const marker='maintenance:2026-11-24-test-cleanup';
 const check=process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_GIT_COMMIT_REF==='vellor-launch-cleanup-20261124';
-const apply=process.env.VERCEL_ENV==='production'&&process.env.VERCEL_LAUNCH_CLEANUP_FINGERPRINT===expected;
+const apply=process.env.VERCEL_ENV==='production'&&process.env.VELLOR_LAUNCH_CLEANUP_FINGERPRINT===expected;
 if(!check&&!apply)process.exit(0);
 if(!process.env.DATABASE_URL||!process.env.BLOB_READ_WRITE_TOKEN)throw Error('Missing database or Blob configuration');
 const pool=new pg.Pool({connectionString:normalizePgConnectionString(process.env.DATABASE_URL),ssl:{rejectUnauthorized:true},max:1,connectionTimeoutMillis:10000});
