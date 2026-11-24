@@ -9,7 +9,7 @@ const html=read('public/vitrine.html'),js=read('public/vellor-approved.js'),css=
 const catalog=JSON.parse(read('data/catalogo-nacional.json')).filter(p=>p.public_ready&&Number.isFinite(p.price_brl));
 const models=[...new Map(catalog.map(p=>[p.slug,p])).values()];
 const minPrice=model=>Math.min(...catalog.filter(p=>p.slug===model.slug).map(p=>Math.round(p.price_brl*100)));
-test('vitrine usa uma unica fileira horizontal com navegacao acessivel',()=>{
+test('destaques usam uma unica fileira horizontal com navegacao acessivel',()=>{
  assert.equal((html.match(/id="grid"/g)||[]).length,1);
  assert.match(html,/id="grid"[^>]*tabindex="0"/);
  assert.match(html,/class="grid vellor-product-rail"/);
@@ -99,8 +99,8 @@ test('setas da vitrine usam SVG e não caracteres sujeitos a emoji',()=>{
  assert.equal((html.match(/class="vellor-arrow-svg"/g)||[]).length,3);
  assert.match(css,/\.vellor-category-name \.vellor-arrow-svg\{color:#d8c18c/);
  assert.match(css,/\.vellor-carousel-arrow \.vellor-arrow-svg\{width:25px;height:25px\}/);
- assert.ok(html.includes('/vellor-approved.js?v=20261124-clean-menu'));
- assert.ok(html.includes('/vellor-approved.css?v=20261124-clean-menu'));
+ assert.ok(html.includes('/vellor-approved.js?v=20261124-catalog-grid'));
+ assert.ok(html.includes('/vellor-approved.css?v=20261124-catalog-grid'));
 });
 
 test('menu hover textual tem toque, teclado, links próprios e nenhuma foto de categoria',()=>{
@@ -111,4 +111,21 @@ test('menu hover textual tem toque, teclado, links próprios e nenhuma foto de c
  assert.ok(menu.includes('categoryUrl(root.slug,\'todos\')')&&menu.includes("document.getElementById('catalog-page').hidden=isCart||invalid"));
  assert.ok(!menu.includes('<img')&&!menu.includes('vellor-category-tile'));
  assert.ok(css.includes('.vellor-mega-menu[hidden]')&&css.includes('@media(max-width:760px)'));
+});
+
+test('destaques sorteiam no máximo dois modelos distintos por categoria e não limitam o catálogo',()=>{
+ const start=js.indexOf('function selectFeatured('),end=js.indexOf('function isFeaturedView()',start);
+ const select=new Function(js.slice(start,end)+';return selectFeatured')();
+ const roots=['vestuario','relogios','calcados','acessorios'];
+ const rows=roots.flatMap(root=>Array.from({length:5},(_,i)=>({root,slug:root+i,rank:5-i})));
+ const chosen=select(rows,roots,p=>p.root,p=>p.rank);
+ assert.equal(chosen.length,8);assert.equal(new Set(chosen.map(p=>p.slug)).size,8);
+ for(const root of roots){assert.equal(chosen.filter(p=>p.root===root).length,2);assert.ok(chosen.some(p=>p.slug===root+'4'));assert.ok(chosen.some(p=>p.slug===root+'3'));}
+ assert.equal(select(rows.filter(p=>p.slug==='vestuario0'),roots,p=>p.root,p=>p.rank).length,1);
+ assert.ok(js.includes('Math.random()')&&js.includes('):allItems;'));
+ assert.ok(js.includes("!pageParent&&!fullCatalog")&&js.includes("get('catalogo')==='1'"));
+ assert.ok(js.includes("grid.classList.toggle('vellor-product-grid',!carousel)")&&js.includes("prev.hidden=next.hidden=!carousel"));
+ assert.ok(html.includes('href="/vitrine.html?catalogo=1"'));
+ assert.match(css,/#grid\.vellor-product-grid\{display:grid;grid-template-columns:repeat\(4/);
+ assert.match(css,/#grid\.vellor-product-grid\{grid-template-columns:repeat\(2/);
 });
