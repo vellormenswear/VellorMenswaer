@@ -73,7 +73,19 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
  if(resource==='order-note'){ensure(await hasPermission(u,'orders.process'),'Sem permissão.',403);ensure(uuid(x.id),'Pedido inválido.');const note=txt(x.note,2000);ensure(note,'Observação vazia.');const r=await sql('UPDATE orders SET operational_note=$1 WHERE id=$2 RETURNING id',[note,x.id]);ensure(r.rowCount,'Pedido não encontrado.',404);await audit(u.id,'order.note','order',x.id,null,{note});return ok({updated:true})}
  if(resource==='notifications-read'){ensure(await hasPermission(u,'orders.read'),'Sem permissão.',403);ensure(uuid(x.id),'Notificação inválida.');await sql('UPDATE notifications SET read_at=COALESCE(read_at,now()) WHERE id=$1',[x.id]);return ok({updated:true})}
  if(resource==='category'){
-  await requireRole(req,['admin','super_admin']);const name=txt(x.name,100),slug=txt(x.slug,120).toLowerCase();ensure(name.length>=2&&/^[a-z0-9-]+$/.test(slug),'Categoria inválida.');const rr=await sql(`INSERT INTO categories(name,slug) VALUES($1,$2) ON CONFLICT(slug) DO UPDATE SET name=excluded.name RETURNING id`,[name,slug]);await audit(u.id,'category.upsert','category',rr.rows[0].id,null,{name,slug});return ok({id:rr.rows[0].id});
+  await requireRole(req,['admin','super_admin']);
+  const name=txt(x.name,100),slug=txt(x.slug,120).toLowerCase(),parent=x.parent_id||null,image=txt(x.image_url,1000),position=Number(x.sort_order||0),id=x.id||null;
+  ensure(name.length>=2&&/^[a-z0-9-]+$/.test(slug)&&(!id||uuid(id))&&(!parent||uuid(parent))&&Number.isInteger(position)&&position>=0&&position<=9999,'Categoria inválida.');
+  ensure(!image||image.startsWith('https://')||image.startsWith('/product-images/'),'Imagem inválida.');
+  const saved=await transaction(async c=>{
+   await c.query('SELECT pg_advisory_xact_lock($1)',[8033332]);
+   if(parent){ensure(parent!==id,'Categoria não pode ser sua própria superior.');const p=await c.query('SELECT id,parent_id FROM categories WHERE id=$1 FOR UPDATE',[parent]);ensure(p.rowCount&&!p.rows[0].parent_id,'Selecione uma categoria principal válida.');}
+   if(id&&parent){const children=await c.query('SELECT 1 FROM categories WHERE parent_id=$1 LIMIT 1',[id]);ensure(!children.rowCount,'Uma categoria com subcategorias não pode virar subcategoria.',409);}
+   const conflict=await c.query('SELECT id FROM categories WHERE slug=$1 AND ($2::uuid IS NULL OR id<>$2)',[slug,id]);ensure(!conflict.rowCount,'Identificador já utilizado.',409);
+   let r;if(id)r=await c.query('UPDATE categories SET name=$1,slug=$2,parent_id=$3,image_url=$4,sort_order=$5,active=$6 WHERE id=$7 RETURNING id',[name,slug,parent,image||null,position,x.active!==false,id]);else r=await c.query('INSERT INTO categories(name,slug,parent_id,image_url,sort_order,active) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[name,slug,parent,image||null,position,x.active!==false]);
+   ensure(r.rowCount,'Categoria não encontrada.',404);
+   await c.query('INSERT INTO audit_logs(actor_id,action,resource_type,resource_id,after_data) VALUES($1,$2,$3,$4,$5)',[u.id,'category.upsert','category',r.rows[0].id,JSON.stringify({name,slug,parent_id:parent,sort_order:position})]);return r.rows[0].id;
+  });return ok({id:saved});
  }
  if(resource==='product-delete'){
   await requireRole(req,['admin','super_admin']);ensure(uuid(x.id),'Produto inválido.');
