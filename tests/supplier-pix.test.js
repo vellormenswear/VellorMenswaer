@@ -101,3 +101,20 @@ test('não quebra autenticação, InfinitePay, notificações ou área pública'
  assert.ok(payout.includes("'supplier.pix_manual_recorded'"));
  assert.ok(!read('public/vitrine.html').includes('supplier_pix_accounts'));
 });
+
+test('cadastro manual administrativo cria somente fornecedor, Pix e auditoria na mesma transação',()=>{
+ const route=read('app/api/suppliers/[action]/route.js'),page=read('app/admin/fornecedores/page.jsx');
+ const start=route.indexOf("if(action==='admin-create')"),end=route.indexOf("if(action==='admin-invite')",start);
+ assert.ok(start>route.indexOf("if(action.startsWith('admin-')){const u=await requireRole(req,adminRoles);")&&end>start);
+ assert.ok(route.includes("const adminRoles=['admin','super_admin']"));
+ const code=route.slice(start,end);
+ for(const part of ['parseSupplierPix(x)','ensure(pix','isBrazilianDocument(document)','passwordHash(x.password)','await transaction(async c=>','WHERE lower(email)=$1',"VALUES($1,$2,$3,$4,\'supplier\')",'INSERT INTO suppliers','INSERT INTO supplier_pix_accounts','INSERT INTO audit_logs','supplier.admin_created'])assert.ok(code.includes(part),part);
+ assert.ok(code.includes("e.code==='23505'"));
+ assert.ok(!code.includes('issueSession')&&!code.includes('UPDATE users'));
+ assert.ok(code.includes("JSON.stringify({registration:'manual',pix_type:pix.pix_type})"));
+ assert.ok(page.includes("['admin','super_admin'].includes(user?.role)"));
+ assert.ok(page.includes("call('POST','suppliers/admin-create',payload)"));
+ assert.ok(page.includes('manual.password!==manual.password_confirmation'));
+ assert.ok(page.includes('setManual(emptyManual)'));
+ assert.ok(page.includes("post('admin-invite',{})"));
+});
