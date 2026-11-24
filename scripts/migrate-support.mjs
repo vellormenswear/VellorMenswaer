@@ -8,7 +8,7 @@ if(process.env.VERCEL_ENV!=='production'){
  process.exit(0);
 }
 if(!process.env.DATABASE_URL)throw new Error('[vellor.support] DATABASE_URL is required for production support migration');
-const files=['007_support_chat.sql','011_category_hierarchy.sql','012_request_conversations.sql'];
+const files=['007_support_chat.sql','011_category_hierarchy.sql','012_request_conversations.sql','013_infinitepay_default.sql'];
 const connectionString=normalizePgConnectionString(process.env.DATABASE_URL);
 const pool=new pg.Pool({connectionString,ssl:{rejectUnauthorized:true},max:1,connectionTimeoutMillis:10000});
 let client;

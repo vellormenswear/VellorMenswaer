@@ -10,7 +10,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
   const order=params.get('order_id');if(!checkout&&!order)throw Error('Nenhuma tentativa de pagamento selecionada.');
   const query=checkout?'checkout_id='+encodeURIComponent(checkout):'order_id='+encodeURIComponent(order);
   trace('checkout.groups.opened',{phase:'refresh'});let r=await fetch('/api/infinitepay/groups?'+query,{cache:'no-store',headers:{'X-Vellor-Trace-ID':window.VellorTrace?.id||''}});let j=await r.json();
-  if(!r.ok&&r.status===404){r=await fetch('/api/asaas/groups?'+query,{cache:'no-store'});j=await r.json()}if(!r.ok)throw Error(j.error);setData(j);setError('');traceOk('checkout.groups.loaded',{group_count:j.groups.length});
+  if(!r.ok)throw Error(j.error);setData(j);setError('');traceOk('checkout.groups.loaded',{group_count:j.groups.length});
   if(j.groups.length&&j.groups.every(g=>g.payment_status==='approved')){
    const saved=sessionStorage.getItem('vellor-last-checkout-cart');const current=localStorage.getItem('goston-cart-preview');
    if(saved&&saved===current)localStorage.removeItem('goston-cart-preview');
@@ -37,7 +37,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
  async function checkProvider(id){
   setBusy(true);setError('');
   try{
-   const r=await fetch(data?.provider==='infinitepay'?'/api/infinitepay/recheck-payment':'/api/asaas/recheck-payment',{
+   const r=await fetch('/api/infinitepay/recheck-payment',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({checkout_id:data?.checkout_id,transaction_nsu:new URLSearchParams(location.search).get('transaction_nsu')||'',slug:new URLSearchParams(location.search).get('slug')||'',trace_id:window.VellorTrace?.id||null})
    });
@@ -49,7 +49,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
   }catch(e){traceError('payment.failed','PAYMENT_RECHECK_FAILED',e.message);setError(e.message)}
   finally{setBusy(false)}
  }
- async function retry(id){try{setBusy(true);const r=await fetch(data?.provider==='infinitepay'?'/api/infinitepay/retry-checkout':'/api/asaas/retry-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({checkout_id:data?.checkout_id,trace_id:window.VellorTrace?.id||null})});const j=await r.json();if(!r.ok)throw Error(j.error);if(!j.checkout_url?.startsWith('https://'))throw Error('Link inválido.');trace('payment.redirect',{checkout_mode:'standard'});window.location.assign(j.checkout_url)}catch(e){traceError('payment.failed','RETRY_PREFERENCE_FAILED',e.message);setError(e.message);setBusy(false)}}
+ async function retry(id){try{setBusy(true);const r=await fetch('/api/infinitepay/retry-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({checkout_id:data?.checkout_id,trace_id:window.VellorTrace?.id||null})});const j=await r.json();if(!r.ok)throw Error(j.error);if(!j.checkout_url?.startsWith('https://'))throw Error('Link inválido.');trace('payment.redirect',{checkout_mode:'standard'});window.location.assign(j.checkout_url)}catch(e){traceError('payment.failed','RETRY_PREFERENCE_FAILED',e.message);setError(e.message);setBusy(false)}}
  return <Frame user={null}><main className="page checkoutbox"><h1>Acompanhe seus pagamentos</h1>
  <p>Sua compra é acompanhada pela VELLOR em uma única cobrança. <b>O pedido é confirmado somente após a aprovação do pagamento.</b> O envio é providenciado em até 3 dias após a confirmação; acompanhe o andamento na sua conta.</p>
  {providerResult?.group_id===null&&<p className="notice" role="status">Conferência automática: <b>{providerResult.confirmed?'Pagamento confirmado pelo provedor':'Aguardando confirmação oficial'}</b></p>}

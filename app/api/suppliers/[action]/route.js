@@ -35,7 +35,7 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  if(action==='invite-check'){const token=txt(q.get('token'),200);const r=await sql('SELECT email,expires_at FROM supplier_invites WHERE token_hash=$1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at>now()',[sha256(token)]);ensure(r.rowCount,'Convite inválido, vencido ou utilizado.',404);return ok({invite:r.rows[0]})}
  if(action.startsWith('admin-')){await requireRole(req,adminRoles);
   if(action==='admin-list'){const [suppliers,invites,queue,categories,unlinked]=await Promise.all([
-   sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_asaas_wallets aw WHERE aw.supplier_id=s.id) AS asaas_connected,EXISTS(SELECT 1 FROM supplier_pix_accounts pix WHERE pix.supplier_id=s.id) AS pix_registered FROM suppliers s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC`),
+   sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_pix_accounts pix WHERE pix.supplier_id=s.id) AS pix_registered FROM suppliers s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC`),
    sql('SELECT id,email,expires_at,used_at,revoked_at,created_at FROM supplier_invites ORDER BY created_at DESC LIMIT 70'),
    sql(`SELECT sub.*,s.business_name FROM supplier_submissions sub JOIN suppliers s ON s.id=sub.supplier_id ORDER BY (sub.status='pending') DESC,sub.created_at DESC LIMIT 100`),
    sql('SELECT id,name FROM categories WHERE active ORDER BY name'),
@@ -65,16 +65,15 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  const {supplier}=await currentSupplier(req);
  if(action==='notifications')return ok({notifications:await supplierNotices(supplier.id)});
  if(action==='dashboard'){
-  const [subs,products,orders,asaas,changes,notices,pixAccount]=await Promise.all([
+  const [subs,products,orders,changes,notices,pixAccount]=await Promise.all([
    sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    sql(`SELECT p.id,p.name,p.slug,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
    sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.amount_cents,g.supplier_amount_cents,g.mp_fee_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,(SELECT n.id FROM notifications n WHERE n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text AND n.kind='supplier_size_changed' ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS size_revision,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
    COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
-   sql('SELECT wallet_id,verified_at FROM supplier_asaas_wallets WHERE supplier_id=$1',[supplier.id]),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    supplierNotices(supplier.id),
    sql('SELECT pix_type,pix_key,holder_name,updated_at FROM supplier_pix_accounts WHERE supplier_id=$1',[supplier.id])]);
-  return ok({supplier,submissions:subs.rows,products:products.rows,orders:orders.rows,asaas_wallet:asaas.rows[0]||null,pix_account:supplierPixSummary(pixAccount.rows[0]),price_requests:changes.rows,notifications:notices})
+  return ok({supplier,submissions:subs.rows,products:products.rows,orders:orders.rows,pix_account:supplierPixSummary(pixAccount.rows[0]),price_requests:changes.rows,notifications:notices})
  }
  throw new HttpError(404,'Recurso desconhecido.');
  }catch(e){return fail(e)}}
@@ -141,7 +140,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
     const item=await sql("SELECT id,payment_status FROM supplier_order_groups WHERE id=$1 AND payment_status IN ('refund_pending','refund_failed')",[x.group_id]);
     ensure(item.rowCount,'Não há reembolso pendente.',409);
     return ok({requires_admin:true,refund_pending:true,refund_confirmed:false,
-     message:'Reembolso Asaas requer conciliação da cobrança e dos Splits. Nenhum valor foi devolvido automaticamente.'});
+     message:'Reembolso exige conferência administrativa no provedor original. Nenhum valor foi devolvido automaticamente.'});
    }
    if(action==='admin-delivered'){
    ensure(uuid(x.group_id)&&txt(x.proof,500).length>=8,'Informe o comprovante de entrega.',400);
@@ -231,10 +230,10 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
    await c.query('INSERT INTO notifications(order_id,kind,title,payload) VALUES($1,$2,$3,$4)',[g.order_id,'supplier_cancel','Fornecedor cancelou um pedido; reembolso pendente',JSON.stringify({group_id:g.id,reason,supplier_id:supplier.id})]);return g;
   });
   await audit(user.id,'supplier.order_cancel','supplier_group',x.group_id,null,{reason});
-  // O reembolso do checkout compartilhado exige tratamento administrativo do Asaas.
+  // O reembolso exige conferência administrativa do pagamento original.
    // Não iniciar estorno parcial sem validar o impacto sobre todos os fornecedores.
    return ok({cancel_requested:true,refund_pending:true,requires_admin:true,group_id:r.id,
-    message:'Reembolso pendente de análise administrativa no Asaas.'});
+    message:'Reembolso pendente de análise administrativa.'});
  }
  throw new HttpError(404,'Recurso não encontrado.');
  }catch(e){return fail(e)}}
