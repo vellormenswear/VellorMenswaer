@@ -24,9 +24,8 @@ function choose(category,top=false){if(pageParent&&category==='Todos'){location.
 function toggleFilters(){const el=document.getElementById('filter-panel'),b=document.getElementById('filter-toggle');const open=el.classList.toggle('open');b.classList.toggle('active',open);b.setAttribute('aria-expanded',open)}
 function resetFilters(){['max-price','color','size'].forEach(id=>document.getElementById(id).value='');document.getElementById('search').value='';render()}
 
-/* Categorias e subcategorias usam o mesmo card ilustrado. */
+/* Navegação textual de categorias, sem fotos promocionais. */
 const slugOf=s=>normalize(s).trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-const preferredModels={'vestuario':['terno-slim-alfaiataria'],'relogios':['poedagar-930','binbond-b7012'],'calcados':['sapato-social-masculino-loafer-mocassim-casual'],'acessorios':['oculos-de-sol-polarizado-masculino-redondo'],'vestuario-esportivo':['camiseta-dry-fit-malha-fria-1-unidade']};
 function categoryKeys(p){
  const actual=p.category_slug||slugOf(p.category||'');
  if(categoryTreeReady)return {leaf:actual,root:p.parent_slug||actual};
@@ -36,42 +35,50 @@ function categoryKeys(p){
 }
 function matchesCategory(p,slug){const keys=categoryKeys(p);return slug==='Todos'||keys.leaf===slug||keys.root===slug}
 function browseCategory(category){location.assign(categoryUrl(category))}
+let openCategory=null;
+function setCategoryMenu(slug){
+ openCategory=slug;
+ document.querySelectorAll('#vellor-category-rail .vellor-menu-item').forEach(item=>{
+  const on=item.dataset.category===slug;
+  item.querySelector('button').setAttribute('aria-expanded',String(on));
+  item.querySelector('.vellor-mega-menu').hidden=!on;
+ });
+}
+function bindCategoryMenu(){
+ const nav=document.getElementById('vellor-root-nav');
+ if(nav.dataset.bound)return;nav.dataset.bound='1';
+ nav.addEventListener('pointerover',e=>{if(e.pointerType!=='mouse'||!matchMedia('(hover: hover) and (pointer: fine)').matches)return;const item=e.target.closest('.vellor-menu-item');if(item)setCategoryMenu(item.dataset.category);});
+ nav.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'&&!nav.contains(document.activeElement))setCategoryMenu(null)});
+ nav.addEventListener('click',e=>{const button=e.target.closest('.vellor-menu-trigger');if(!button)return;const slug=button.closest('.vellor-menu-item').dataset.category;setCategoryMenu(openCategory===slug?null:slug)});
+ nav.addEventListener('focusout',e=>{if(!nav.contains(e.relatedTarget))setCategoryMenu(null)});
+ nav.addEventListener('keydown',e=>{if(e.key==='Escape'){const trigger=nav.querySelector('.vellor-menu-trigger[aria-expanded="true"]');setCategoryMenu(null);trigger?.focus();e.preventDefault();}});
+ document.addEventListener('pointerdown',e=>{if(!nav.contains(e.target))setCategoryMenu(null)});
+}
 function renderDiscovery(){
- const categories=document.getElementById('vellor-category-rail'),sub=document.getElementById('vellor-subcategory-rail'),panel=document.getElementById('vellor-subcategory-panel');
- if(!categories||!sub||!panel)return;
+ const nav=document.getElementById('vellor-root-nav'),categories=document.getElementById('vellor-category-rail'),panel=document.getElementById('vellor-subcategory-panel');
+ if(!nav||!categories||!panel)return;
  const valid=models.filter(p=>groupFor(p).some(available));
- const searchCategory=categoryForSearch(document.getElementById('search')?.value),currentCategory=searchCategory||active;
- const tile=(entry,root)=>{
-  const options=valid.filter(p=>matchesCategory(p,entry.slug));if(!options.length)return '';
-  const model=(preferredModels[entry.slug]||[]).map(slug=>options.find(p=>p.slug===slug)).find(Boolean)||options.find(p=>groupFor(p).some(v=>available(v)&&!v.image_url.endsWith('/sem-foto.svg')))||options[0];
-  const product=groupFor(model).find(v=>available(v)&&!v.image_url.endsWith('/sem-foto.svg'))||groupFor(model).find(available);
-  const image=entry.image_url||product?.image_url;
-  if(!image)return '';
-  const selected=root?currentCategory===entry.slug||categoryTree.find(c=>c.slug===currentCategory)?.parent_slug===entry.slug:currentCategory===entry.slug;
-  return `<button type="button" class="vellor-category-tile ${selected?'active':''}" data-browse-category="${htmlEsc(entry.slug)}" aria-pressed="${selected}" aria-label="Explorar ${htmlEsc(entry.name)}"><span class="vellor-category-picture"><img src="${htmlEsc(image)}" alt="${htmlEsc(entry.name)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/product-images/sem-foto.svg'"></span><span class="vellor-category-name">${htmlEsc(entry.name)}<svg class="vellor-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"></path></svg></span></button>`;
- };
  const roots=categoryTree.filter(c=>!c.parent_slug),parent=roots.find(c=>c.slug===pageParent),leaf=categoryTree.find(c=>c.slug===pageLeaf&&c.parent_slug===pageParent);
- const invalid=Boolean(pageParent&&(!parent||(pageLeaf&&pageLeaf!=='todos'&&!leaf)));
- const categoryPage=Boolean(pageParent&&!pageLeaf),isCart=location.hash==='#carrinho';
- document.getElementById('vellor-root-nav').hidden=Boolean(pageParent)||isCart;
- panel.hidden=isCart||(!categoryPage&&!invalid);
- document.getElementById('catalog-page').hidden=isCart||categoryPage||invalid;
+ const isCart=location.hash==='#carrinho',invalid=Boolean(pageParent&&(!parent||(pageLeaf&&pageLeaf!=='todos'&&!leaf)));
+ const visible=c=>valid.some(p=>matchesCategory(p,c.slug));
+ const markup=roots.filter(visible).map((root,i)=>{
+  const children=categoryTree.filter(c=>c.parent_slug===root.slug&&visible(c));
+  const id='vellor-menu-'+i,selected=pageParent===root.slug;
+  return `<li class="vellor-menu-item" data-category="${htmlEsc(root.slug)}"><button type="button" class="vellor-menu-trigger ${selected?'active':''}" aria-expanded="false" aria-controls="${id}">${htmlEsc(root.name)}</button><div class="vellor-mega-menu" id="${id}" hidden><div class="vellor-mega-inner"><div class="vellor-mega-label">${htmlEsc(root.name)}</div><div class="vellor-mega-links">${children.map(c=>`<a href="${htmlEsc(categoryUrl(root.slug,c.slug))}">${htmlEsc(c.name)}</a>`).join('')}<a class="vellor-menu-all" href="${htmlEsc(categoryUrl(root.slug,'todos'))}">Ver tudo <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="m9 5 7 7-7 7"/></svg></a></div></div></div></li>`;
+ }).join('');
+ if(categories.dataset.markup!==markup){categories.innerHTML=markup;categories.dataset.markup=markup;setCategoryMenu(openCategory&&roots.some(c=>c.slug===openCategory&&visible(c))?openCategory:null);}
+ bindCategoryMenu();
+ nav.hidden=isCart;if(isCart)setCategoryMenu(null);
+ panel.hidden=isCart||!invalid;
+ document.getElementById('catalog-page').hidden=isCart||invalid;
  document.getElementById('vellor-category-breadcrumb').hidden=!pageParent||isCart;
- const crumb=document.getElementById('vellor-parent-crumb');crumb.textContent=parent?.name||'Categoria';crumb.href=categoryUrl(pageParent||'');
+ const crumb=document.getElementById('vellor-parent-crumb');crumb.textContent=parent?.name||'Categoria';crumb.href=parent?categoryUrl(parent.slug):'/vitrine.html';
  document.getElementById('vellor-leaf-crumb').textContent=pageLeaf?(leaf?.name||'Todos os produtos'):'';
  document.querySelector('#colecao h1').textContent=pageParent?(leaf?.name||parent?.name||'Produtos'):'Produtos';
- if(!pageParent){const rootMarkup=roots.map(c=>tile(c,true)).join('');categories.innerHTML=rootMarkup;categories.querySelectorAll('[data-browse-category]').forEach(el=>el.addEventListener('click',()=>browseCategory(el.dataset.browseCategory)));}
- if(pageParent&&!pageLeaf||invalid){
-  document.getElementById('vellor-subcategory-title').textContent=invalid?'Categoria não encontrada':parent.name;
-  const all=document.getElementById('vellor-subcategory-all');all.hidden=invalid;all.textContent='Ver tudo em '+(parent?.name||'');all.href=categoryUrl(pageParent,'todos');
-  const markup=invalid?'':categoryTree.filter(c=>c.parent_slug===parent.slug).map(c=>tile(c,false)).join('');
-  sub.innerHTML=markup;sub.querySelectorAll('[data-browse-category]').forEach(el=>el.addEventListener('click',()=>location.assign(categoryUrl(pageParent,el.dataset.browseCategory))));
-  const empty=document.getElementById('vellor-subcategory-empty');empty.hidden=Boolean(markup);empty.textContent=invalid?'Volte à vitrine para escolher outra categoria.':'Veja todos os produtos desta categoria.';
- }
- const all=document.getElementById('vellor-show-all');if(all){all.classList.toggle('active',currentCategory==='Todos');all.setAttribute('aria-pressed',String(currentCategory==='Todos'));}
+ if(invalid)document.getElementById('vellor-subcategory-title').textContent='Categoria não encontrada';
  if(pageParent)document.title=(leaf?.name||parent?.name||'Categoria')+' — VELLOR Menswear';
 }
-function focusSearch(){if(pageParent&&!pageLeaf){location.assign(categoryUrl(pageParent,'todos')+'#busca');return;}if(location.hash==='#carrinho'){location.hash='busca';}document.getElementById('search').focus();}
+function focusSearch(){if(location.hash==='#carrinho'){location.hash='busca';}document.getElementById('search').focus();}
 function slideProducts(direction){
  const rail=document.getElementById('grid'),card=rail?.querySelector('.card');
  if(!rail||!card)return;
