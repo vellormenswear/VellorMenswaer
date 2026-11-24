@@ -81,11 +81,11 @@ export async function POST(req,{params}){try{
  ensure(list.every(g=>g.total>g.cost)&&list.length<=20,'Valor insuficiente para os fornecedores e taxas.',409);
  const batch=randomUUID();
  await transaction(async c=>{
-  const locked=await c.query('SELECT id,stock,stock_mode,supplier_available FROM product_variants WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE',[ids]);
+  const locked=await c.query('SELECT id,stock,stock_mode,supplier_available,active FROM product_variants WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE',[ids]);
   const fresh=new Map(locked.rows.map(v=>[v.id,v]));const quantities=new Map();
   for(const item of quote.items)quantities.set(item.variant_id,(quantities.get(item.variant_id)||0)+item.qty);
   for(const [id,n] of quantities){
-   const v=fresh.get(id);ensure(v?.supplier_available,'Produto indisponivel.',409);
+   const v=fresh.get(id);ensure(v?.supplier_available&&v.active,'Produto indisponivel.',409);
    if(v.stock_mode==='quantity'){
     const r=await c.query("SELECT COALESCE(SUM(res.quantity),0)::int AS qty FROM supplier_stock_reservations res JOIN supplier_order_groups g ON g.id=res.group_id WHERE res.variant_id=$1 AND res.status='held' AND g.order_id IS NULL AND g.checkout_expires_at>now()",[id]);
     ensure(v.stock>=n+r.rows[0].qty,'Estoque insuficiente.',409);
