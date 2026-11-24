@@ -52,3 +52,5 @@
 .vellor-support-fab-icon{width:39px!important;height:39px!important;margin:0!important}
 .vellor-support-fab-icon .vellor-chat-icon{width:22px;height:22px}
 @media(max-width:480px){.vellor-support-fab{width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important}.vellor-support-fab-icon{width:36px!important;height:36px!important}}
+
+.vellor-support-topics{display:flex;flex-wrap:wrap;gap:7px}.vellor-support-topics button{font:inherit;font-size:11px;padding:8px 10px;border:1px solid #d5e3d7;border-radius:18px;color:#092f25;background:#fff;cursor:pointer;text-align:left}.vellor-support-topics button:hover{background:#e8f1e9}.vellor-support-bubble{font-size:13px}
