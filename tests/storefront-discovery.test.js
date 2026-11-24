@@ -143,3 +143,11 @@ test('URLs públicas usam raiz e slugs únicos sem extensão ou prefixo',()=>{
  assert.equal(url('vestuario','camisas'),'/camisas');assert.equal(url('vestuario','todos'),'/vestuario');assert.equal(url('relogios','relogios-classicos'),'/relogios-classicos');
  assert.ok(js.includes('resolveCategoryRoute();active=pageLeaf||pageParent'));
 });
+
+test('domínio oficial não redireciona APIs nem retornos antigos de pagamento',()=>{
+ const source=read('middleware.js');assert.ok(source.includes("target.hostname='vellormenswear.com.br'"));assert.ok(source.includes("path.startsWith('/api/')")&&source.includes("path.startsWith('/pagamento/')"));
+ const a=js.indexOf('function resolveCategoryRoute()'),b=js.indexOf('\nresolveCategoryRoute();',a);
+ const route=new Function('routeSlug','fullCatalog','categoryTree','let pageParent=null,pageLeaf=null;'+js.slice(a,b)+';resolveCategoryRoute();return {pageParent,pageLeaf}');
+ const tree=[{slug:'vestuario',parent_slug:null},{slug:'camisas',parent_slug:'vestuario'},{slug:'nova',parent_slug:'vestuario'}];
+ assert.deepEqual(route('camisas',false,tree),{pageParent:'vestuario',pageLeaf:'camisas'});assert.deepEqual(route('vestuario',false,tree),{pageParent:'vestuario',pageLeaf:null});assert.deepEqual(route('nova',false,tree),{pageParent:'vestuario',pageLeaf:'nova'});assert.deepEqual(route('produtos',true,tree),{pageParent:null,pageLeaf:null});assert.deepEqual(route(null,false,tree),{pageParent:null,pageLeaf:null});
+});
