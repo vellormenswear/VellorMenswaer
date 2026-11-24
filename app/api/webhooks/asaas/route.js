@@ -1,5 +1,5 @@
 import {sql} from '@/lib/db';
-import {ok,fail,ensure} from '@/lib/http';
+import {ok,fail,ensure,readLimitedText} from '@/lib/http';
 import {secureCompare} from '@/lib/security';
 import {reconcileAsaasBatch,expireAsaasBatch} from '@/lib/asaas-reconcile';
 import {asaasSandboxConfigured} from '@/lib/asaas.mjs';
@@ -10,8 +10,8 @@ export async function POST(req){try{
  const expected=process.env.ASAAS_WEBHOOK_TOKEN||'';
  const token=req.headers.get('asaas-access-token')||'';
  ensure(expected.length>=32&&secureCompare(token,expected),'Webhook Asaas não autenticado.',401);
- const raw=await req.text();ensure(raw.length<=50000,'Evento excessivo.',413);
- let payload;try{payload=JSON.parse(raw)}catch{throw Error('Webhook JSON inválido.')}
+ const raw=await readLimitedText(req,50000);ensure(raw.length<=50000,'Evento excessivo.',413);
+ let payload;try{payload=JSON.parse(raw)}catch{ensure(false,'Webhook JSON inválido.',400)}
  ensure(eventRE.test(String(payload?.id||'')),'Evento Asaas inválido.',400);
  const kind=String(payload.event||'');
  const checkoutId=String(payload.checkout?.id||'');
