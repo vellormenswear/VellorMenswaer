@@ -2,6 +2,7 @@ import {sql,transaction,audit} from '@/lib/db';import {requireRole,requirePermis
 import {ok,fail,body,originGuard,ensure,HttpError,txt,uuid,email} from '@/lib/http';import {passwordHash} from '@/lib/security';
 import {normalizeIdentity,IDENTITY_FIELDS} from '@/lib/store-identity.mjs';
 import {orderFilterPredicate,ADMIN_ORDER_PAGE_SIZE} from '@/lib/admin-order-filters.mjs';
+import {resolveProductSlug} from '@/lib/product-slug';
 import {shippingAlerts} from '@/lib/shipping-deadline.mjs';
 import {cancelAdminOrder,confirmAdminRefund} from '@/lib/admin-order-cancel';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -113,17 +114,18 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
   });return ok(result);
  }
  if(resource==='product'){
-  await requireRole(req,['admin','super_admin']);const name=txt(x.name,240),slug=txt(x.slug,200).toLowerCase();ensure(name.length>=4&&/^[a-z0-9-]+$/.test(slug),'Nome ou slug inválido.');let id=uuid(x.id)?x.id:null;
+  await requireRole(req,['admin','super_admin']);const name=txt(x.name,240),requested=txt(x.slug,200);ensure(name.length>=4,'Nome do produto inválido.');let id=uuid(x.id)?x.id:null,slug;
   const shipping=['nacional','internacional','a_confirmar'].includes(x.shipping)?x.shipping:'nacional';const active=Boolean(x.active),hidden=Boolean(x.hidden)||shipping!=='nacional';
   const img=txt(x.image_url,1000);ensure(!img||img.startsWith('/product-images/')||img.startsWith('https://'),'URL da imagem inválida.');
   id=await transaction(async c=>{
    let productId=id;
+   slug=await resolveProductSlug(c,{name,requested,id:productId});
    if(productId){const r=await c.query('UPDATE products SET name=$1,slug=$2,description=$3,category_id=$4,shipping=$5,active=$6,hidden=$7,updated_at=now() WHERE id=$8 RETURNING id',[name,slug,txt(x.description,4000),uuid(x.category_id)?x.category_id:null,shipping,active,hidden,productId]);ensure(r.rowCount,'Produto não encontrado.',404);}
    else{const r=await c.query('INSERT INTO products(name,slug,description,category_id,shipping,active,hidden) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',[name,slug,txt(x.description,4000),uuid(x.category_id)?x.category_id:null,shipping,active,hidden]);productId=r.rows[0].id;}
    if(img){await c.query('UPDATE product_images SET sort_order=0 WHERE product_id=$1 AND variant_id IS NULL AND sort_order<0',[productId]);const existing=await c.query('UPDATE product_images SET sort_order=-1 WHERE product_id=$1 AND variant_id IS NULL AND url=$2 RETURNING id',[productId,img]);if(!existing.rowCount)await c.query('INSERT INTO product_images(product_id,url,alt,sort_order) VALUES($1,$2,$3,-1)',[productId,img,name]);}
    return productId;
   });
-  await audit(u.id,'product.upsert','product',id,null,{name,slug,shipping,active,hidden});return ok({id});
+  await audit(u.id,'product.upsert','product',id,null,{name,slug,shipping,active,hidden});return ok({id,slug});
  }
  if(resource==='variant'){
   await requireRole(req,['admin','super_admin']);ensure(uuid(x.product_id),'Produto inválido.');const sku=txt(x.sku,120).toUpperCase(),label=txt(x.label,140);
