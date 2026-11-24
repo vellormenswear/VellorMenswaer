@@ -1,5 +1,5 @@
 // Production-only, additive migration for the VELLOR support inbox.
-// Never edits existing orders, products, payments or customer records.
+// Category migration only updates the category references of explicitly mapped products. Orders and payments remain untouched.
 import pg from 'pg';
 import fs from 'node:fs/promises';
 import {normalizePgConnectionString} from '../lib/postgres-ssl.mjs';
@@ -29,7 +29,7 @@ try{
  }
  }
  await client.query('COMMIT');
- console.log('[vellor.support] support schema ready');
+ console.log('[vellor.schema] support and category schemas ready');
 }catch(e){
  if(client)try{await client.query('ROLLBACK')}catch{}
  console.error('[vellor.support] safe additive migration failed:',e?.message);
