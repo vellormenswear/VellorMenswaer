@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {canPurchase} from '../lib/purchase-role.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {infinitepayConfigured,infinitepayReady,buildInfinitepayCheckout,verifiedInfinitepayPayment,safeInfiniteCheckoutLink} from '../lib/infinitepay.mjs';
@@ -13,12 +14,12 @@ test('checkout liberado para todas as contas de clientes com controles comerciai
  assert.equal(infinitepayReady({...env,INFINITEPAY_TEST_CUSTOMER_EMAIL:''},customer('nova.conta@exemplo.com')),true,
   'O antigo e-mail de homologação não deve mais restringir compras');
 });
-test('checkout real continua bloqueado sem credenciais, chaves ou conta de cliente',()=>{
+test('checkout real continua bloqueado sem credenciais, chaves ou conta autorizada',()=>{
  for(const part of [{INFINITEPAY_CHECKOUT_ENABLED:'false'},{STORE_OPEN_FOR_ORDERS:'false'},
    {INFINITEPAY_API_KEY:''},{INFINITEPAY_HANDLE:''},{DATABASE_URL:''},{SITE_URL:'http://unsafe.example'}]){
   assert.equal(infinitepayReady({...env,...part},{role:'customer',email:'outro@example.com'}),false);
  }
- for(const role of ['admin','super_admin','supplier','employee',null]){
+ for(const role of ['supplier','employee',null]){
   assert.equal(infinitepayReady(env,{role,email:'outro@example.com'}),false);
  }
  assert.equal(infinitepayReady(env,null),false);
@@ -104,4 +105,12 @@ test('cancelamento administrativo exige permissão e estorno separado com prova 
  assert.ok(customer.includes("WHERE o.customer_id=$1 AND n.kind IN ('customer_order_canceled','customer_order_refunded')"));
  assert.ok(ui.includes('O estorno de '));
  assert.ok(ui.includes('foi confirmado para o meio de pagamento de origem'));
+});
+
+test('ADM e Super ADM compram com a própria conta, sem dispensar controles comerciais ou de titularidade',()=>{
+ for(const role of ['customer','admin','super_admin']){const user={role};assert.equal(canPurchase(user),true);assert.equal(infinitepayReady(env,user),true);assert.equal(infinitepayReady({...env,STORE_OPEN_FOR_ORDERS:'false'},user),false);assert.equal(infinitepayReady({...env,INFINITEPAY_CHECKOUT_ENABLED:'false'},user),false);}
+ for(const role of ['supplier','employee','unknown',null])assert.equal(canPurchase({role}),false);assert.equal(canPurchase(null),false);
+ const route=readFileSync(new URL('../app/api/infinitepay/[action]/route.js',import.meta.url),'utf8');assert.ok(route.includes('ensure(canPurchase(u)'));assert.ok(route.includes('WHERE id=$1 AND user_id=$2'));assert.ok(route.includes('WHERE checkout_batch_id=$1 AND customer_id=$2'));assert.ok(route.includes('quoteCart(x.items,x.coupon)'));assert.ok(route.includes('reconcileInfinitepayBatch'));
+ const page=readFileSync(new URL('../app/finalizar/page.jsx',import.meta.url),'utf8');assert.ok(page.includes('ordersOpen&&canPurchase(user)'));assert.ok(page.includes('!canPurchase(user)'));
+ const account=readFileSync(new URL('../app/conta/page.jsx',import.meta.url),'utf8');assert.ok(account.includes('returnToCheckout()&&canPurchase(r.user)'));assert.ok(account.includes('canPurchase(user)&&notifications.length'));
 });
