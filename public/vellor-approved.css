@@ -372,3 +372,13 @@
 .vellor-company-disclosure strong{display:block;color:#f0d89f;font-size:11px;letter-spacing:.65px;margin-bottom:10px}
 .vellor-company-disclosure p{font-size:11px;line-height:1.7;margin:5px 0;color:#cad8cb;overflow-wrap:anywhere}
 .vellor-company-disclosure a{font-size:11px;color:#f0d89f;overflow-wrap:anywhere}
+
+/* Categorias e subcategorias ilustradas — sem alterar a identidade da vitrine. */
+.vellor-category-nav #vellor-category-rail{grid-auto-columns:calc((100% - 48px)/4)}
+.vellor-subcategory-panel{margin-top:19px;padding-top:17px;border-top:1px solid #e4e3dd}
+.vellor-subcategory-panel[hidden]{display:none!important}
+.vellor-category-nav #vellor-subcategory-rail{grid-auto-columns:calc((100% - 64px)/5)}
+.vellor-category-nav #vellor-subcategory-rail .vellor-category-tile{height:158px}
+@media(max-width:1160px){.vellor-category-nav #vellor-category-rail,.vellor-category-nav #vellor-subcategory-rail{grid-auto-columns:calc((100% - 32px)/3)}}
+@media(max-width:760px){.vellor-category-nav #vellor-category-rail,.vellor-category-nav #vellor-subcategory-rail{grid-auto-columns:calc((100% - 12px)/2)}}
+@media(max-width:480px){.vellor-category-nav #vellor-category-rail,.vellor-category-nav #vellor-subcategory-rail{grid-auto-columns:61%}.vellor-category-nav #vellor-subcategory-rail .vellor-category-tile{height:145px}}
