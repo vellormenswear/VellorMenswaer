@@ -16,13 +16,13 @@ const selectBase=`SELECT r.id,r.order_id,r.type,r.status,r.reason,r.admin_note,r
  COALESCE((SELECT created_at FROM customer_request_messages m WHERE m.request_id=r.id ORDER BY id DESC LIMIT 1),r.created_at) AS last_message_at
  FROM customer_requests r JOIN orders o ON o.id=r.order_id JOIN users u ON u.id=r.user_id`;
 export async function GET(req){try{
- const {admin,user}=await context(req);const q=new URL(req.url).searchParams,id=q.get('id'),orderId=q.get('order_id'),before=q.get('before');
+ const {admin,user}=await context(req);const q=new URL(req.url).searchParams,id=q.get('id'),orderId=q.get('order_id'),before=q.get('before'),after=q.get('after');
  if(orderId)ensure(uuid(orderId),'Pedido inválido.');
- if(before)ensure(/^\d{1,19}$/.test(before)&&BigInt(before)<=9223372036854775807n,'Cursor inválido.');
+ ensure(!(before&&after),'Cursor inválido.');for(const cursor of [before,after])if(cursor)ensure(/^\d{1,19}$/.test(cursor)&&BigInt(cursor)<=9223372036854775807n,'Cursor inválido.');
  if(id){ensure(uuid(id),'Solicitação inválida.');
-  const r=await sql(selectBase+' WHERE r.id=$1'+(admin?'':' AND r.user_id=$2 AND o.customer_id=$2'),admin?[id]:[id,user.id]);ensure(r.rowCount,'Solicitação não encontrada.',404);
-  const messages=await sql('SELECT id,sender_kind,body,created_at FROM customer_request_messages WHERE request_id=$1'+(before?' AND id<$2::bigint':'')+' ORDER BY id DESC LIMIT 101',before?[id,before]:[id]);
-  return ok({thread:admin?r.rows[0]:{...r.rows[0],admin_note:undefined},messages:messages.rows.slice(0,100).reverse(),has_more:messages.rows.length>100});
+  const r=await sql(selectBase+' WHERE r.id=$1'+(admin?'':' AND r.user_id=$2 AND o.customer_id=$2'),admin?[id]:[id,user.id]);ensure(r.rowCount&&(!orderId||r.rows[0].order_id===orderId),'Solicitação não encontrada.',404);
+  const messages=await sql('SELECT id,sender_kind,body,created_at FROM customer_request_messages WHERE request_id=$1'+(before?' AND id<$2::bigint':after?' AND id>$2::bigint':'')+(after?' ORDER BY id ASC LIMIT 101':' ORDER BY id DESC LIMIT 101'),before||after?[id,before||after]:[id]);
+  return ok({thread:admin?r.rows[0]:{...r.rows[0],admin_note:undefined},messages:after?messages.rows.slice(0,100):messages.rows.slice(0,100).reverse(),has_more:messages.rows.length>100});
  }
  const args=admin?[]:[user.id];const conditions=admin?[]:['r.user_id=$1 AND o.customer_id=$1'];if(orderId){args.push(orderId);conditions.push('r.order_id=
  return ok({threads:admin?r.rows:r.rows.map(t=>({...t,admin_note:undefined}))});
