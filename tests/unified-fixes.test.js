@@ -112,3 +112,27 @@ test('painel financeiro mantém regras de reserva e navegação funcional',()=>{
  assert.ok(css.includes('@media(max-width:520px)'));
  assert.ok(css.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
 });
+
+test('conta e administração usam visual de aplicativo, editor de produto fica antes da lista',()=>{
+ const admin=read('app/admin/page.jsx'),account=read('app/conta/page.jsx'),css=read('app/globals.css');
+ assert.ok(admin.includes('vll-admin-app')&&account.includes('vll-account-app'));
+ const start=admin.indexOf("{tab==='products'&&<>");
+ assert.ok(start>=0&&admin.indexOf('ref={editorRef}',start)<admin.indexOf('className="productgrid"',start));
+ assert.ok(admin.includes("scrollIntoView({behavior:'smooth',block:'start'})"));
+ assert.ok(admin.includes('AppIcon name="trash"')&&admin.includes("post('product-delete'"));
+ assert.ok(admin.includes('Prévia da foto principal')&&admin.includes('Prévia da variação'));
+ assert.ok(css.includes('.vll-admin-app .sidebar button.active')&&css.includes('.app-photo-editor'));
+});
+test('exclusão administrativa protege vendas e referências históricas',()=>{
+ const route=read('app/api/admin/[resource]/route.js');
+ const start=route.indexOf("if(resource==='product-delete')"),end=route.indexOf("if(resource==='product')",start),code=route.slice(start,end);
+ assert.ok(start>=0&&end>start);
+ for(const snippet of ["requireRole(req,['admin','super_admin'])",'transaction(async c=>','order_items','supplier_stock_reservations','items_snapshot','SAVEPOINT product_remove','UPDATE products SET active=false,hidden=true','UPDATE product_variants SET active=false','INSERT INTO audit_logs'])assert.ok(code.includes(snippet),snippet);
+ for(const path of ['app/api/infinitepay/[action]/route.js','app/api/asaas/[action]/route.js'])assert.ok(read(path).includes('v?.supplier_available&&v.active'));
+});
+test('upload e foto principal são associados ao catálogo e ao checkout',()=>{
+ const route=read('app/api/admin/[resource]/route.js'),catalog=read('app/api/catalog/route.js'),commerce=read('lib/commerce.js'),upload=read('app/api/admin/upload/route.js');
+ assert.ok(route.includes('INSERT INTO product_images(product_id,url,alt,sort_order)'));
+ assert.ok(catalog.includes('cover.url')&&commerce.includes('cover.url'));
+ assert.ok(upload.includes('BLOB_READ_WRITE_TOKEN')&&upload.includes("access:'public'")&&upload.includes('arquivo não corresponde a uma imagem válida'));
+});
