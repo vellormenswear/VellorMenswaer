@@ -77,6 +77,7 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
   const name=txt(x.name,100),slug=txt(x.slug,120).toLowerCase(),parent=x.parent_id||null,image=txt(x.image_url,1000),position=Number(x.sort_order||0),id=x.id||null;
   ensure(name.length>=2&&/^[a-z0-9-]+$/.test(slug)&&(!id||uuid(id))&&(!parent||uuid(parent))&&Number.isInteger(position)&&position>=0&&position<=9999,'Categoria inválida.');
   ensure(!image||image.startsWith('https://')||image.startsWith('/product-images/'),'Imagem inválida.');
+  ensure(!['admin','api','conta','finalizar','fornecedor','pagamento','produtos','categorias','politicas','privacidade','termos','trocas','entrega','contato','suporte','carrinho','login','cadastro','todos','_next','favicon','robots','sitemap','checkout'].includes(slug),'Este identificador está reservado para uma página do site.',409);
   const saved=await transaction(async c=>{
    await c.query('SELECT pg_advisory_xact_lock($1)',[8033332]);
    if(parent){ensure(parent!==id,'Categoria não pode ser sua própria superior.');const p=await c.query('SELECT id,parent_id FROM categories WHERE id=$1 FOR UPDATE',[parent]);ensure(p.rowCount&&!p.rows[0].parent_id,'Selecione uma categoria principal válida.');}
