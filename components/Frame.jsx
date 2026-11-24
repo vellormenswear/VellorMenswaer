@@ -38,13 +38,6 @@ export default function Frame({children,user,logout}){
    </nav>
   </header>
   <div className="vll-brand-top" aria-hidden="true"/>
-  <nav className="vll-category-nav" aria-label="Navegação da VELLOR">
-   <a href="/vitrine.html">VITRINE</a>
-   <a href="/vitrine.html#carrinho">MEU CARRINHO</a>
-   <Link href="/conta">MINHA CONTA</Link>
-   {isSupplier&&<Link href="/fornecedor">PORTAL DO FORNECEDOR</Link>}
-   {isAdmin&&<Link href="/admin">ADMINISTRAÇÃO</Link>}
-  </nav>
   {logoutError&&<p className="notice error" role="alert">{logoutError}</p>}
   <div className="vll-layout-content">{children}</div>
   <footer className="vll-app-footer" aria-label="Informações VELLOR">
