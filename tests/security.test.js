@@ -25,3 +25,5 @@ test('limites atômicos, recuperação de uso único e sessões administrativas 
  assert.ok(session.includes("interval '12 hours'")&&session.includes('password_hash=$4')&&session.includes('httpOnly:true'));
  assert.ok(fs.readFileSync('lib/http.js','utf8').includes('reader.cancel()'));
 });
+
+test('mudanças de função revogam sessões e webhooks têm corpo limitado',()=>{const admin=fs.readFileSync('app/api/admin/[resource]/route.js','utf8'),session=fs.readFileSync('lib/auth.js','utf8');assert.ok(admin.includes('8033334')&&admin.includes("await c.query('DELETE FROM sessions WHERE user_id=$1'"));assert.ok(session.includes("s.created_at>now()-interval '12 hours'")&&session.includes('FOR UPDATE'));for(const p of ['infinitepay','asaas'])assert.ok(fs.readFileSync('app/api/webhooks/'+p+'/route.js','utf8').includes('readLimitedText(req,50000)'));});
