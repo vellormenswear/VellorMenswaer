@@ -12,7 +12,7 @@ const nextConfig={
   async rewrites(){return {beforeFiles:[{source:'/',destination:'/vitrine.html'}],afterFiles:[],fallback:[{source:'/:categoria([a-z0-9-]+)',destination:'/vitrine.html'}]}},
   async headers(){return [
     {source:'/api/:path*',headers:[{key:'Cache-Control',value:'no-store'},{key:'X-Content-Type-Options',value:'nosniff'}]},
-    {source:'/:path*',headers:[{key:'Permissions-Policy',value:PERMISSIONS_POLICY},{key:'Referrer-Policy',value:'strict-origin-when-cross-origin'},{key:'X-Frame-Options',value:'DENY'},{key:'X-Content-Type-Options',value:'nosniff'}]}
+    {source:'/:path*',headers:[{key:'Strict-Transport-Security',value:'max-age=31536000'},{key:'Permissions-Policy',value:PERMISSIONS_POLICY},{key:'Referrer-Policy',value:'strict-origin-when-cross-origin'},{key:'X-Frame-Options',value:'DENY'},{key:'X-Content-Type-Options',value:'nosniff'}]}
   ]}
 };
 export default nextConfig;
