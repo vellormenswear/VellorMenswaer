@@ -58,7 +58,7 @@ export async function POST(req){
      if(humanQuestion(message)){
       await client.query("UPDATE support_threads SET status='waiting',requested_at=now(),last_message_at=now(),updated_at=now() WHERE id=$1",[threadId]);
       await client.query("INSERT INTO notifications(kind,title,payload) VALUES('support_requested',$1,$2::jsonb)",['Novo atendimento VELLOR solicitado',JSON.stringify({thread_id:threadId})]);
-     }else if(orderQuestion(message)||(/^#?\d{1,12}$/.test(message)&&history.some(m=>m.sender_kind==='visitor'&&orderQuestion(m.body)))){
+     }else if((orderQuestion(message)&&!/(trocar|devolver|cancelar|arrepend)/i.test(message))||(/^#?\d{1,12}$/.test(message)&&history.some(m=>m.sender_kind==='visitor'&&orderQuestion(m.body)))){
       const number=orderNumber(message)||(/^#?\d{1,12}$/.test(message)?message.replace('#',''):null);
       if(!user)reply='Para proteger suas informações, entre em Minha Conta antes de consultar seu pedido. Depois, informe o número do pedido aqui.';
       else if(!number)reply='Qual é o número do seu pedido? Você pode encontrá-lo em Minha Conta > Meus pedidos. Envie apenas o número, sem dados pessoais.';
@@ -68,6 +68,9 @@ export async function POST(req){
       }
      }
      await client.query("INSERT INTO support_messages(thread_id,sender_kind,body) VALUES($1,'bot',$2)",[threadId,reply.slice(0,2000)]);
+    }
+    if(status==='waiting'||status==='active'){
+     await client.query("INSERT INTO notifications(kind,title,payload) SELECT 'support_requested',$1,$2::jsonb WHERE NOT EXISTS (SELECT 1 FROM notifications WHERE kind='support_requested' AND read_at IS NULL AND payload->>'thread_id'=$3)",['Nova mensagem no atendimento VELLOR',JSON.stringify({thread_id:threadId}),threadId]);
     }
     if(status==='closed'){
      await client.query("UPDATE support_threads SET status='waiting',requested_at=now(),last_message_at=now(),updated_at=now() WHERE id=$1",[threadId]);
