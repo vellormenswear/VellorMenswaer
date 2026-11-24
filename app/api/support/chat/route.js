@@ -3,7 +3,7 @@ import {getUser} from '@/lib/auth';
 import {randomToken,sha256} from '@/lib/security';
 import {ok,fail,body,originGuard,ensure,HttpError} from '@/lib/http';
 import {customerOrderLabel,customerPaymentLabel} from '@/lib/customer-order-status.mjs';
-import {supportReply,orderQuestion,orderNumber,humanQuestion} from '@/lib/support-faq.mjs';
+import {supportReply,orderQuestion,orderNumber,humanQuestion,orderActionQuestion} from '@/lib/support-faq.mjs';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const COOKIE='vellor_support_session';
@@ -58,7 +58,7 @@ export async function POST(req){
      if(humanQuestion(message)){
       await client.query("UPDATE support_threads SET status='waiting',requested_at=now(),last_message_at=now(),updated_at=now() WHERE id=$1",[threadId]);
       await client.query("INSERT INTO notifications(kind,title,payload) VALUES('support_requested',$1,$2::jsonb)",['Novo atendimento VELLOR solicitado',JSON.stringify({thread_id:threadId})]);
-     }else if((orderQuestion(message)&&!/(trocar|devolver|cancelar|arrepend)/i.test(message))||(/^#?\d{1,12}$/.test(message)&&history.some(m=>m.sender_kind==='visitor'&&orderQuestion(m.body)))){
+     }else if((orderQuestion(message)&&!orderActionQuestion(message))||(/^#?\d{1,12}$/.test(message)&&history.some(m=>m.sender_kind==='visitor'&&orderQuestion(m.body)))){
       const number=orderNumber(message)||(/^#?\d{1,12}$/.test(message)?message.replace('#',''):null);
       if(!user)reply='Para proteger suas informações, entre em Minha Conta antes de consultar seu pedido. Depois, informe o número do pedido aqui.';
       else if(!number)reply='Qual é o número do seu pedido? Você pode encontrá-lo em Minha Conta > Meus pedidos. Envie apenas o número, sem dados pessoais.';
