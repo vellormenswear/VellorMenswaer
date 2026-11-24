@@ -100,7 +100,7 @@ test('setas da vitrine usam SVG e não caracteres sujeitos a emoji',()=>{
  assert.match(css,/\.vellor-category-name \.vellor-arrow-svg\{color:#d8c18c/);
  assert.match(css,/\.vellor-carousel-arrow \.vellor-arrow-svg\{width:25px;height:25px\}/);
  assert.ok(html.includes('/vellor-approved.js?v=20261124-clean-urls'));
- assert.ok(html.includes('/vellor-approved.css?v=20261124-mobile-header'));
+ assert.ok(html.includes('/vellor-approved.css?v=20261124-mobile-logo-only'));
 });
 
 test('menu hover textual tem toque, teclado, links próprios e nenhuma foto de categoria',()=>{
@@ -152,4 +152,4 @@ test('domínio oficial não redireciona APIs nem retornos antigos de pagamento',
  assert.deepEqual(route('camisas',false,tree),{pageParent:'vestuario',pageLeaf:'camisas'});assert.deepEqual(route('vestuario',false,tree),{pageParent:'vestuario',pageLeaf:null});assert.deepEqual(route('nova',false,tree),{pageParent:'vestuario',pageLeaf:'nova'});assert.deepEqual(route('produtos',true,tree),{pageParent:null,pageLeaf:null});assert.deepEqual(route(null,false,tree),{pageParent:null,pageLeaf:null});
 });
 
-test('cabeçalho móvel reserva espaço simétrico sem sobrepor logo e controles',()=>{assert.ok(html.includes('class="icon-btn mobile-search-icon"')&&html.includes('class="icon-btn desktop-search-icon"'));assert.ok(html.includes('vellor-approved.css?v=20261124-mobile-header'));assert.match(css,/grid-template-columns:84px minmax\(0,1fr\) 84px/);assert.ok(css.includes('.site-header .hd-right .desktop-search-icon{display:none}')&&css.includes('position:static;transform:none;left:auto;top:auto;width:100%;max-width:185px'));for(const width of [320,360,375,390,414,430,760])assert.ok(width-20-168-8>0);});
+test('logo móvel reduzida sem mover os controles originais',()=>{const header=html.slice(html.indexOf('<header class="site-header">'),html.indexOf('</header>'));const right=header.slice(header.indexOf('class="hd-right"'));assert.ok(right.includes('Ir para busca')&&right.indexOf('Ir para busca')<right.indexOf('Minha conta')&&right.indexOf('Minha conta')<right.indexOf('Abrir carrinho'));assert.equal((header.match(/aria-label="Ir para busca"/g)||[]).length,1);assert.ok(css.includes('width:min(185px,calc(100% - 284px))'));for(const width of [320,360,375,390,414,430,760]){const logo=Math.min(185,width-284);assert.ok(logo>0);assert.ok((width+logo)/2<=width-17-120-5);}});
