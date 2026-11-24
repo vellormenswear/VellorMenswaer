@@ -15,22 +15,29 @@ test('setas laterais são posicionadas sobre as imagens',()=>{
  assert.ok(css.includes('.vellor-carousel-prev{left:'));
  assert.ok(css.includes('.vellor-carousel-next{right:'));
 });
-test('busca de categoria inclui todos os relógios mesmo sem termo no título',()=>{
- const js=read('public/vellor-approved.js');
- const a=js.indexOf('const CATEGORY_SEARCH_ALIASES='),b=js.indexOf('function modelsSorted(){',a);
- assert.ok(a>=0&&b>a);
- const normalize=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- const CATEGORIES=['Todos','Relógios','Vestuário','Acessórios','Calçados','Vestuário Esportivo'];
- const fn=new Function('normalize','CATEGORIES',js.slice(a,b)+';return {categoryForSearch,productMatchesSearch}')(normalize,CATEGORIES);
- for(const s of ['relógio','relogio','RELÓGIOS','relogios'])assert.equal(fn.categoryForSearch(s),'Relógios');
- assert.equal(fn.categoryForSearch('calcados'),'Calçados');
- assert.equal(fn.categoryForSearch('vestuário esportivo'),'Vestuário Esportivo');
- assert.equal(fn.categoryForSearch('acessorios'),'Acessórios');
- assert.equal(fn.categoryForSearch('camiseta'),null);
- assert.ok(fn.productMatchesSearch({category:'Relógios',name:'POEDAGAR 930'},[{sku:'VL1',variant:'Prata'}],'relogio'));
+test('busca de categoria inclui todos os descendentes e reconhece subcategorias',()=>{
+ const js=read('public/vellor-approved.js'),defaults=read('public/vellor-category-defaults.js');
+ const a=js.indexOf('const slugOf='),b=js.indexOf('function browseCategory(',a),c=js.indexOf('const CATEGORY_SEARCH_ALIASES='),d=js.indexOf('function modelsSorted(){',c);
+ assert.ok(a>=0&&b>a&&c>=0&&d>c);
+ const normalize=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const fn=new Function('normalize',defaults+';let categoryTree=DEFAULT_CATEGORY_TREE,categoryTreeReady=false;'+js.slice(a,b)+js.slice(c,d)+';return {categoryForSearch,productMatchesSearch,matchesCategory}')(normalize);
+ for(const s of ['relógio','relogio','RELÓGIOS','relogios'])assert.equal(fn.categoryForSearch(s),'relogios');
+ assert.equal(fn.categoryForSearch('calcados'),'calcados');
+ assert.equal(fn.categoryForSearch('vestuário esportivo'),'vestuario-esportivo');
+ assert.equal(fn.categoryForSearch('camiseta'),'camisetas');
+ assert.ok(fn.productMatchesSearch({category:'Relógios',name:'POEDAGAR 930',slug:'poedagar-930'},[],'relogio'));
+ assert.ok(fn.matchesCategory({category:'Vestuário Esportivo',slug:'camiseta-dry-fit-malha-fria-1-unidade'},'vestuario'));
+ assert.ok(fn.matchesCategory({category:'Acessórios',slug:'estojo-porta-relogios-couro-sintetico-6-12-nichos'},'relogios'));
  assert.ok(!fn.productMatchesSearch({category:'Vestuário',name:'Camisa Social'},[],'relogio'));
- assert.ok(fn.productMatchesSearch({category:'Vestuário',name:'Camiseta básica'},[],'camiseta'));
- assert.ok(js.includes('searchCategory?p.category===searchCategory'));
+ assert.ok(js.includes('searchCategory?matchesCategory(p,searchCategory)'));
+});
+test('gerenciamento de categoria exige administrador e impede hierarquia circular',()=>{
+ const api=read('app/api/admin/[resource]/route.js'),picker=read('components/CategoryPicker.jsx'),manager=read('components/CategoryManager.jsx'),sql=read('db/011_category_hierarchy.sql');
+ assert.ok(api.includes("ensure(parent!==id")&&api.includes('Uma categoria com subcategorias não pode virar subcategoria'));
+ assert.ok(api.includes('pg_advisory_xact_lock'));
+ assert.ok(picker.includes('Categoria principal')&&picker.includes('Subcategoria'));
+ assert.ok(manager.includes('/api/admin/upload')&&manager.includes('sort_order'));
+ assert.ok(sql.includes('ADD COLUMN IF NOT EXISTS parent_id')&&!/DELETE FROM|DROP TABLE|TRUNCATE/i.test(sql));
 });
 test('botão do chat só tem ícone, formato circular e mantém acessibilidade',()=>{
  const html=read('public/vitrine.html'),widget=read('components/SupportWidget.jsx'),css=read('public/vellor-support.css');
