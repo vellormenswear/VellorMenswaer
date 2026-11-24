@@ -99,6 +99,16 @@ test('setas da vitrine usam SVG e não caracteres sujeitos a emoji',()=>{
  assert.equal((html.match(/class="vellor-arrow-svg"/g)||[]).length,4);
  assert.match(css,/\.vellor-category-name \.vellor-arrow-svg\{color:#d8c18c/);
  assert.match(css,/\.vellor-carousel-arrow \.vellor-arrow-svg\{width:25px;height:25px\}/);
- assert.ok(html.includes('/vellor-approved.js?v=20261124-category-tree'));
- assert.ok(html.includes('/vellor-approved.css?v=20261124-category-tree'));
+ assert.ok(html.includes('/vellor-approved.js?v=20261124-category-pages'));
+ assert.ok(html.includes('/vellor-approved.css?v=20261124-category-pages'));
+});
+
+test('categorias possuem URLs próprias e subcategorias não expandem na vitrine',()=>{
+ const config=read('next.config.mjs');assert.ok(config.includes("source:'/categorias/:categoria'")&&config.includes("source:'/categorias/:categoria/:subcategoria'"));
+ assert.ok(js.includes('function browseCategory(category){location.assign(categoryUrl(category))}'));
+ assert.ok(js.includes('location.assign(categoryUrl(pageParent,el.dataset.browseCategory))'));
+ assert.ok(js.includes('panel.hidden=isCart||(!categoryPage&&!invalid)'));
+ assert.ok(js.includes("document.getElementById('catalog-page').hidden=isCart||categoryPage||invalid"));
+ assert.ok(html.indexOf('</nav>')<html.indexOf('id="vellor-subcategory-panel"'));
+ assert.ok(!js.includes('expandedParent'));
 });
