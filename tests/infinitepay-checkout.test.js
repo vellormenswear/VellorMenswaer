@@ -102,7 +102,7 @@ test('cancelamento administrativo exige permissão e estorno separado com prova 
  assert.ok(cancel.includes("batch.payment_method==='credit_card'?gs:[target]"));
  assert.ok(cancel.includes("payment_status='refunded'"));
  assert.ok(cancel.includes("status='committed' RETURNING variant_id,quantity"));
- assert.ok(customer.includes("WHERE o.customer_id=$1 AND n.kind IN ('customer_order_canceled','customer_order_refunded')"));
+ assert.ok(customer.includes("WHERE o.customer_id=$1 AND n.kind IN ('customer_order_canceled','customer_order_refunded','customer_order_size_changed')"));
  assert.ok(ui.includes('O estorno de '));
  assert.ok(ui.includes('foi confirmado para o meio de pagamento de origem'));
 });
