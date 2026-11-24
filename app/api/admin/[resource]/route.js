@@ -75,11 +75,34 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
  if(resource==='category'){
   await requireRole(req,['admin','super_admin']);const name=txt(x.name,100),slug=txt(x.slug,120).toLowerCase();ensure(name.length>=2&&/^[a-z0-9-]+$/.test(slug),'Categoria inválida.');const rr=await sql(`INSERT INTO categories(name,slug) VALUES($1,$2) ON CONFLICT(slug) DO UPDATE SET name=excluded.name RETURNING id`,[name,slug]);await audit(u.id,'category.upsert','category',rr.rows[0].id,null,{name,slug});return ok({id:rr.rows[0].id});
  }
+ if(resource==='product-delete'){
+  await requireRole(req,['admin','super_admin']);ensure(uuid(x.id),'Produto inválido.');
+  const result=await transaction(async c=>{
+   const p=(await c.query('SELECT id,name FROM products WHERE id=$1 FOR UPDATE',[x.id])).rows[0];ensure(p,'Produto não encontrado.',404);
+   const variants=(await c.query('SELECT id FROM product_variants WHERE product_id=$1 ORDER BY id FOR UPDATE',[x.id])).rows.map(v=>v.id);
+   const refs=await c.query(`SELECT EXISTS(SELECT 1 FROM order_items WHERE variant_id=ANY($1::uuid[])) OR EXISTS(SELECT 1 FROM supplier_order_items WHERE variant_id=ANY($1::uuid[])) OR EXISTS(SELECT 1 FROM supplier_stock_reservations WHERE variant_id=ANY($1::uuid[])) OR EXISTS(SELECT 1 FROM supplier_price_requests WHERE variant_id=ANY($1::uuid[])) OR EXISTS(SELECT 1 FROM supplier_submissions WHERE product_id=$2) OR EXISTS(SELECT 1 FROM supplier_order_groups g CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(g.items_snapshot)='array' THEN g.items_snapshot ELSE '[]'::jsonb END) item WHERE item->>'variant_id'=ANY($3::text[])) AS used`,[variants,x.id,variants]);
+   let archived=refs.rows[0].used;
+   if(!archived){
+    await c.query('SAVEPOINT product_remove');
+    try{await c.query('DELETE FROM products WHERE id=$1',[x.id]);await c.query('RELEASE SAVEPOINT product_remove');}
+    catch(e){await c.query('ROLLBACK TO SAVEPOINT product_remove');await c.query('RELEASE SAVEPOINT product_remove');if(e.code!=='23503')throw e;archived=true;}
+   }
+   if(archived){await c.query('UPDATE products SET active=false,hidden=true,updated_at=now() WHERE id=$1',[x.id]);await c.query('UPDATE product_variants SET active=false,updated_at=now() WHERE product_id=$1',[x.id]);}
+   await c.query('INSERT INTO audit_logs(actor_id,action,resource_type,resource_id,after_data) VALUES($1,$2,$3,$4,$5)',[u.id,archived?'product.archive':'product.delete','product',x.id,JSON.stringify({name:p.name,archived})]);
+   return {deleted:!archived,archived};
+  });return ok(result);
+ }
  if(resource==='product'){
   await requireRole(req,['admin','super_admin']);const name=txt(x.name,240),slug=txt(x.slug,200).toLowerCase();ensure(name.length>=4&&/^[a-z0-9-]+$/.test(slug),'Nome ou slug inválido.');let id=uuid(x.id)?x.id:null;
   const shipping=['nacional','internacional','a_confirmar'].includes(x.shipping)?x.shipping:'nacional';const active=Boolean(x.active),hidden=Boolean(x.hidden)||shipping!=='nacional';
-  if(id){const r=await sql('UPDATE products SET name=$1,slug=$2,description=$3,category_id=$4,shipping=$5,active=$6,hidden=$7,updated_at=now() WHERE id=$8 RETURNING id',[name,slug,txt(x.description,4000),uuid(x.category_id)?x.category_id:null,shipping,active,hidden,id]);ensure(r.rowCount,'Produto não encontrado.',404)}
-  else{const r=await sql('INSERT INTO products(name,slug,description,category_id,shipping,active,hidden) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',[name,slug,txt(x.description,4000),uuid(x.category_id)?x.category_id:null,shipping,active,hidden]);id=r.rows[0].id}
+  const img=txt(x.image_url,1000);ensure(!img||img.startsWith('/product-images/')||img.startsWith('https://'),'URL da imagem inválida.');
+  id=await transaction(async c=>{
+   let productId=id;
+   if(productId){const r=await c.query('UPDATE products SET name=$1,slug=$2,description=$3,category_id=$4,shipping=$5,active=$6,hidden=$7,updated_at=now() WHERE id=$8 RETURNING id',[name,slug,txt(x.description,4000),uuid(x.category_id)?x.category_id:null,shipping,active,hidden,productId]);ensure(r.rowCount,'Produto não encontrado.',404);}
+   else{const r=await c.query('INSERT INTO products(name,slug,description,category_id,shipping,active,hidden) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',[name,slug,txt(x.description,4000),uuid(x.category_id)?x.category_id:null,shipping,active,hidden]);productId=r.rows[0].id;}
+   if(img){await c.query('INSERT INTO product_images(product_id,url,alt,sort_order) SELECT $1,$2,$3,-1 WHERE NOT EXISTS(SELECT 1 FROM product_images WHERE product_id=$1 AND url=$2 AND variant_id IS NULL)',[productId,img,name]);}
+   return productId;
+  });
   await audit(u.id,'product.upsert','product',id,null,{name,slug,shipping,active,hidden});return ok({id});
  }
  if(resource==='variant'){
@@ -87,7 +110,8 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
   ensure(sku.length>=2&&label.length>=1,'SKU ou variação inválida.');const price=x.price_cents===null||x.price_cents===''?null:Number(x.price_cents),stock=x.stock===null||x.stock===''?null:Number(x.stock);
   ensure(price===null||(Number.isInteger(price)&&price>=0&&price<=100000000),'Preço inválido.');ensure(stock===null||(Number.isInteger(stock)&&stock>=0),'Estoque inválido.');
   const sizes=Array.isArray(x.sizes)?x.sizes.map(t=>txt(t,30)).filter(Boolean).slice(0,40):[];
-  const img=txt(x.image_url,1000);ensure(!img||img.startsWith('/product-images/')||img.startsWith('https://'),'URL da imagem inválida.');
+  let img=txt(x.image_url,1000);ensure(!img||img.startsWith('/product-images/')||img.startsWith('https://'),'URL da imagem inválida.');
+  if(!img){const cover=await sql('SELECT url FROM product_images WHERE product_id=$1 AND variant_id IS NULL ORDER BY sort_order,created_at DESC LIMIT 1',[x.product_id]);img=cover.rows[0]?.url||'';}
   let id=uuid(x.id)?x.id:null;
   if(id){const r=await sql('UPDATE product_variants SET sku=$1,label=$2,price_cents=$3,stock=$4,sizes=$5,active=$6,primary_image_url=$7,updated_at=now() WHERE id=$8 AND product_id=$9 RETURNING id',[sku,label,price,stock,sizes,Boolean(x.active),img||null,id,x.product_id]);ensure(r.rowCount,'Variação não encontrada.',404)}
   else{const r=await sql('INSERT INTO product_variants(product_id,sku,label,price_cents,stock,sizes,active,primary_image_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',[x.product_id,sku,label,price,stock,sizes,Boolean(x.active),img||null]);id=r.rows[0].id}
