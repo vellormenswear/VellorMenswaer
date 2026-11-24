@@ -35,11 +35,11 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  if(action==='invite-check'){const token=txt(q.get('token'),200);const r=await sql('SELECT email,expires_at FROM supplier_invites WHERE token_hash=$1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at>now()',[sha256(token)]);ensure(r.rowCount,'Convite inválido, vencido ou utilizado.',404);return ok({invite:r.rows[0]})}
  if(action.startsWith('admin-')){await requireRole(req,adminRoles);
   if(action==='admin-list'){const [suppliers,invites,queue,categories,unlinked]=await Promise.all([
-   sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_pix_accounts pix WHERE pix.supplier_id=s.id) AS pix_registered FROM suppliers s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC`),
+   sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_pix_accounts pix WHERE pix.supplier_id=s.id) AS pix_registered FROM suppliers s JOIN users u ON u.id=s.user_id WHERE s.launch_archived_at IS NULL AND u.launch_archived_at IS NULL ORDER BY s.created_at DESC`),
    sql('SELECT id,email,expires_at,used_at,revoked_at,created_at FROM supplier_invites ORDER BY created_at DESC LIMIT 70'),
    sql(`SELECT sub.*,s.business_name FROM supplier_submissions sub JOIN suppliers s ON s.id=sub.supplier_id ORDER BY (sub.status='pending') DESC,sub.created_at DESC LIMIT 100`),
    sql('SELECT id,name FROM categories WHERE active ORDER BY name'),
-   sql(`SELECT COUNT(*)::int AS total FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.supplier_id IS NULL`)
+   sql(`SELECT COUNT(*)::int AS total FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.supplier_id IS NULL AND p.launch_archived_at IS NULL`)
   ]);return ok({suppliers:suppliers.rows,invites:invites.rows,queue:queue.rows,categories:categories.rows,unlinked_variants:unlinked.rows[0].total})}
   if(action==='admin-cancellations'){
    const r=await sql(`SELECT g.id,g.supplier_id,g.order_id,g.provider_payment_id,g.payment_status,g.fulfillment_status,g.canceled_reason,s.business_name,ce.error_message FROM supplier_order_groups g JOIN suppliers s ON s.id=g.supplier_id LEFT JOIN supplier_cancel_events ce ON ce.group_id=g.id WHERE g.fulfillment_status='cancel_requested' OR g.payment_status IN ('refund_failed','refund_pending') ORDER BY g.updated_at DESC LIMIT 100`);return ok({groups:r.rows})
@@ -51,7 +51,7 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
    const r=await sql(`SELECT g.id,g.order_id,g.supplier_id,s.business_name,g.paid_at,g.preparation_days,g.fulfillment_status,g.payment_status,g.posted_at FROM supplier_order_groups g JOIN suppliers s ON s.id=g.supplier_id WHERE g.payment_status='approved' AND g.fulfillment_status IN ('paid','preparing') ORDER BY g.paid_at ASC LIMIT 300`);return ok({groups:r.rows})
   }
   if(action==='admin-price-requests'){return ok({requests:(await sql("SELECT r.*,s.business_name,v.sku,v.label,v.price_cents,v.supplier_cost_cents FROM supplier_price_requests r JOIN suppliers s ON s.id=r.supplier_id JOIN product_variants v ON v.id=r.variant_id ORDER BY (r.status='pending') DESC,r.created_at DESC LIMIT 150")).rows})}
-  if(action==='admin-legacy'){const r=await sql(`SELECT v.id AS variant_id,v.sku,v.label,v.price_cents,v.supplier_cost_cents,p.name,p.id AS product_id,p.supplier_id FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.supplier_id IS NULL OR v.supplier_cost_cents IS NULL ORDER BY p.created_at,v.created_at LIMIT 200`);return ok({variants:r.rows})}
+  if(action==='admin-legacy'){const r=await sql(`SELECT v.id AS variant_id,v.sku,v.label,v.price_cents,v.supplier_cost_cents,p.name,p.id AS product_id,p.supplier_id FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.launch_archived_at IS NULL AND (p.supplier_id IS NULL OR v.supplier_cost_cents IS NULL) ORDER BY p.created_at,v.created_at LIMIT 200`);return ok({variants:r.rows})}
   if(action==='admin-finance'){
    const [groups,extras,totals,allAdjustments]=await Promise.all([
     sql(`SELECT g.id,g.order_id,g.supplier_id,s.business_name,g.amount_cents,g.supplier_amount_cents,g.marketplace_fee_cents,g.mp_fee_cents,g.payment_status,g.fulfillment_status,g.created_at FROM supplier_order_groups g JOIN suppliers s ON s.id=g.supplier_id ORDER BY g.created_at DESC LIMIT 300`),
@@ -108,7 +108,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
    const invitePath='/fornecedor/cadastro?token='+encodeURIComponent(token);return ok({invite_path:invitePath,invite_url:new URL(invitePath,new URL(req.url).origin).href,expires_days:7},201)
   }
   if(action==='admin-invite-revoke'){ensure(uuid(x.id),'Convite inválido.');await sql('UPDATE supplier_invites SET revoked_at=now() WHERE id=$1 AND used_at IS NULL',[x.id]);await audit(u.id,'supplier.invite_revoke','supplier_invite',x.id);return ok({revoked:true})}
-  if(action==='admin-suspend'){ensure(uuid(x.id),'Fornecedor inválido.');const status=x.suspended?'suspended':'active';const r=await sql('UPDATE suppliers SET status=$1,updated_at=now() WHERE id=$2 RETURNING user_id',[status,x.id]);ensure(r.rowCount,'Fornecedor inexistente.',404);await sql('UPDATE users SET suspended_at=$1 WHERE id=$2',[x.suspended?new Date():null,r.rows[0].user_id]);if(x.suspended)await sql('DELETE FROM sessions WHERE user_id=$1',[r.rows[0].user_id]);await audit(u.id,'supplier.status','supplier',x.id,null,{status});return ok({status})}
+  if(action==='admin-suspend'){ensure(uuid(x.id),'Fornecedor inválido.');const status=x.suspended?'suspended':'active';const r=await sql('UPDATE suppliers SET status=$1,updated_at=now() WHERE id=$2 AND launch_archived_at IS NULL RETURNING user_id',[status,x.id]);ensure(r.rowCount,'Fornecedor inexistente.',404);await sql('UPDATE users SET suspended_at=$1 WHERE id=$2',[x.suspended?new Date():null,r.rows[0].user_id]);if(x.suspended)await sql('DELETE FROM sessions WHERE user_id=$1',[r.rows[0].user_id]);await audit(u.id,'supplier.status','supplier',x.id,null,{status});return ok({status})}
   if(action==='admin-review'){
    ensure(uuid(x.id),'Anúncio inválido.');ensure(['approved','rejected'].includes(x.decision),'Decisão inválida.');
    const result=await transaction(async c=>{

@@ -27,7 +27,7 @@ test('busca de categoria inclui todos os descendentes e reconhece subcategorias'
  assert.equal(fn.categoryForSearch('camiseta'),'camisetas');
  assert.ok(fn.productMatchesSearch({category:'Relógios',name:'POEDAGAR 930',slug:'poedagar-930'},[],'relogio'));
  assert.ok(fn.matchesCategory({category:'Vestuário Esportivo',slug:'camiseta-dry-fit-malha-fria-1-unidade'},'vestuario'));
- assert.ok(fn.matchesCategory({category:'Acessórios',slug:'estojo-porta-relogios-couro-sintetico-6-12-nichos'},'relogios'));
+ assert.ok(fn.matchesCategory({category:'Estojos e organizadores',category_slug:'estojos-e-organizadores',slug:'estojo-exemplo'},'relogios'));
  assert.ok(!fn.productMatchesSearch({category:'Vestuário',name:'Camisa Social'},[],'relogio'));
  assert.ok(js.includes('searchCategory?matchesCategory(p,searchCategory)'));
 });

@@ -12,7 +12,7 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
 async function customer(req){const u=await requireUser(req);ensure(canPurchase(u),'Conta não autorizada a realizar compras.',403);return u}
 async function createCheckout(batch,u){
  const existing=await sql('SELECT * FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1 AND customer_id=$2',[batch,u.id]);
- if(existing.rowCount){ensure(existing.rows[0].checkout_url,'Checkout ainda nao finalizado.',409);return{checkout_url:existing.rows[0].checkout_url,checkout_id:batch}}
+ if(existing.rowCount){const current=existing.rows[0];ensure(current.status==='pending'&&current.checkout_url,'Checkout encerrado ou ainda não finalizado.',409);const valid=await sql("SELECT 1 FROM supplier_order_groups WHERE checkout_batch_id=$1 AND customer_id=$2 AND payment_status='pending' AND order_id IS NULL AND checkout_expires_at>now() LIMIT 1",[batch,u.id]);ensure(valid.rowCount,'Checkout expirado.',409);return{checkout_url:current.checkout_url,checkout_id:batch}}
  const groups=await sql("SELECT g.* FROM supplier_order_groups g WHERE g.checkout_batch_id=$1 AND g.customer_id=$2 AND g.payment_status='pending' AND g.order_id IS NULL ORDER BY g.id",[batch,u.id]);
  ensure(groups.rowCount&&groups.rows.every(g=>new Date(g.checkout_expires_at)>new Date()),'Checkout expirado ou itens indisponiveis.',409);
  const info=buildInfinitepayCheckout(groups.rows,{batchId:batch,site:process.env.SITE_URL.replace(/\/$/,''),

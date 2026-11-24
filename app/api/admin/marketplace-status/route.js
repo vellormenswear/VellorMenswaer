@@ -33,9 +33,9 @@ async function diagnostic(){
     const migrationsTable=await sql("SELECT to_regclass('public.schema_migrations') AS table_ref");
     const versions=migrationsTable.rows[0]?.table_ref
       ? (await sql(`SELECT version FROM schema_migrations
-          WHERE version IN ('002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql','008_infinitepay.sql','009_supplier_notifications.sql','010_supplier_pix.sql','011_category_hierarchy.sql','012_request_conversations.sql','013_infinitepay_default.sql')
+          WHERE version IN ('002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql','008_infinitepay.sql','009_supplier_notifications.sql','010_supplier_pix.sql','011_category_hierarchy.sql','012_request_conversations.sql','013_infinitepay_default.sql','014_launch_archive.sql')
           ORDER BY version`)).rows.map(x=>x.version) : [];
-    const missingMigrations=['002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql','008_infinitepay.sql','009_supplier_notifications.sql','010_supplier_pix.sql','011_category_hierarchy.sql','012_request_conversations.sql','013_infinitepay_default.sql'].filter(x=>!versions.includes(x));
+    const missingMigrations=['002_marketplace.sql','003_supplier_changes.sql','004_paid_orders_only.sql','008_infinitepay.sql','009_supplier_notifications.sql','010_supplier_pix.sql','011_category_hierarchy.sql','012_request_conversations.sql','013_infinitepay_default.sql','014_launch_archive.sql'].filter(x=>!versions.includes(x));
     return {ready:missingTables.length===0&&missingColumns.length===0&&missingMigrations.length===0,
        missing_tables:missingTables,missing_columns:missingColumns,missing_migrations:missingMigrations};
 }
