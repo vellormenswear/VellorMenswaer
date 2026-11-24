@@ -99,8 +99,8 @@ test('setas da vitrine usam SVG e não caracteres sujeitos a emoji',()=>{
  assert.equal((html.match(/class="vellor-arrow-svg"/g)||[]).length,3);
  assert.match(css,/\.vellor-category-name \.vellor-arrow-svg\{color:#d8c18c/);
  assert.match(css,/\.vellor-carousel-arrow \.vellor-arrow-svg\{width:25px;height:25px\}/);
- assert.ok(html.includes('/vellor-approved.js?v=20261124-catalog-grid'));
- assert.ok(html.includes('/vellor-approved.css?v=20261124-catalog-grid'));
+ assert.ok(html.includes('/vellor-approved.js?v=20261124-clean-urls'));
+ assert.ok(html.includes('/vellor-approved.css?v=20261124-clean-urls'));
 });
 
 test('menu hover textual tem toque, teclado, links próprios e nenhuma foto de categoria',()=>{
@@ -123,9 +123,23 @@ test('destaques sorteiam no máximo dois modelos distintos por categoria e não 
  for(const root of roots){assert.equal(chosen.filter(p=>p.root===root).length,2);assert.ok(chosen.some(p=>p.slug===root+'4'));assert.ok(chosen.some(p=>p.slug===root+'3'));}
  assert.equal(select(rows.filter(p=>p.slug==='vestuario0'),roots,p=>p.root,p=>p.rank).length,1);
  assert.ok(js.includes('Math.random()')&&js.includes('):allItems;'));
- assert.ok(js.includes("!pageParent&&!fullCatalog")&&js.includes("get('catalogo')==='1'"));
+ assert.ok(js.includes("!pageParent&&!fullCatalog")&&js.includes("routeSlug==='produtos'"));
  assert.ok(js.includes("grid.classList.toggle('vellor-product-grid',!carousel)")&&js.includes("prev.hidden=next.hidden=!carousel"));
- assert.ok(html.includes('href="/vitrine.html?catalogo=1"'));
+ assert.ok(html.includes('href="/produtos"'));
  assert.match(css,/#grid\.vellor-product-grid\{display:grid;grid-template-columns:repeat\(4/);
  assert.match(css,/#grid\.vellor-product-grid\{grid-template-columns:repeat\(2/);
+});
+
+test('URLs públicas usam raiz e slugs únicos sem extensão ou prefixo',()=>{
+ const config=read('next.config.mjs'),frame=read('components/Frame.jsx'),page=read('app/page.jsx');
+ assert.ok(config.includes("source:'/vitrine.html',destination:'/',permanent:true"));
+ assert.ok(config.includes("beforeFiles:[{source:'/',destination:'/vitrine.html'}]"));
+ assert.ok(config.includes("source:'/categorias/:categoria/todos',destination:'/:categoria'"));
+ assert.ok(config.includes("source:'/categorias/:categoria/:subcategoria',destination:'/:subcategoria'"));
+ assert.ok(config.includes("source:'/:categoria([a-z0-9-]+)'"));
+ assert.ok(!page.includes('redirect(')&&!frame.includes('/vitrine.html')&&!html.includes('href="/vitrine.html'));
+ const start=js.indexOf('const categoryUrl='),end=js.indexOf(';',start)+1;
+ const url=new Function(js.slice(start,end)+';return categoryUrl')();
+ assert.equal(url('vestuario','camisas'),'/camisas');assert.equal(url('vestuario','todos'),'/vestuario');assert.equal(url('relogios','relogios-classicos'),'/relogios-classicos');
+ assert.ok(js.includes('resolveCategoryRoute();active=pageLeaf||pageParent'));
 });
