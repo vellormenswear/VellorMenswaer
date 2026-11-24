@@ -100,7 +100,7 @@ test('setas da vitrine usam SVG e não caracteres sujeitos a emoji',()=>{
  assert.match(css,/\.vellor-category-name \.vellor-arrow-svg\{color:#d8c18c/);
  assert.match(css,/\.vellor-carousel-arrow \.vellor-arrow-svg\{width:25px;height:25px\}/);
  assert.ok(html.includes('/vellor-approved.js?v=20261124-clean-urls'));
- assert.ok(html.includes('/vellor-approved.css?v=20261124-clean-urls'));
+ assert.ok(html.includes('/vellor-approved.css?v=20261124-mobile-header'));
 });
 
 test('menu hover textual tem toque, teclado, links próprios e nenhuma foto de categoria',()=>{
