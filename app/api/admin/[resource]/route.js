@@ -3,6 +3,7 @@ import {ok,fail,body,originGuard,ensure,HttpError,txt,uuid,email} from '@/lib/ht
 import {normalizeIdentity,IDENTITY_FIELDS} from '@/lib/store-identity.mjs';
 import {orderFilterPredicate,ADMIN_ORDER_PAGE_SIZE} from '@/lib/admin-order-filters.mjs';
 import {resolveProductSlug} from '@/lib/product-slug';
+import {normalizeVariantSizes,validFootwearSizes} from '@/lib/variant-options.mjs';
 import {sizeChangeAllowed,availableSizes} from '@/lib/order-size-change.mjs';
 import {shippingAlerts} from '@/lib/shipping-deadline.mjs';
 import {cancelAdminOrder,confirmAdminRefund} from '@/lib/admin-order-cancel';
@@ -147,11 +148,11 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
   await audit(u.id,'product.upsert','product',id,null,{name,slug,shipping,active,hidden});return ok({id,slug});
  }
  if(resource==='variant'){
-  await requireRole(req,['admin','super_admin']);const editable=await sql('SELECT 1 FROM products WHERE id=$1 AND launch_archived_at IS NULL',[uuid(x.product_id)?x.product_id:null]);ensure(editable.rowCount,'Produto indisponível.',404);
+  await requireRole(req,['admin','super_admin']);const editable=await sql('SELECT COALESCE(root.slug,c.slug) AS root_slug FROM products p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN categories root ON root.id=c.parent_id WHERE p.id=$1 AND p.launch_archived_at IS NULL',[uuid(x.product_id)?x.product_id:null]);ensure(editable.rowCount,'Produto indisponível.',404);
   await requireRole(req,['admin','super_admin']);ensure(uuid(x.product_id),'Produto inválido.');const sku=txt(x.sku,120).toUpperCase(),label=txt(x.label,140);
   ensure(sku.length>=2&&label.length>=1,'SKU ou variação inválida.');const price=x.price_cents===null||x.price_cents===''?null:Number(x.price_cents),stock=x.stock===null||x.stock===''?null:Number(x.stock);
   ensure(price===null||(Number.isInteger(price)&&price>=0&&price<=100000000),'Preço inválido.');ensure(stock===null||(Number.isInteger(stock)&&stock>=0),'Estoque inválido.');
-  const sizes=Array.isArray(x.sizes)?x.sizes.map(t=>txt(t,30)).filter(Boolean).slice(0,40):[];
+  const sizes=normalizeVariantSizes(x.sizes);ensure(editable.rows[0].root_slug!=='calcados'||validFootwearSizes(sizes),'Marque a numeração válida do calçado.');
   let img=txt(x.image_url,1000);ensure(!img||img.startsWith('/product-images/')||img.startsWith('https://'),'URL da imagem inválida.');
   if(!img){const cover=await sql('SELECT url FROM product_images WHERE product_id=$1 AND variant_id IS NULL ORDER BY sort_order,created_at DESC LIMIT 1',[x.product_id]);img=cover.rows[0]?.url||'';}
   let id=uuid(x.id)?x.id:null;

@@ -1,6 +1,7 @@
 import {sql,db,transaction,audit} from '@/lib/db';
 import {applyMarketplaceMigrations} from '@/lib/marketplace-auto-schema.mjs';
 import {resolveProductSlug} from '@/lib/product-slug';
+import {normalizeVariantSizes,validFootwearSizes} from '@/lib/variant-options.mjs';
 import {requireUser,requireRole} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,uuid,txt,email,HttpError} from '@/lib/http';
 import {randomToken,sha256,passwordHash} from '@/lib/security';
@@ -188,12 +189,12 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  if(action==='submit'){
   const variants=Array.isArray(x.variants)?x.variants:[];ensure(variants.length>0&&variants.length<=30,'Informe de 1 a 30 variações.');
-  const name=txt(x.name,220);ensure(name.length>=4,'Nome muito curto.');
+  const name=txt(x.name,220);ensure(name.length>=4,'Nome muito curto.');const cat=uuid(x.category_id)?x.category_id:null;const category=cat?(await sql('SELECT COALESCE(root.slug,c.slug) AS root_slug FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1',[cat])).rows[0]:null;
   // SKU e URL da foto são opcionais no envio. A validação de publicação continua
   // exigindo imagem, para que a vitrine não exiba produtos sem fotografia.
   for(const v of variants){
     v.sku=txt(v.sku,120).toUpperCase()||generatedSupplierSku(randomUUID());
-    v.image_url=txt(v.image_url,2048);
+    v.image_url=txt(v.image_url,2048);v.sizes=normalizeVariantSizes(v.sizes);ensure(category?.root_slug!=='calcados'||validFootwearSizes(v.sizes),'Marque a numeração válida do calçado.');
   }
   ensure(variants.every(supplierSubmissionValid),'Revise modelo, custo e estoque de cada variação.');
   ensure(new Set(variants.map(v=>v.sku)).size===variants.length,'SKU duplicado.');ensure(variants.every(v=>v.stock_mode==='availability'||!Array.isArray(v.sizes)||v.sizes.length<=1),'Para estoque exato por tamanho, cadastre um SKU separado para cada tamanho.',400);
@@ -201,7 +202,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
     v.preparation_days=Number(v.preparation_days??supplier.preparation_days);v.delivery_days_min=Number(v.delivery_days_min??supplier.delivery_days_min);v.delivery_days_max=Number(v.delivery_days_max??supplier.delivery_days_max);
     ensure(Number.isInteger(v.preparation_days)&&v.preparation_days>=0&&v.preparation_days<=90&&Number.isInteger(v.delivery_days_min)&&v.delivery_days_min>=1&&v.delivery_days_max>=v.delivery_days_min&&v.delivery_days_max<=180,'Prazo de entrega inválido.');
   }
-  const cat=uuid(x.category_id)?x.category_id:null;const r=await sql("INSERT INTO supplier_submissions(supplier_id,name,description,category_id,variants,status) VALUES($1,$2,$3,$4,$5,'pending') RETURNING id",[supplier.id,name,txt(x.description,4000),cat,JSON.stringify(variants)]);
+  const r=await sql("INSERT INTO supplier_submissions(supplier_id,name,description,category_id,variants,status) VALUES($1,$2,$3,$4,$5,'pending') RETURNING id",[supplier.id,name,txt(x.description,4000),cat,JSON.stringify(variants)]);
   await audit(user.id,'supplier.product_submit','supplier_submission',r.rows[0].id);return ok({id:r.rows[0].id},201)
  }
  if(action==='inventory'){
