@@ -100,7 +100,7 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
    let productId=id;
    if(productId){const r=await c.query('UPDATE products SET name=$1,slug=$2,description=$3,category_id=$4,shipping=$5,active=$6,hidden=$7,updated_at=now() WHERE id=$8 RETURNING id',[name,slug,txt(x.description,4000),uuid(x.category_id)?x.category_id:null,shipping,active,hidden,productId]);ensure(r.rowCount,'Produto não encontrado.',404);}
    else{const r=await c.query('INSERT INTO products(name,slug,description,category_id,shipping,active,hidden) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',[name,slug,txt(x.description,4000),uuid(x.category_id)?x.category_id:null,shipping,active,hidden]);productId=r.rows[0].id;}
-   if(img){await c.query('INSERT INTO product_images(product_id,url,alt,sort_order) SELECT $1,$2,$3,-1 WHERE NOT EXISTS(SELECT 1 FROM product_images WHERE product_id=$1 AND url=$2 AND variant_id IS NULL)',[productId,img,name]);}
+   if(img){await c.query('UPDATE product_images SET sort_order=0 WHERE product_id=$1 AND variant_id IS NULL AND sort_order<0',[productId]);const existing=await c.query('UPDATE product_images SET sort_order=-1 WHERE product_id=$1 AND variant_id IS NULL AND url=$2 RETURNING id',[productId,img]);if(!existing.rowCount)await c.query('INSERT INTO product_images(product_id,url,alt,sort_order) VALUES($1,$2,$3,-1)',[productId,img,name]);}
    return productId;
   });
   await audit(u.id,'product.upsert','product',id,null,{name,slug,shipping,active,hidden});return ok({id});
