@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {sql} from '@/lib/db';
-import {ok,fail,ensure} from '@/lib/http';
+import {ok,fail,ensure,readLimitedText} from '@/lib/http';
 import {infinitepayConfigured,safeInfiniteRef} from '@/lib/infinitepay.mjs';
 import {reconcileInfinitepayBatch} from '@/lib/infinitepay-reconcile';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -8,7 +8,7 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
 // A unica fonte de aprovacao e POST /payment_check autenticado no servidor.
 export async function POST(req){try{
  ensure(infinitepayConfigured(process.env),'Integracao desativada.',503);
- const raw=await req.text();ensure(raw.length>0&&raw.length<=50000,'Corpo invalido.',413);
+ const raw=await readLimitedText(req,50000);ensure(raw.length>0&&raw.length<=50000,'Corpo invalido.',413);
  let event;try{event=JSON.parse(raw)}catch{ensure(false,'JSON invalido.',400)}
  const orderNsu=String(event?.order_nsu||'');
  const transaction=String(event?.transaction_nsu||'');
