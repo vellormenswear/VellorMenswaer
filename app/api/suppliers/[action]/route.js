@@ -18,13 +18,13 @@ async function supplierNotices(supplierId){
  const ready=Boolean(relation.rows[0]?.table_ref);
  const selectRead=ready?'r.read_at':'NULL::timestamptz AS read_at';
  const joinRead=ready?'LEFT JOIN supplier_notification_reads r ON r.notification_id=n.id AND r.supplier_id=g.supplier_id':'';
- const result=await sql(`SELECT n.id,n.kind,n.created_at,n.title,${selectRead},
+ const result=await sql(`SELECT n.id,n.kind,n.created_at,n.title,n.payload,${selectRead},
   g.id AS group_id,g.supplier_amount_cents,g.fulfillment_status,g.payment_status,o.order_number
   FROM supplier_order_groups g
   JOIN orders o ON o.id=g.order_id
   JOIN notifications n ON n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text
   ${joinRead}
-  WHERE g.supplier_id=$1 AND n.kind IN ('supplier_payment_pending','supplier_paid')
+  WHERE g.supplier_id=$1 AND n.kind IN ('supplier_payment_pending','supplier_paid','supplier_size_changed')
   ORDER BY n.created_at DESC LIMIT 80`,[supplierId]);
  return result.rows;
 }
@@ -68,7 +68,7 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
   const [subs,products,orders,asaas,changes,notices,pixAccount]=await Promise.all([
    sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    sql(`SELECT p.id,p.name,p.slug,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
-   sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.amount_cents,g.supplier_amount_cents,g.mp_fee_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
+   sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.amount_cents,g.supplier_amount_cents,g.mp_fee_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,(SELECT n.id FROM notifications n WHERE n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text AND n.kind='supplier_size_changed' ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS size_revision,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
    COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
    sql('SELECT wallet_id,verified_at FROM supplier_asaas_wallets WHERE supplier_id=$1',[supplier.id]),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
@@ -175,7 +175,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   // Prova de titularidade usando o grupo de pedido e o ID do aviso (nunca user_id do cliente).
   const found=await sql(`SELECT n.id FROM notifications n
     JOIN supplier_order_groups g ON g.order_id=n.order_id AND n.payload->>'group_id'=g.id::text
-    WHERE n.id=$1 AND g.supplier_id=$2 AND n.kind IN ('supplier_payment_pending','supplier_paid')`,
+    WHERE n.id=$1 AND g.supplier_id=$2 AND n.kind IN ('supplier_payment_pending','supplier_paid','supplier_size_changed')`,
     [x.notification_id,supplier.id]);
   ensure(found.rowCount===1,'Aviso não pertence ao fornecedor.',403);
   await sql('INSERT INTO supplier_notification_reads(supplier_id,notification_id) VALUES($1,$2) ON CONFLICT DO NOTHING',
@@ -215,7 +215,10 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  if(action==='ship'){
   ensure(uuid(x.group_id),'Pedido inválido.');const carrier=txt(x.carrier,120),tracking=txt(x.tracking,150);ensure(carrier.length>=2&&tracking.length>=4,'Transportadora e rastreamento são obrigatórios.');
-  const r=await sql(`UPDATE supplier_order_groups SET fulfillment_status='shipped',carrier=$1,tracking_code=$2,posted_at=now(),updated_at=now() WHERE id=$3 AND supplier_id=$4 AND payment_status='approved' AND fulfillment_status IN ('paid','preparing') RETURNING id,order_id`,[carrier,tracking,x.group_id,supplier.id]);ensure(r.rowCount,'Pedido indisponível para postagem.',409);await audit(user.id,'supplier.order_shipped','supplier_group',x.group_id);return ok({updated:true})
+  const r=await transaction(async c=>{const group=await c.query("SELECT id,order_id FROM supplier_order_groups WHERE id=$1 AND supplier_id=$2 FOR UPDATE",[x.group_id,supplier.id]);ensure(group.rowCount,'Pedido indisponível.',404);
+   const revisions=await c.query("SELECT n.id,EXISTS(SELECT 1 FROM supplier_notification_reads r WHERE r.supplier_id=$2 AND r.notification_id=n.id) AS acknowledged FROM notifications n WHERE n.order_id=$1 AND n.payload->>'group_id'=$3 AND n.kind='supplier_size_changed' ORDER BY n.created_at DESC,n.id DESC",[group.rows[0].order_id,supplier.id,x.group_id]);
+   ensure(!revisions.rowCount||(String(x.size_revision||'')===revisions.rows[0].id&&revisions.rows.every(n=>n.acknowledged)),'O tamanho foi atualizado. Confira os avisos, confirme as alterações e atualize o pedido antes da postagem.',409);
+   return c.query(`UPDATE supplier_order_groups g SET fulfillment_status='shipped',carrier=$1,tracking_code=$2,posted_at=now(),updated_at=now() WHERE id=$3 AND supplier_id=$4 AND g.payment_status='approved' AND g.fulfillment_status IN ('paid','preparing') RETURNING id,order_id`,[carrier,tracking,x.group_id,supplier.id]);});ensure(r.rowCount,'Pedido indisponível para postagem.',409);await audit(user.id,'supplier.order_shipped','supplier_group',x.group_id);return ok({updated:true})
  }
  if(action==='preparing'){
   ensure(uuid(x.group_id),'Pedido inválido.');const r=await sql(`UPDATE supplier_order_groups SET fulfillment_status='preparing',updated_at=now() WHERE id=$1 AND supplier_id=$2 AND payment_status='approved' AND fulfillment_status='paid' RETURNING id`,[x.group_id,supplier.id]);ensure(r.rowCount,'Pedido não pode ser preparado.',409);return ok({updated:true})
