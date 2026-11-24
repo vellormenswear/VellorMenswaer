@@ -1,5 +1,6 @@
 import {sql,db,transaction,audit} from '@/lib/db';
 import {applyMarketplaceMigrations} from '@/lib/marketplace-auto-schema.mjs';
+import {resolveProductSlug} from '@/lib/product-slug';
 import {requireUser,requireRole} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,uuid,txt,email,HttpError} from '@/lib/http';
 import {randomToken,sha256,passwordHash} from '@/lib/security';
@@ -116,7 +117,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
     if(x.decision==='approved'){
      await activeSupplier(sub.supplier_id);
      const prices=Array.isArray(x.prices)?x.prices:[];ensure(prices.length===sub.variants.length,'Informe o preço de venda de cada variação.');
-     const sl=txt(x.slug,200).toLowerCase();ensure(/^[a-z0-9-]{4,200}$/.test(sl),'Slug inválido.');
+     const sl=await resolveProductSlug(c,{name:sub.name,requested:txt(x.slug,200)});
      const p=await c.query(`INSERT INTO products(name,slug,description,category_id,shipping,active,hidden,supplier_id) VALUES($1,$2,$3,$4,'nacional',true,false,$5) RETURNING id`,[sub.name,sl,sub.description,sub.category_id,sub.supplier_id]);productId=p.rows[0].id;
      for(let i=0;i<sub.variants.length;i++){
       const v=sub.variants[i],price=Number(prices[i]);
