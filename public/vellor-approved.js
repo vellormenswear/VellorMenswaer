@@ -6,6 +6,9 @@ const tid=()=>window.VellorTrace?.id||null;
 let categoryTree=DEFAULT_CATEGORY_TREE,categoryTreeReady=false;
 const categoryPath=location.pathname.match(/^\/categorias\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?\/?$/);
 const pageParent=categoryPath?.[1]||null,pageLeaf=categoryPath?.[2]||null;
+const fullCatalog=new URLSearchParams(location.search).get('catalogo')==='1';
+const featuredRanks=new Map();
+function featuredRank(model){if(!featuredRanks.has(model.slug))featuredRanks.set(model.slug,Math.random());return featuredRanks.get(model.slug);}
 const categoryUrl=(root,leaf)=>'/categorias/'+encodeURIComponent(root)+(leaf?'/'+encodeURIComponent(leaf):'');
 let PRODUCTS=JSON.parse(document.getElementById('catalog').textContent);
 let models=[...new Map(PRODUCTS.map(p=>[p.slug,p])).values()];
@@ -81,13 +84,15 @@ function renderDiscovery(){
 function focusSearch(){if(location.hash==='#carrinho'){location.hash='busca';}document.getElementById('search').focus();}
 function slideProducts(direction){
  const rail=document.getElementById('grid'),card=rail?.querySelector('.card');
- if(!rail||!card)return;
+ if(!rail||!card||!rail.classList.contains('vellor-product-rail'))return;
  rail.scrollBy({left:direction*(card.getBoundingClientRect().width+26)*2,behavior:'smooth'});
 }
 function updateProductNav(){
  const rail=document.getElementById('grid'),prev=document.getElementById('vellor-products-prev'),next=document.getElementById('vellor-products-next');
  if(!rail||!prev||!next)return;
- const overflow=rail.scrollWidth>rail.clientWidth+5;
+ const carousel=rail.classList.contains('vellor-product-rail');
+ prev.hidden=next.hidden=!carousel;
+ const overflow=carousel&&rail.scrollWidth>rail.clientWidth+5;
  prev.disabled=!overflow||rail.scrollLeft<=5;
  next.disabled=!overflow||rail.scrollLeft+rail.clientWidth>=rail.scrollWidth-5;
 }
@@ -111,7 +116,18 @@ return (searchCategory?matchesCategory(p,searchCategory):matchesCategory(p,activ
 const sort=document.getElementById('sort').value;
 const low=p=>Math.min(...groupFor(p).filter(available).map(x=>x.price_brl),Infinity);
 if(sort==='low')a.sort((p,q)=>low(p)-low(q));else if(sort==='high')a.sort((p,q)=>low(q)-low(p));else if(sort==='az')a.sort((p,q)=>p.name.localeCompare(q.name,'pt-BR'));return a}
-function render(){const items=modelsSorted();document.getElementById('count').textContent=`${items.length} ${items.length===1?'modelo':'modelos'}`;renderDiscovery();document.getElementById('size-filter').hidden=['relogios','acessorios'].includes(categoryTree.find(c=>c.slug===active)?.parent_slug||active);document.getElementById('grid').innerHTML=items.length?items.map(m=>{const group=groupFor(m),priced=group.filter(available),display=priced[0]||m,price=priced.length?Math.min(...priced.map(x=>x.price_brl)):null;return `<article class="card"><div class="photo-wrap" style="position:relative">${photo(display)}<button class="hover-quick" onclick="showProduct('${htmlEsc(m.slug)}')">Visualizar produto</button></div><div class="card-meta"><span class="card-category">${htmlEsc(m.category)}</span><h3 class="card-name" onclick="showProduct('${htmlEsc(m.slug)}')">${htmlEsc(m.name)}</h3><div class="card-variants">${group.length} ${group.length===1?'opção':'opções disponíveis'}</div><div class="card-price">${priced.length&&group.length>1?'A partir de ':''}${MONEY(price)}</div><button type="button" class="card-action" onclick="showProduct('${htmlEsc(m.slug)}')">Ver detalhes ⟶</button></div></article>`}).join(''):'<div class="empty"><strong>Nenhum produto encontrado</strong>Experimente outra categoria ou ajuste os filtros.</div>';document.getElementById('grid').scrollLeft=0;requestAnimationFrame(updateProductNav);save()}
+function selectFeatured(items,roots,rootOf,rank){
+ const seen=new Set(),selected=[];
+ for(const root of roots){
+  const candidates=items.filter(p=>rootOf(p)===root&&!seen.has(p.slug)).sort((a,b)=>rank(a)-rank(b));
+  for(const p of candidates.slice(0,2)){if(seen.has(p.slug))continue;seen.add(p.slug);selected.push(p);}
+ }
+ return selected.sort((a,b)=>rank(a)-rank(b));
+}
+function isFeaturedView(){return !pageParent&&!fullCatalog&&active==='Todos'&&['search','max-price','color','size'].every(id=>!document.getElementById(id).value.trim())&&document.getElementById('sort').value==='featured'}
+function render(){const carousel=isFeaturedView(),allItems=modelsSorted(),items=carousel?selectFeatured(allItems.filter(m=>groupFor(m).some(available)),categoryTree.filter(c=>!c.parent_slug).map(c=>c.slug),m=>categoryKeys(m).root,featuredRank):allItems;
+const grid=document.getElementById('grid');grid.classList.toggle('vellor-product-rail',carousel);grid.classList.toggle('vellor-product-grid',!carousel);grid.setAttribute('aria-label',carousel?'Destaques VELLOR, deslize para ver mais':'Todos os produtos encontrados');document.getElementById('vellor-products-prev').hidden=document.getElementById('vellor-products-next').hidden=!carousel;
+document.getElementById('count').textContent=`${items.length} ${items.length===1?'modelo':'modelos'}`;renderDiscovery();if(!pageParent)document.querySelector('#colecao h1').textContent=carousel?'Destaques':'Produtos';document.getElementById('vellor-all-products').hidden=!carousel;document.getElementById('size-filter').hidden=['relogios','acessorios'].includes(categoryTree.find(c=>c.slug===active)?.parent_slug||active);document.getElementById('grid').innerHTML=items.length?items.map(m=>{const group=groupFor(m),priced=group.filter(available),display=priced[0]||m,price=priced.length?Math.min(...priced.map(x=>x.price_brl)):null;return `<article class="card"><div class="photo-wrap" style="position:relative">${photo(display)}<button class="hover-quick" onclick="showProduct('${htmlEsc(m.slug)}')">Visualizar produto</button></div><div class="card-meta"><span class="card-category">${htmlEsc(m.category)}</span><h3 class="card-name" onclick="showProduct('${htmlEsc(m.slug)}')">${htmlEsc(m.name)}</h3><div class="card-variants">${group.length} ${group.length===1?'opção':'opções disponíveis'}</div><div class="card-price">${priced.length&&group.length>1?'A partir de ':''}${MONEY(price)}</div><button type="button" class="card-action" onclick="showProduct('${htmlEsc(m.slug)}')">Ver detalhes ⟶</button></div></article>`}).join(''):'<div class="empty"><strong>Nenhum produto encontrado</strong>Experimente outra categoria ou ajuste os filtros.</div>';document.getElementById('grid').scrollLeft=0;requestAnimationFrame(updateProductNav);save()}
 function showProduct(slug,sku){const group=PRODUCTS.filter(p=>p.slug===slug);selected=group.find(p=>p.sku===sku)||group.find(available)||group[0];if(!selected){te('product.selected','PRODUCT_MISSING','Produto indisponivel no catalogo.');return}tr('product.selected',{sku:selected.sku});selectedSize='';renderModal()}
 function renderModal(){const p=selected,group=groupFor(p);document.getElementById('detail').innerHTML=`<div class="detail-photo">${photo(p)}</div><div class="detail-info"><button type="button" class="close-btn modal-close" onclick="closeProduct()" aria-label="Fechar">×</button><p class="eyebrow">${htmlEsc(p.category)} · VELLOR</p><h2>${htmlEsc(p.name)}</h2><div class="price">${MONEY(p.price_brl)}</div><label>Escolha a variação</label><div class="variants-list">${group.map(g=>`<button class="variant-pill ${g.sku===p.sku?'active':''}" type="button" onclick="changeVariant('${htmlEsc(g.sku)}')">${htmlEsc(g.variant)}</button>`).join('')}</div>${sizesFor(p).length?`<label for="modal-size">Tamanho</label><select class="size-select" id="modal-size" onchange="selectedSize=this.value;window.VellorTrace?.event('product.size',{sku:selected.sku})"><option value="">Selecione seu tamanho</option>${sizesFor(p).map(s=>`<option value="${htmlEsc(s)}">${htmlEsc(s)}</option>`).join('')}</select>`:''}<div class="modal-actions"><button type="button" class="primary-btn" ${available(p)?'':'disabled'} onclick="addProduct(false)">Adicionar ao carrinho</button><button type="button" class="buy-now" ${available(p)?'':'disabled'} onclick="addProduct(true)">Comprar agora</button></div>${productGallery(p)}${productDisclaimer(p)}<p class="minor-note">Envio em até 3 dias após a confirmação do pagamento. Previsão de entrega: ${htmlEsc(supplierDeadline(p).label)}.</p><p class="sku">SKU: ${htmlEsc(p.sku)}</p></div>`;const modal=document.getElementById('product-modal');modal.classList.add('open');document.body.classList.add('lock')}
 function productDisclaimer(p){
