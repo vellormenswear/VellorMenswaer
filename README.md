@@ -1,47 +1,24 @@
 # VELLOR MENSWEAR
 
-Loja de moda masculina com **Next.js 15 / React 19**, **Vercel** e **Neon PostgreSQL**.
+Loja de moda masculina. Next.js 15, React 19, Vercel e Neon PostgreSQL.
 
-## Pagamentos: Asaas Sandbox
+## Operação
 
-O provedor ativo do novo checkout é o **Asaas**. O antigo fluxo Mercado Pago/OAuth foi retirado do código de aplicação. O histórico financeiro já gravado no banco é mantido para auditoria.
-
-A VELLOR é **vendedora principal** e cobra o valor total em um **único Asaas Checkout** (Pix/cartão). Cada fornecedor possui conta Asaas e é identificado por `walletId`; sua parte é enviada via Split. O saldo líquido remanescente pertence à VELLOR. **Taxas Asaas não estão descontadas nos relatórios de resultado até conciliação.**
-
-A integração está restrita ao Sandbox e **não habilita cobranças reais**. O checkout da loja fica fechado por padrão. Para liberar um comprador de teste, é necessário configurar **todos** `ASAAS_API_KEY`, `ASAAS_BASE_URL`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_SANDBOX_TEST_CUSTOMER_EMAIL`, `ASAAS_CHECKOUT_ENABLED=true`, `SITE_URL`, `DATABASE_URL`. O Sandbox nunca é liberado ao público.
-
-### Configuração e homologação
-
-1. Na conta Asaas Sandbox principal, habilitar Split e gerar chave API.
-2. Na Vercel, cadastrar `ASAAS_BASE_URL=https://api-sandbox.asaas.com/v3` e `ASAAS_API_KEY` (nunca colocar segredos no GitHub).
-3. Criar `ASAAS_WEBHOOK_TOKEN` forte (mínimo 32 caracteres), configurar Webhook Asaas de eventos `CHECKOUT_CREATED`, `CHECKOUT_PAID`, `CHECKOUT_EXPIRED`, `CHECKOUT_CANCELED` apontando a `${SITE_URL}/api/webhooks/asaas` e utilizar o mesmo token de autenticação.
-4. Abrir `/admin/fornecedores` com conta administrativa para aplicar a migração aditiva `006_asaas.sql`.
-5. Abrir `/admin/asaas` com conta **super_admin** para validar autenticação, cadastrar `walletId` de cada fornecedor e criar um checkout diagnóstico de R$ 170 (fornecedor R$ 100).
-6. Confirmar pagamento e Splits com eventos oficiais Asaas e conferir estoque, pedidos, taxas, duplicidade de notificações e cancelamentos antes de habilitar o teste ponta a ponta.
-7. Manter `ASAAS_CHECKOUT_ENABLED=false` até a homologação e nunca usar chave de produção no código Sandbox.
-
-**Atenção:** reembolsos com vários fornecedores exigem revisão administrativa. O sistema não inicia estorno automático parcial antes de homologar o procedimento Asaas. Os registros históricos das migrações antigas são mantidos, mas não há endpoints de pagamento nem telas de conexão do provedor anterior.
-
-## Páginas
-
-- `/`: vitrine e carrinho.
-- `/conta`: clientes.
-- `/admin`: administração geral.
-- `/admin/fornecedores`: convites e anúncios.
-- `/admin/financeiro`: gestão financeira.
-- `/admin/asaas`: diagnóstico e Split Sandbox.
-- `/fornecedor`: anúncios, estoque, prazos e pedidos.
-- `/finalizar`: resumo de compra e endereço.
-- `/pagamento/grupos`: acompanhamento do pagamento e pedidos derivados.
+- A VELLOR recebe o pagamento integral pelo checkout oficial InfinitePay (Pix/cartões). O servidor consulta a confirmação oficial antes de criar o pedido.
+- Clientes, ADM e Super ADM podem comprar. A validação de estoque, preço, cupom e endereço é a mesma para todos.
+- Repasse manual via Pix ao fornecedor após conferência administrativa. Cada grupo pode avançar independentemente, sem divulgar a relação de fornecimento ao comprador.
+- Cancelamento e estorno confirmado são operações distintas; comprovantes e histórico financeiro são preservados.
+- Chamados possuem conversas persistentes. Alterações de tamanho antes da postagem mantêm o valor pago e exigem ciência do fornecedor.
+- Catálogo e imagens de produtos vêm exclusivamente do banco; não existe catálogo de demonstração como alternativa à API.
+- Credenciais de serviços ficam nas variáveis de ambiente da Vercel. Use .env.example como referência. Ative a cobrança somente após homologação: INFINITEPAY_CHECKOUT_ENABLED=true e STORE_OPEN_FOR_ORDERS=true. SITE_URL deve ser https://vellormenswear.com.br.
 
 ## Desenvolvimento
-
-```bash
+```sh
 npm install
 npm test
 npm run build
 ```
 
-A migração preserva os 104 SKUs originais, o visual aprovado, a reserva gerencial de 20% e o controle de preços por administrador. O acréscimo de 70% é apenas referência, nunca mínimo obrigatório.
+Migrações SQL históricas permanecem versionadas, sem execução de pagamentos pelos provedores aposentados. Nunca apague registros financeiros para limpar o catálogo. Use backup e uma operação de manutenção específica, conferindo contas administrativas e pendências de pagamento.
 
-Não compartilhar API Keys ou credenciais do Neon. Antes de aprovar deploy definitivo, revisar migrações e ter backup do banco.
+Rotas administrativas: /admin, /admin/fornecedores, /admin/financeiro, /admin/infinitepay, /admin/atendimento. Rotas comerciais: /, /conta, /finalizar, /pagamento/grupos.

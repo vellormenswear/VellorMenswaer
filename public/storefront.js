@@ -69,7 +69,7 @@ function openBag(){
 }
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){hideModal();closeBag()}});
 render();
-fetch('/gallery-map.json').then(r=>r.ok?r.json():{}).then(x=>{galleries=x||{}}).catch(()=>{});
+
 fetch('/api/catalog',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{
  if(!data || !Array.isArray(data.products))return;
  const olds=new Map(catalog.map(x=>[x.sku,x]));

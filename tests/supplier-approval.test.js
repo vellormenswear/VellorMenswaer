@@ -37,6 +37,6 @@ test('aprovação exibe andamento, erro e confirmação junto ao produto analisa
 });
 
 test('catálogo continua exigindo imagem — placeholder garante visibilidade',()=>{
- assert.match(catalog,/v.primary_image_url IS NOT NULL/);
+ assert.match(catalog,/COALESCE\(NULLIF\(NULLIF\(v.primary_image_url/);
  assert.equal(MISSING_PRODUCT_IMAGE.startsWith('/product-images/'),true);
 });

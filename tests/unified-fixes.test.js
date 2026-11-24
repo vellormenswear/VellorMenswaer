@@ -135,7 +135,7 @@ test('exclusão administrativa protege vendas e referências históricas',()=>{
  const start=route.indexOf("if(resource==='product-delete')"),end=route.indexOf("if(resource==='product')",start),code=route.slice(start,end);
  assert.ok(start>=0&&end>start);
  for(const snippet of ["requireRole(req,['admin','super_admin'])",'transaction(async c=>','order_items','supplier_stock_reservations','items_snapshot','SAVEPOINT product_remove','UPDATE products SET active=false,hidden=true','UPDATE product_variants SET active=false','INSERT INTO audit_logs'])assert.ok(code.includes(snippet),snippet);
- for(const path of ['app/api/infinitepay/[action]/route.js','app/api/asaas/[action]/route.js'])assert.ok(read(path).includes('v?.supplier_available&&v.active'));
+ for(const path of ['app/api/infinitepay/[action]/route.js'])assert.ok(read(path).includes('v?.supplier_available&&v.active'));
 });
 test('upload e foto principal são associados ao catálogo e ao checkout',()=>{
  const route=read('app/api/admin/[resource]/route.js'),catalog=read('app/api/catalog/route.js'),commerce=read('lib/commerce.js'),upload=read('app/api/admin/upload/route.js');

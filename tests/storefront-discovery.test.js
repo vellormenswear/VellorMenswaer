@@ -29,8 +29,7 @@ test('menu textual mantém quatro principais e trinta subcategorias',()=>{
  assert.equal(tree.find(c=>c.slug==='vestuario-esportivo').parent_slug,'vestuario');
  assert.equal(new Set(tree.map(c=>c.slug)).size,34);
  assert.ok(tree.every(c=>!c.parent_slug||tree.some(p=>p.slug===c.parent_slug&&!p.parent_slug)));
- assert.ok(models.every(p=>mapping[p.slug]&&tree.some(c=>c.slug===mapping[p.slug]))); 
- for(const p of models){assert.ok(fs.existsSync(path.join(root,'public',p.image_url.slice(1))))}
+ assert.deepEqual(mapping,{});
  assert.match(html,/id="vellor-category-rail"/);
  assert.match(js,/function renderDiscovery\(\)/);
  assert.ok(js.includes('vellor-mega-links')&&js.includes('children.map(c=>'));
@@ -99,7 +98,7 @@ test('setas da vitrine usam SVG e não caracteres sujeitos a emoji',()=>{
  assert.equal((html.match(/class="vellor-arrow-svg"/g)||[]).length,3);
  assert.match(css,/\.vellor-category-name \.vellor-arrow-svg\{color:#d8c18c/);
  assert.match(css,/\.vellor-carousel-arrow \.vellor-arrow-svg\{width:25px;height:25px\}/);
- assert.ok(html.includes('/vellor-approved.js?v=20261124-clean-urls'));
+ assert.ok(html.includes('/vellor-approved.js?v=20261124-launch-clean'));
  assert.ok(html.includes('/vellor-approved.css?v=20261124-mobile-logo-only'));
 });
 

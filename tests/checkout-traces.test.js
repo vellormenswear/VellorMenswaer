@@ -8,10 +8,10 @@ test('trilha de produto ate pagamento instrumentada',()=>{
  const checkout=readFileSync('app/finalizar/page.jsx','utf8');
  for(const step of ['checkout.opened','checkout.quote.started','checkout.create.started','checkout.create.success','checkout.create.failed'])
   assert.ok(checkout.includes(step),step);
- const api=readFileSync('app/api/asaas/[action]/route.js','utf8');
+ const api=readFileSync('app/api/infinitepay/[action]/route.js','utf8');
  assert.match(api,/quoteCart\(x.items,x.coupon\)/);
- const webhooks=readFileSync('app/api/webhooks/asaas/route.js','utf8');
- assert.match(webhooks,/reconcileAsaasBatch/);
+ const webhooks=readFileSync('app/api/webhooks/infinitepay/route.js','utf8');
+ assert.match(webhooks,/reconcileInfinitepayBatch/);
 });
 test('API do cliente impede acesso a eventos arbitrarios e guarda apenas metadados seguros',()=>{
  const api=readFileSync('app/api/checkout-traces/route.js','utf8');
@@ -40,7 +40,7 @@ test('historico exige admin e usa SQL seguro sem informacoes bancarias',()=>{
 });
 test('botao para logs aparece na administracao',()=>{
  const admin=readFileSync('app/admin/page.jsx','utf8');
- assert.match(admin,/LOGS DE COMPRA/);
+ assert.match(admin,/Logs de compra/i);
  const page=readFileSync('app/admin/checkout-logs/page.jsx','utf8');
  assert.match(page,/VER TODA A TENTATIVA/);
 });

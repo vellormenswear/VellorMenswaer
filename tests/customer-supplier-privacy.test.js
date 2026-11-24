@@ -12,8 +12,8 @@ test('acompanhamento do pagamento identifica etapas sem divulgar lojistas parcei
  assert.match(page,/g\.tracking_code/);
 });
 
-test('API Asaas do comprador nao divulga titularidade dos fornecedores',()=>{
- const api=read('app/api/asaas/[action]/route.js');
+test('API InfinitePay do comprador nao divulga titularidade dos fornecedores',()=>{
+ const api=read('app/api/infinitepay/[action]/route.js');
  const get=api.slice(api.indexOf('export async function GET'),api.indexOf('export async function POST'));
  assert.doesNotMatch(get,/business_name|wallet_id|supplier_id/);
  assert.match(get,/g.customer_id=\$2/);
