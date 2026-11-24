@@ -4,12 +4,18 @@ const ts=(stage,meta)=>window.VellorTrace?.success(stage,meta||{});
 const te=(stage,code,message,meta)=>window.VellorTrace?.error(stage,code,message,meta||{});
 const tid=()=>window.VellorTrace?.id||null;
 let categoryTree=DEFAULT_CATEGORY_TREE,categoryTreeReady=false;
-const categoryPath=location.pathname.match(/^\/categorias\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?\/?$/);
-const pageParent=categoryPath?.[1]||null,pageLeaf=categoryPath?.[2]||null;
-const fullCatalog=new URLSearchParams(location.search).get('catalogo')==='1';
+const routeSlug=location.pathname.match(/^\/([a-z0-9-]+)\/?$/)?.[1]||null;
+const fullCatalog=routeSlug==='produtos'||new URLSearchParams(location.search).get('catalogo')==='1';
+let pageParent=null,pageLeaf=null;
+function resolveCategoryRoute(){
+ const entry=categoryTree.find(c=>c.slug===routeSlug);
+ pageParent=routeSlug&&!fullCatalog?(entry?.parent_slug||routeSlug):null;
+ pageLeaf=entry?.parent_slug&&!fullCatalog?entry.slug:null;
+}
+resolveCategoryRoute();
 const featuredRanks=new Map();
 function featuredRank(model){if(!featuredRanks.has(model.slug))featuredRanks.set(model.slug,Math.random());return featuredRanks.get(model.slug);}
-const categoryUrl=(root,leaf)=>'/categorias/'+encodeURIComponent(root)+(leaf?'/'+encodeURIComponent(leaf):'');
+const categoryUrl=(root,leaf)=>'/'+encodeURIComponent(leaf&&leaf!=='todos'?leaf:root);
 let PRODUCTS=JSON.parse(document.getElementById('catalog').textContent);
 let models=[...new Map(PRODUCTS.map(p=>[p.slug,p])).values()];
 const MONEY=n=>typeof n==='number'?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n):'Preço a confirmar';
@@ -23,7 +29,7 @@ function sizesFor(p){return Array.isArray(p.sizes)?p.sizes:(typeof p.sizes==='st
 function available(p){return p&&typeof p.price_brl==='number'&&Number.isFinite(p.price_brl)&&p.price_brl>=0&&typeof p.image_url==='string'&&!!p.image_url}
 function bySku(sku){return PRODUCTS.find(p=>p.sku===sku)}
 function photo(p){return `<div class="photo"><div class="photo-placeholder"><svg viewBox="0 0 50 50"><path d="M25 4 44 25 25 46 6 25 25 4ZM17 25h16M25 17v16"/></svg><span>Imagem do produto indisponível</span></div><img src="${htmlEsc(p.image_url)}" alt="${htmlEsc(p.name)} — ${htmlEsc(p.variant)}" loading="lazy" onload="this.parentNode.classList.add('is-loaded')" onerror="this.remove()"></div>`}
-function choose(category,top=false){if(pageParent&&category==='Todos'){location.assign('/vitrine.html');return;}document.getElementById('max-price').value='';if(location.hash==='#carrinho'){location.hash='colecao';document.getElementById('catalog-page').hidden=false;document.getElementById('cart-page').hidden=true;}active=category;document.getElementById('search').value='';document.getElementById('color').value='';document.getElementById('size').value='';render();if(!top)document.getElementById('colecao').scrollIntoView({behavior:'smooth',block:'start'});else scrollTo({top:0,behavior:'smooth'})}
+function choose(category,top=false){if((pageParent||fullCatalog)&&category==='Todos'){location.assign('/');return;}document.getElementById('max-price').value='';if(location.hash==='#carrinho'){location.hash='colecao';document.getElementById('catalog-page').hidden=false;document.getElementById('cart-page').hidden=true;}active=category;document.getElementById('search').value='';document.getElementById('color').value='';document.getElementById('size').value='';render();if(!top)document.getElementById('colecao').scrollIntoView({behavior:'smooth',block:'start'});else scrollTo({top:0,behavior:'smooth'})}
 function toggleFilters(){const el=document.getElementById('filter-panel'),b=document.getElementById('filter-toggle');const open=el.classList.toggle('open');b.classList.toggle('active',open);b.setAttribute('aria-expanded',open)}
 function resetFilters(){['max-price','color','size'].forEach(id=>document.getElementById(id).value='');document.getElementById('search').value='';render()}
 
@@ -75,7 +81,7 @@ function renderDiscovery(){
  panel.hidden=isCart||!invalid;
  document.getElementById('catalog-page').hidden=isCart||invalid;
  document.getElementById('vellor-category-breadcrumb').hidden=!pageParent||isCart;
- const crumb=document.getElementById('vellor-parent-crumb');crumb.textContent=parent?.name||'Categoria';crumb.href=parent?categoryUrl(parent.slug):'/vitrine.html';
+ const crumb=document.getElementById('vellor-parent-crumb');crumb.textContent=parent?.name||'Categoria';crumb.href=parent?categoryUrl(parent.slug):'/';
  document.getElementById('vellor-leaf-crumb').textContent=pageLeaf?(leaf?.name||'Todos os produtos'):'';
  document.querySelector('#colecao h1').textContent=pageParent?(leaf?.name||parent?.name||'Produtos'):'Produtos';
  if(invalid)document.getElementById('vellor-subcategory-title').textContent='Categoria não encontrada';
@@ -284,4 +290,4 @@ window.addEventListener('hashchange',syncCartRoute);
 try{coupon=sessionStorage.getItem('pg-goston-cupom')||''}catch{}
 render();syncCartRoute();
 fetch('/gallery-map.json').then(r=>r.ok?r.json():{}).then(x=>{galleryMap=x||{}}).catch(()=>{});
-Promise.all([fetch('/api/catalog',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('Catálogo indisponível');return r.json()}),fetch('/api/catalog/categories',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null)]).then(([data,cats])=>{if(cats?.hierarchy_ready&&Array.isArray(cats.categories)){categoryTree=cats.categories;categoryTreeReady=true;}if(data&&Array.isArray(data.products)){hydrateProducts(data.products);ts('catalog.loaded',{item_count:data.products.length})}}).catch(e=>te('catalog.failed','CATALOG_LOAD_FAILED',e.message));
+Promise.all([fetch('/api/catalog',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('Catálogo indisponível');return r.json()}),fetch('/api/catalog/categories',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null)]).then(([data,cats])=>{if(cats?.hierarchy_ready&&Array.isArray(cats.categories)){categoryTree=cats.categories;categoryTreeReady=true;resolveCategoryRoute();active=pageLeaf||pageParent||'Todos';}if(data&&Array.isArray(data.products)){hydrateProducts(data.products);ts('catalog.loaded',{item_count:data.products.length})}}).catch(e=>te('catalog.failed','CATALOG_LOAD_FAILED',e.message));
