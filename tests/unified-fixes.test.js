@@ -141,7 +141,7 @@ test('upload e foto principal são associados ao catálogo e ao checkout',()=>{
  const route=read('app/api/admin/[resource]/route.js'),catalog=read('app/api/catalog/route.js'),commerce=read('lib/commerce.js'),upload=read('app/api/admin/upload/route.js');
  assert.ok(route.includes('INSERT INTO product_images(product_id,url,alt,sort_order)'));
  assert.ok(catalog.includes('cover.url')&&commerce.includes('cover.url'));
- assert.ok(upload.includes('BLOB_READ_WRITE_TOKEN')&&upload.includes("access:'public'")&&upload.includes('arquivo não corresponde a uma imagem válida'));
+ assert.ok(upload.includes('BLOB_READ_WRITE_TOKEN')&&upload.includes("access:'public'")&&upload.includes('validateImage(f)')&&read('lib/image-validation.js').includes('arquivo não corresponde a uma imagem válida'));
 });
 
 import {ADMIN_ORDER_FILTERS,orderFilterPredicate,pendingRefund,failedRefund,adminOrderPaymentLabel} from '../lib/admin-order-filters.mjs';

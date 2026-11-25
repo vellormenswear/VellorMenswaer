@@ -1,7 +1,6 @@
 import {put} from '@vercel/blob';import {requireRole} from '@/lib/auth';import {ok,fail,originGuard,ensure,HttpError} from '@/lib/http';
+import {validateImage} from '@/lib/image-validation';
 export const runtime='nodejs';
 export async function POST(req){try{originGuard(req);await requireRole(req,['admin','super_admin']);ensure(process.env.BLOB_READ_WRITE_TOKEN,'Configure BLOB_READ_WRITE_TOKEN na Vercel.',503);
- const form=await req.formData();const f=form.get('file');ensure(f&&typeof f.arrayBuffer==='function','Arquivo ausente.');ensure(f.size>100&&f.size<4*1024*1024,'Imagem deve ter até 4 MB.');ensure(['image/jpeg','image/png','image/webp'].includes(f.type),'Tipo de imagem não permitido.');
- const ext=f.type==='image/png'?'png':f.type==='image/webp'?'webp':'jpg';const name=`pg-goston/products/${crypto.randomUUID()}.${ext}`;
- const bytes=new Uint8Array(await f.arrayBuffer());const jpeg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;const png=[137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v);const webp=String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP';ensure((f.type==='image/jpeg'&&jpeg)||(f.type==='image/png'&&png)||(f.type==='image/webp'&&webp),'O arquivo não corresponde a uma imagem válida.');
+ const form=await req.formData();const f=form.get('file');const ext=await validateImage(f);const name=`pg-goston/products/${crypto.randomUUID()}.${ext}`;
  let b;try{b=await put(name,f,{access:'public',addRandomSuffix:false,contentType:f.type});}catch(e){console.error('Vellor upload: falha no armazenamento',e?.name);throw new HttpError(503,'Não foi possível armazenar a imagem. Tente novamente.');}return ok({url:b.url});}catch(e){return fail(e)}}

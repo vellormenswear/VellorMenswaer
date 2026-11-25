@@ -19,7 +19,7 @@ test('API do cliente impede acesso a eventos arbitrarios e guarda apenas metadad
  assert.match(api,/allowed\.has\(data\.stage\)/);
  assert.match(api,/ID de rastreamento invalido/);
  assert.match(api,/browser_unverified/);
- assert.match(api,/input\.length<=2000/);
+ assert.match(api,/body\(req,2000\)/);
  const core=readFileSync('lib/checkout-trace.js','utf8');
  assert.match(core,/safeTraceMessage/);
  assert.match(core,/EMAIL_REMOVIDO/);
