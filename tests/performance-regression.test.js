@@ -27,3 +27,4 @@ test('telemetria não bloqueia cotação e descrição é escapada',()=>{
  const s=read('app/api/checkout/[action]/route.js');assert.match(s,/after\(async/);assert.match(s,/const quoted=await quoteCart\(x.items,x.coupon\)/);
  assert.match(read('app/api/catalog/route.js'),/p\.description/);assert.match(read('public/vellor-approved.js'),/htmlEsc\(p.description\)/);
 });
+

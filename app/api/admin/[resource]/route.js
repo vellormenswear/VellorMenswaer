@@ -1,8 +1,8 @@
-import {sql,transaction,audit} from '@/lib/db';import {requireRole,requirePermission,hasPermission} from '@/lib/auth';
+import {sql,transaction,audit,auditTx} from '@/lib/db';import {requireRole,requirePermission,hasPermission} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,HttpError,txt,uuid,email} from '@/lib/http';import {passwordHash} from '@/lib/security';
 import {normalizeIdentity,IDENTITY_FIELDS} from '@/lib/store-identity.mjs';
 import {orderFilterPredicate,ADMIN_ORDER_PAGE_SIZE} from '@/lib/admin-order-filters.mjs';
-import {resolveProductSlug} from '@/lib/product-slug';
+import {saveAdminProduct,saveAdminVariant} from '@/lib/admin-catalog-service';
 import {normalizeVariantSizes,validFootwearSizes} from '@/lib/variant-options.mjs';
 import {sizeChangeAllowed,availableSizes} from '@/lib/order-size-change.mjs';
 import {shippingAlerts} from '@/lib/shipping-deadline.mjs';
@@ -55,7 +55,7 @@ export async function GET(req,{params}){try{const u=await requireRole(req,staffR
   await requireRole(req,['admin','super_admin']);return ok({categories:(await sql('SELECT * FROM categories ORDER BY sort_order,name')).rows});
  }
  if(resource==='products'){
-  ensure(await hasPermission(u,'products.read'),'Sem permissão.',403);const [products,variants,categories,images,suppliers]=await Promise.all([sql('SELECT p.*,c.name AS category,s.business_name AS supplier_name,s.status AS supplier_status FROM products p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN suppliers s ON s.id=p.supplier_id WHERE p.launch_archived_at IS NULL ORDER BY p.created_at DESC'),sql('SELECT v.*,COALESCE(NULLIF(NULLIF(v.primary_image_url,\'\'),\'/product-images/sem-foto.svg\'),cover.url,NULLIF(v.primary_image_url,\'\')) AS catalog_image_url FROM product_variants v JOIN products p ON p.id=v.product_id LEFT JOIN LATERAL (SELECT url FROM product_images WHERE product_id=p.id AND variant_id IS NULL ORDER BY sort_order,created_at DESC LIMIT 1) cover ON true WHERE p.launch_archived_at IS NULL ORDER BY v.created_at ASC'),sql('SELECT * FROM categories ORDER BY sort_order,name'),sql('SELECT * FROM product_images ORDER BY created_at DESC'),['admin','super_admin'].includes(u.role)?sql("SELECT s.id,s.business_name,s.status FROM suppliers s JOIN users su ON su.id=s.user_id WHERE s.launch_archived_at IS NULL AND su.launch_archived_at IS NULL AND su.suspended_at IS NULL ORDER BY s.business_name"):Promise.resolve({rows:[]})]);const byProduct=new Map();for(const v of variants.rows){if(!byProduct.has(v.product_id))byProduct.set(v.product_id,[]);byProduct.get(v.product_id).push(v)}return ok({products:products.rows.map(p=>({...p,...catalogPublication(p,byProduct.get(p.id)||[])})),variants:variants.rows,categories:categories.rows,images:images.rows,suppliers:suppliers.rows})
+  ensure(await hasPermission(u,'products.read'),'Sem permissão.',403);const [products,variants,categories,images,suppliers]=await Promise.all([sql('SELECT p.*,c.name AS category,s.business_name AS supplier_name,s.status AS supplier_status,s.launch_archived_at AS supplier_archived_at FROM products p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN suppliers s ON s.id=p.supplier_id WHERE p.launch_archived_at IS NULL ORDER BY p.created_at DESC'),sql('SELECT v.*,COALESCE(NULLIF(NULLIF(v.primary_image_url,\'\'),\'/product-images/sem-foto.svg\'),cover.url,NULLIF(v.primary_image_url,\'\')) AS catalog_image_url FROM product_variants v JOIN products p ON p.id=v.product_id LEFT JOIN LATERAL (SELECT url FROM product_images WHERE product_id=p.id AND variant_id IS NULL ORDER BY sort_order,created_at DESC LIMIT 1) cover ON true WHERE p.launch_archived_at IS NULL ORDER BY v.created_at ASC'),sql('SELECT * FROM categories ORDER BY sort_order,name'),sql('SELECT * FROM product_images ORDER BY created_at DESC'),['admin','super_admin'].includes(u.role)?sql("SELECT s.id,s.business_name,s.status FROM suppliers s JOIN users su ON su.id=s.user_id WHERE s.launch_archived_at IS NULL AND su.launch_archived_at IS NULL AND su.suspended_at IS NULL ORDER BY s.business_name"):Promise.resolve({rows:[]})]);const byProduct=new Map();for(const v of variants.rows){if(!byProduct.has(v.product_id))byProduct.set(v.product_id,[]);byProduct.get(v.product_id).push(v)}return ok({products:products.rows.map(p=>({...p,...catalogPublication(p,byProduct.get(p.id)||[])})),variants:variants.rows,categories:categories.rows,images:images.rows,suppliers:suppliers.rows})
  }
  if(resource==='coupons'){await requireRole(req,['admin','super_admin']);return ok({coupons:(await sql('SELECT * FROM coupons ORDER BY created_at DESC')).rows})}
  if(resource==='customers'){await requireRole(req,['admin','super_admin']);return ok({customers:(await sql(`SELECT u.${privateUserColumns.replaceAll(',',',u.')},COUNT(o.id)::int AS orders FROM users u LEFT JOIN orders o ON o.customer_id=u.id WHERE u.role='customer' AND u.launch_archived_at IS NULL GROUP BY u.id ORDER BY u.created_at DESC LIMIT 200`)).rows})}
@@ -137,47 +137,14 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
    return {deleted:!archived,archived};
   });return ok(result);
  }
- if(resource==='product'){
-  await requireRole(req,['admin','super_admin']);const name=txt(x.name,240),requested=txt(x.slug,200);ensure(name.length>=4,'Nome do produto inválido.');let id=uuid(x.id)?x.id:null,slug,productCode,supplierId;ensure(uuid(x.category_id),'Selecione uma categoria válida.');
-  const shipping=['nacional','internacional','a_confirmar'].includes(x.shipping)?x.shipping:'nacional';const active=Boolean(x.active),hidden=Boolean(x.hidden)||shipping!=='nacional';
-  const img=txt(x.image_url,1000);ensure(!img||img.startsWith('/product-images/')||img.startsWith('https://'),'URL da imagem inválida.');
-  id=await transaction(async c=>{
-   let productId=id;
-   slug=await resolveProductSlug(c,{name,requested,id:productId});
-   const previous=productId?(await c.query('SELECT supplier_id,category_id FROM products WHERE id=$1 FOR UPDATE',[productId])).rows[0]:null;
-   const category=(await c.query('SELECT c.id,c.active,COALESCE(root.active,true) AS parent_active FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1',[x.category_id])).rows[0];ensure(category&&(previous?.category_id===category.id||(category.active&&category.parent_active)),'Categoria indisponível.');
-   supplierId=x.supplier_id===undefined?previous?.supplier_id:x.supplier_id;ensure(uuid(supplierId),'Selecione um fornecedor cadastrado.');
-   const supplier=(await c.query("SELECT s.id,s.status FROM suppliers s JOIN users su ON su.id=s.user_id WHERE s.id=$1 AND s.launch_archived_at IS NULL AND su.launch_archived_at IS NULL AND su.suspended_at IS NULL FOR SHARE OF s,su",[supplierId])).rows[0];ensure(supplier&&(supplier.status==='active'||previous?.supplier_id===supplierId),'Fornecedor indisponível.',409);
-   if(previous?.supplier_id&&previous.supplier_id!==supplierId){const linked=await c.query('SELECT 1 FROM product_variants WHERE product_id=$1 LIMIT 1',[productId]);ensure(!linked.rowCount,'Não é possível substituir o fornecedor de um produto com variações. Cadastre um novo produto para manter estoque e pedidos consistentes.',409);}
-
-   if(productId){const r=await c.query('UPDATE products SET name=$1,slug=$2,description=$3,category_id=$4,shipping=$5,active=$6,hidden=$7,supplier_id=$9,updated_at=now() WHERE id=$8 RETURNING id,product_code',[name,slug,txt(x.description,4000),x.category_id,shipping,active,hidden,productId,supplierId]);ensure(r.rowCount,'Produto não encontrado.',404);productCode=r.rows[0].product_code;}
-   else{const r=await c.query('INSERT INTO products(name,slug,description,category_id,shipping,active,hidden,supplier_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,product_code',[name,slug,txt(x.description,4000),x.category_id,shipping,active,hidden,supplierId]);productId=r.rows[0].id;productCode=r.rows[0].product_code;}
-   if(img){await c.query('UPDATE product_images SET sort_order=0 WHERE product_id=$1 AND variant_id IS NULL AND sort_order<0',[productId]);const existing=await c.query('UPDATE product_images SET sort_order=-1 WHERE product_id=$1 AND variant_id IS NULL AND url=$2 RETURNING id',[productId,img]);if(!existing.rowCount)await c.query('INSERT INTO product_images(product_id,url,alt,sort_order) VALUES($1,$2,$3,-1)',[productId,img,name]);}
-   return productId;
-  });
-  await audit(u.id,'product.upsert','product',id,null,{name,slug,shipping,active,hidden,supplier_id:supplierId,product_code:productCode});return ok({id,slug,product_code:productCode});
- }
- if(resource==='variant'){
-  await requireRole(req,['admin','super_admin']);const editable=await sql('SELECT COALESCE(root.slug,c.slug) AS root_slug FROM products p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN categories root ON root.id=c.parent_id WHERE p.id=$1 AND p.launch_archived_at IS NULL',[uuid(x.product_id)?x.product_id:null]);ensure(editable.rowCount,'Produto indisponível.',404);
-  await requireRole(req,['admin','super_admin']);ensure(uuid(x.product_id),'Produto inválido.');const sku=txt(x.sku,120).toUpperCase(),label=txt(x.label,140);
-  ensure(sku.length>=2&&label.length>=1,'SKU ou variação inválida.');const price=x.price_cents===null||x.price_cents===''?null:Number(x.price_cents),stock=x.stock===null||x.stock===''||x.stock===undefined?null:Number(x.stock);
-  const stockMode=x.stock_mode===undefined?null:x.stock_mode;ensure(stockMode===null||['quantity','availability'].includes(stockMode),'Modalidade de estoque inválida.');
-  ensure(price===null||(Number.isInteger(price)&&price>=0&&price<=100000000),'Preço inválido.');ensure(stock===null||(Number.isInteger(stock)&&stock>=0),'Estoque inválido.');
-  const cost=x.supplier_cost_cents===undefined?undefined:x.supplier_cost_cents===null||x.supplier_cost_cents===''?null:Number(x.supplier_cost_cents);ensure(cost===undefined||cost===null||Number.isInteger(cost)&&cost>0&&cost<=100000000,'Custo de fornecimento inválido.');ensure(price===null||cost===undefined||cost===null||price>cost,'O preço de venda deve superar o custo de fornecimento.');
-  const sizes=normalizeVariantSizes(x.sizes);ensure(editable.rows[0].root_slug!=='calcados'||validFootwearSizes(sizes),'Marque a numeração válida do calçado.');
-  let img=txt(x.image_url,1000);ensure(!img||img.startsWith('/product-images/')||img.startsWith('https://'),'URL da imagem inválida.');
-  if(!img){const cover=await sql('SELECT url FROM product_images WHERE product_id=$1 AND variant_id IS NULL ORDER BY sort_order,created_at DESC LIMIT 1',[x.product_id]);img=cover.rows[0]?.url||'';}
-  let id=uuid(x.id)?x.id:null;
-  if(id){const r=await sql('UPDATE product_variants SET sku=$1,label=$2,price_cents=$3,stock=CASE WHEN COALESCE($12::text,stock_mode)=\'availability\' THEN NULL ELSE $4::integer END,sizes=$5,active=$6,primary_image_url=$7,supplier_cost_cents=CASE WHEN $10::boolean THEN $11::integer ELSE supplier_cost_cents END,stock_mode=COALESCE($12::text,stock_mode),supplier_available=COALESCE($13::boolean,supplier_available),updated_at=now() WHERE id=$8 AND product_id=$9 RETURNING id',[sku,label,price,stock,sizes,Boolean(x.active),img||null,id,x.product_id,cost!==undefined,cost??null,stockMode,typeof x.supplier_available==='boolean'?x.supplier_available:null]);ensure(r.rowCount,'Variação não encontrada.',404)}
-  else{const r=await sql('INSERT INTO product_variants(product_id,sku,label,price_cents,stock,sizes,active,primary_image_url,supplier_cost_cents,stock_mode,supplier_available) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id',[x.product_id,sku,label,price,stockMode==='availability'?null:stock,sizes,Boolean(x.active),img||null,cost??null,stockMode||'quantity',x.supplier_available!==false]);id=r.rows[0].id}
-  await audit(u.id,'variant.upsert','variant',id,null,{sku,label,price,stock,sizes});return ok({id});
- }
+ if(resource==='product'){await requireRole(req,['admin','super_admin']);return ok(await saveAdminProduct(u,x));}
+ if(resource==='variant'){await requireRole(req,['admin','super_admin']);return ok(await saveAdminVariant(u,x));}
  if(resource==='image'){
   await requireRole(req,['admin','super_admin']);ensure(uuid(x.product_id),'Produto inválido.');const img=txt(x.url,1000);ensure(img.startsWith('https://')||img.startsWith('/product-images/'),'Endereço da imagem inválido.');
-  const rr=await sql('INSERT INTO product_images(product_id,variant_id,url,alt,source_filename,sort_order) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[x.product_id,uuid(x.variant_id)?x.variant_id:null,img,txt(x.alt,200),txt(x.filename,200),Number(x.sort_order)||0]);await audit(u.id,'image.add','image',rr.rows[0].id,null,{url:img});return ok({id:rr.rows[0].id});
+  return transaction(async c=>{const rr=await c.query('INSERT INTO product_images(product_id,variant_id,url,alt,source_filename,sort_order) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[x.product_id,uuid(x.variant_id)?x.variant_id:null,img,txt(x.alt,200),txt(x.filename,200),Number(x.sort_order)||0]);await auditTx(c,u.id,'image.add','image',rr.rows[0].id,null,{url:img});return ok({id:rr.rows[0].id});});
  }
  if(resource==='image-delete'){
-  await requireRole(req,['admin','super_admin']);ensure(uuid(x.id),'Imagem inválida.');const r=await sql('DELETE FROM product_images WHERE id=$1 RETURNING id,product_id,url',[x.id]);ensure(r.rowCount,'Imagem não encontrada.',404);await audit(u.id,'image.unlink','image',x.id,{url:r.rows[0].url},null);return ok({deleted:true});
+  await requireRole(req,['admin','super_admin']);ensure(uuid(x.id),'Imagem inválida.');return transaction(async c=>{const r=await c.query('DELETE FROM product_images WHERE id=$1 RETURNING id,product_id,url',[x.id]);ensure(r.rowCount,'Imagem não encontrada.',404);await auditTx(c,u.id,'image.unlink','image',x.id,{url:r.rows[0].url},null);return ok({deleted:true});});
  }
  if(resource==='coupon'){
   await requireRole(req,['admin','super_admin']);const code=txt(x.code,40).toUpperCase();ensure(/^[A-Z0-9_-]{3,40}$/.test(code),'Código do cupom inválido.');const kind=x.discount_type,amount=Number(x.amount),max=x.max_uses===null||x.max_uses===''?null:Number(x.max_uses);
@@ -185,8 +152,8 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
   const min=Math.max(0,Number(x.min_subtotal_cents)||0);ensure(Number.isInteger(min),'Valor mínimo inválido.');
   let id=uuid(x.id)?x.id:null;
   const vals=[code,kind,amount,min,max,x.starts_at||null,x.expires_at||null,Boolean(x.active)];
-  if(id){const r=await sql('UPDATE coupons SET code=$1,discount_type=$2,amount=$3,min_subtotal_cents=$4,max_uses=$5,starts_at=$6,expires_at=$7,active=$8 WHERE id=$9 RETURNING id',[...vals,id]);ensure(r.rowCount,'Cupom não encontrado.',404)}else{const r=await sql('INSERT INTO coupons(code,discount_type,amount,min_subtotal_cents,max_uses,starts_at,expires_at,active,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',[...vals,u.id]);id=r.rows[0].id}
-  await audit(u.id,'coupon.upsert','coupon',id,null,{code,kind,amount,active:x.active});return ok({id});
+  return transaction(async c=>{if(id){const r=await c.query('UPDATE coupons SET code=$1,discount_type=$2,amount=$3,min_subtotal_cents=$4,max_uses=$5,starts_at=$6,expires_at=$7,active=$8 WHERE id=$9 RETURNING id',[...vals,id]);ensure(r.rowCount,'Cupom não encontrado.',404)}else{const r=await c.query('INSERT INTO coupons(code,discount_type,amount,min_subtotal_cents,max_uses,starts_at,expires_at,active,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',[...vals,u.id]);id=r.rows[0].id}
+  await auditTx(c,u.id,'coupon.upsert','coupon',id,null,{code,kind,amount,active:x.active});return ok({id});});
  }
  if(resource==='staff-profile'){
   await requireRole(req,['admin','super_admin']);ensure(uuid(x.id),'Funcionário inválido.');

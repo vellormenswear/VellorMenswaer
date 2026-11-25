@@ -1,3 +1,27 @@
-import {sql} from '@/lib/db';import {ok,fail} from '@/lib/http';
+import {sql} from '@/lib/db';import {ok,fail,HttpError} from '@/lib/http';
+import {CATALOG_IMAGE,CATALOG_FROM,CATALOG_WHERE,CATALOG_SORT_TIME,CATALOG_CURSOR_TIME,parseCatalogPage} from '@/lib/catalog-query.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
-export async function GET(){try{const r=await sql(`SELECT v.sku,p.name,p.slug,p.description,c.name AS category,c.slug AS category_slug,root.slug AS parent_slug,root.name AS parent_category,v.label AS variant,CASE WHEN v.price_cents IS NULL THEN null ELSE v.price_cents / 100.0 END AS price_brl,CASE WHEN v.original_price_cents IS NULL THEN null ELSE v.original_price_cents/100.0 END AS base_price_brl,v.sizes,v.preparation_days,v.delivery_days_min,v.delivery_days_max,COALESCE(NULLIF(NULLIF(v.primary_image_url,''),'/product-images/sem-foto.svg'),cover.url,NULLIF(v.primary_image_url,'')) AS image_url,p.shipping FROM product_variants v JOIN products p ON p.id=v.product_id JOIN suppliers s ON s.id=p.supplier_id AND s.status='active' LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN categories root ON root.id=(to_jsonb(c)->>'parent_id')::uuid LEFT JOIN LATERAL (SELECT url FROM product_images WHERE product_id=p.id AND variant_id IS NULL ORDER BY sort_order,created_at DESC LIMIT 1) cover ON true WHERE p.shipping='nacional' AND p.active AND NOT p.hidden AND v.active AND v.supplier_available AND (v.stock_mode='availability' OR (v.stock_mode='quantity' AND v.stock>0)) AND v.price_cents IS NOT NULL AND v.price_cents > 0 AND v.supplier_cost_cents IS NOT NULL AND v.supplier_cost_cents>0 AND v.price_cents>v.supplier_cost_cents AND COALESCE(NULLIF(NULLIF(v.primary_image_url,''),'/product-images/sem-foto.svg'),cover.url,NULLIF(v.primary_image_url,'')) IS NOT NULL ORDER BY p.created_at,v.created_at`);return ok({products:r.rows.map(x=>({...x,price_brl:x.price_brl===null?null:Number(x.price_brl),base_price_brl:x.base_price_brl===null?null:Number(x.base_price_brl),image_data:x.image_url||null,delivery_days:x.delivery_days_min===null||x.delivery_days_max===null?null:[Number(x.preparation_days||0)+Number(x.delivery_days_min),Number(x.preparation_days||0)+Number(x.delivery_days_max)]}))})}catch(e){return fail(e)}}
+export async function GET(req){try{
+ let page;try{page=parseCatalogPage(new URL(req.url).searchParams)}catch(e){throw new HttpError(400,e.message)}
+ const r=await sql(`WITH eligible_models AS (
+  SELECT DISTINCT p.id,${CATALOG_SORT_TIME} AS sort_at
+  ${CATALOG_FROM}
+  WHERE ${CATALOG_WHERE}
+    AND ($1::timestamptz IS NULL OR (${CATALOG_SORT_TIME},p.id)>($1::timestamptz,$2::uuid))
+  ORDER BY sort_at,p.id LIMIT $3
+ ), selected_models AS (
+  SELECT id,sort_at FROM eligible_models ORDER BY sort_at,id LIMIT $4
+ )
+ SELECT v.sku,p.name,p.slug,p.description,c.name AS category,c.slug AS category_slug,root.slug AS parent_slug,root.name AS parent_category,v.label AS variant,CASE WHEN v.price_cents IS NULL THEN null ELSE v.price_cents / 100.0 END AS price_brl,CASE WHEN v.original_price_cents IS NULL THEN null ELSE v.original_price_cents/100.0 END AS base_price_brl,v.sizes,v.preparation_days,v.delivery_days_min,v.delivery_days_max,${CATALOG_IMAGE} AS image_url,p.shipping,
+  p.id AS _model_id,to_char(page.sort_at AT TIME ZONE 'UTC','${CATALOG_CURSOR_TIME}') AS _cursor_time,
+  (SELECT count(*)>$4 FROM eligible_models) AS _has_more
+ ${CATALOG_FROM}
+ JOIN selected_models page ON page.id=p.id
+ LEFT JOIN categories c ON c.id=p.category_id
+ LEFT JOIN categories root ON root.id=(to_jsonb(c)->>'parent_id')::uuid
+ WHERE ${CATALOG_WHERE}
+ ORDER BY page.sort_at,page.id,v.created_at,v.id`,[page.time,page.id,page.limit+1,page.limit]);
+ const last=r.rows.at(-1),next_cursor=last?._has_more?last._cursor_time+'|'+last._model_id:null;
+ const products=r.rows.map(({_model_id,_cursor_time,_has_more,...x})=>({...x,price_brl:x.price_brl===null?null:Number(x.price_brl),base_price_brl:x.base_price_brl===null?null:Number(x.base_price_brl),image_data:x.image_url||null,delivery_days:x.delivery_days_min===null||x.delivery_days_max===null?null:[Number(x.preparation_days||0)+Number(x.delivery_days_min),Number(x.preparation_days||0)+Number(x.delivery_days_max)]}));
+ return ok({products,next_cursor,has_more:!!next_cursor});
+}catch(e){return fail(e)}}
