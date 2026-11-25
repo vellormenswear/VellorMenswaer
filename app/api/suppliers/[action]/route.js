@@ -68,9 +68,9 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  if(action==='dashboard'){
   const [subs,products,orders,changes,notices,pixAccount]=await Promise.all([
    sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
-   sql(`SELECT p.id,p.name,p.slug,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
+   sql(`SELECT p.id,p.name,p.slug,p.product_code,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
    sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.amount_cents,g.supplier_amount_cents,g.mp_fee_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,(SELECT n.id FROM notifications n WHERE n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text AND n.kind='supplier_size_changed' ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS size_revision,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
-   COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
+   COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'product_code',p.product_code,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id LEFT JOIN product_variants v ON v.id=i.variant_id LEFT JOIN products p ON p.id=v.product_id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    supplierNotices(supplier.id),
    sql('SELECT pix_type,pix_key,holder_name,updated_at FROM supplier_pix_accounts WHERE supplier_id=$1',[supplier.id])]);
@@ -113,12 +113,12 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   if(action==='admin-review'){
    ensure(uuid(x.id),'Anúncio inválido.');ensure(['approved','rejected'].includes(x.decision),'Decisão inválida.');
    const result=await transaction(async c=>{
-    const r=await c.query('SELECT * FROM supplier_submissions WHERE id=$1 FOR UPDATE',[x.id]);ensure(r.rowCount&&r.rows[0].status==='pending','Anúncio não está pendente.',409);const sub=r.rows[0];let productId=null;
+    const r=await c.query('SELECT * FROM supplier_submissions WHERE id=$1 FOR UPDATE',[x.id]);ensure(r.rowCount&&r.rows[0].status==='pending','Anúncio não está pendente.',409);const sub=r.rows[0];let productId=null,productCode=null;
     if(x.decision==='approved'){
      await activeSupplier(sub.supplier_id);
      const prices=Array.isArray(x.prices)?x.prices:[];ensure(prices.length===sub.variants.length,'Informe o preço de venda de cada variação.');
      const sl=await resolveProductSlug(c,{name:sub.name,requested:txt(x.slug,200)});
-     const p=await c.query(`INSERT INTO products(name,slug,description,category_id,shipping,active,hidden,supplier_id) VALUES($1,$2,$3,$4,'nacional',true,false,$5) RETURNING id`,[sub.name,sl,sub.description,sub.category_id,sub.supplier_id]);productId=p.rows[0].id;
+     const p=await c.query(`INSERT INTO products(name,slug,description,category_id,shipping,active,hidden,supplier_id) VALUES($1,$2,$3,$4,'nacional',true,false,$5) RETURNING id,product_code`,[sub.name,sl,sub.description,sub.category_id,sub.supplier_id]);productId=p.rows[0].id;productCode=p.rows[0].product_code;
      for(let i=0;i<sub.variants.length;i++){
       const v=sub.variants[i],price=Number(prices[i]);
       const imageUrl=resolveApprovedProductImage(v.image_url);
@@ -127,7 +127,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
        productId,v.sku.trim().toUpperCase(),v.label.trim(),price,v.stock_mode==='availability'?null:Number(v.stock),v.stock_mode,Number(v.cost_cents),v.sizes||[],imageUrl,Number(v.preparation_days)||2,Number(v.delivery_days_min)||5,Number(v.delivery_days_max)||15]);
      }
     }
-    await c.query('UPDATE supplier_submissions SET status=$1,admin_note=$2,product_id=$3,reviewed_by=$4,reviewed_at=now(),updated_at=now() WHERE id=$5',[x.decision,txt(x.note,1000),productId,u.id,x.id]);return {productId}
+    await c.query('UPDATE supplier_submissions SET status=$1,admin_note=$2,product_id=$3,reviewed_by=$4,reviewed_at=now(),updated_at=now() WHERE id=$5',[x.decision,txt(x.note,1000),productId,u.id,x.id]);return {productId,product_code:productCode}
    });await audit(u.id,'supplier.review','supplier_submission',x.id,null,{decision:x.decision,productId:result.productId});return ok(result)
   }
   if(action==='admin-assign-legacy'){
