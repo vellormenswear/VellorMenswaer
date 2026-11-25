@@ -182,10 +182,11 @@ function supplierDeadline(p){
 function deliveryIcon(){return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM17 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg>'}
 function renderCart(){
  if(!catalogLoaded){document.getElementById('cart-list').textContent=catalogFailed?'Catálogo temporariamente indisponível. Atualize a página para recuperar seu carrinho.':'Carregando produtos do carrinho...';document.getElementById('finish-btn').disabled=true;return;}
-  cart=cart.filter(i=>bySku(i.sku)&&Number.isInteger(i.qty)&&i.qty>0&&i.qty<=10);
+  cart=cart.filter(i=>i&&typeof i.sku==='string'&&Number.isInteger(i.qty)&&i.qty>0&&i.qty<=10);
+  const unavailable=cart.some(i=>!bySku(i.sku));
   let q=0,total=0;
   document.getElementById('cart-list').innerHTML=cart.length?cart.map((c,i)=>{
-    const p=bySku(c.sku),unit=Number(p.price_brl)||0,lineTotal=unit*c.qty,dl=supplierDeadline(p);
+    const p=bySku(c.sku);if(!p){q+=c.qty;return `<article class="cart-row"><div class="cart-row-product"><div><h3 class="cart-row-name">Produto temporariamente indisponível</h3><p class="cart-row-var">SKU: ${htmlEsc(c.sku)} · ${c.qty} un.</p></div></div><button type="button" class="cart-remove" onclick="removeCartItem(${i})">Remover</button></article>`;}const unit=Number(p.price_brl)||0,lineTotal=unit*c.qty,dl=supplierDeadline(p);
     total+=lineTotal;q+=c.qty;
     const other=c.size?' · Tamanho: '+htmlEsc(c.size):'';
     return `<article class="cart-row" data-sku="${htmlEsc(p.sku)}">
@@ -204,9 +205,9 @@ function renderCart(){
   document.getElementById('cart-quantity').textContent=String(q);
   document.getElementById('cart-subtotal').textContent=MONEY(total);
   document.getElementById('cart-total').textContent=MONEY(total);
-  document.getElementById('finish-btn').disabled=!cart.length;
+  document.getElementById('finish-btn').disabled=!cart.length||unavailable;
   save();
-  checkQuote();
+  if(unavailable){++quoteSerial;document.getElementById('discount-line').hidden=true;document.getElementById('cart-total').textContent='A confirmar';document.getElementById('coupon-feedback').textContent='Remova os itens indisponíveis ou volte quando estiverem disponíveis.';}else checkQuote();
 }
 function removeCartItem(n){if(!cart[n])return;const sku=cart[n].sku;cart.splice(n,1);save();tr('cart.removed',{sku});renderCart()}
 function quantity(n,d){if(!cart[n])return;const sku=cart[n].sku;cart[n].qty+=d;if(cart[n].qty<=0)cart.splice(n,1);else cart[n].qty=Math.min(cart[n].qty,10);tr('cart.quantity',{sku,quantity:cart.find(x=>x.sku===sku)?.qty||0});save();renderCart()}
@@ -230,7 +231,7 @@ function closeCart(){
 }
 
 async function goCheckout(){
- if(!cart.length){te('cart.blocked','EMPTY_CART','Carrinho vazio.');return}tr('checkout.opened',{item_count:cart.length});
+ if(!catalogLoaded||catalogFailed||cart.some(i=>!bySku(i.sku))){te('cart.blocked','PRODUCT_NOT_AVAILABLE','Há itens indisponíveis.');return}if(!cart.length){te('cart.blocked','EMPTY_CART','Carrinho vazio.');return}tr('checkout.opened',{item_count:cart.length});
  save();
  const button=document.getElementById('finish-btn');
  if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
@@ -255,7 +256,7 @@ function checkQuote(){
  const code=document.getElementById('cart-coupon');
  if(document.activeElement!==code)code.value=coupon;
  const discount=document.getElementById('discount-line');
- if(!cart.length){discount.hidden=true;feedback.textContent='';return}
+ if(!cart.length||cart.some(i=>!bySku(i.sku))){++quoteSerial;discount.hidden=true;feedback.textContent=cart.length?'Há itens indisponíveis no carrinho.':'';return}
  const seq=++quoteSerial;
  feedback.textContent='Confirmando os valores...';
  tr('cart.quote.started',{item_count:cart.length});
@@ -280,7 +281,7 @@ function hydrateProducts(incoming){
   sizes:Array.isArray(p.sizes)?p.sizes:(p.sizes||''),
   delivery_days:p.delivery_days||null})).filter(available);
  models=[...new Map(PRODUCTS.map(p=>[p.slug,p])).values()];
- cart=cart.filter(x=>bySku(x.sku));save();render();
+ save();render();
  if(location.hash==='#carrinho')renderCart();
 }
 

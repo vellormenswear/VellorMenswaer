@@ -14,7 +14,7 @@ test('atualização de estoque do fornecedor converte quantidade para INTEGER no
 });
 
 test('estoque 0 não aparece no catálogo; depois de atualizar para 1 aparece',()=>{
- assert.match(catalog,/v\.stock_mode='availability' OR v\.stock IS NULL OR v\.stock>0/);
+ assert.match(catalog,/v\.stock_mode='availability' OR \(v\.stock_mode='quantity' AND v\.stock>0\)/);
  assert.match(frontend,/post\('inventory',\{variant_id:v\.variant_id/);
  assert.match(frontend,/available:f\.get\('available'\)==='on'/);
 });

@@ -13,7 +13,7 @@ test('estoque controlado por quantidade continua validado',()=>{
  assert.equal(stockAllowsQuantity('quantity',0,1),false);
  assert.equal(stockAllowsQuantity('quantity',2,3),false);
  assert.equal(stockAllowsQuantity('quantity',2,2),true);
- assert.equal(stockAllowsQuantity('quantity',null,1),true);
+ assert.equal(stockAllowsQuantity('quantity',null,1),false);
 });
 test('commerce utiliza o modo de estoque da variante',()=>{
  const code=readFileSync('lib/commerce.js','utf8');

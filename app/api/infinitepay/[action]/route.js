@@ -73,7 +73,7 @@ export async function POST(req,{params}){try{
  const byId=new Map(found.rows.map(v=>[v.id,v]));const grouped=new Map();
  for(const item of quote.items){
   const v=byId.get(item.variant_id);
-  ensure(v?.supplier_id&&v.status==='active'&&v.supplier_available&&Number.isSafeInteger(v.supplier_cost_cents),'Fornecedor sem cadastro ou produto indisponivel.',409);
+  ensure(v?.supplier_id&&v.status==='active'&&v.supplier_available&&Number.isSafeInteger(v.supplier_cost_cents)&&v.supplier_cost_cents>0,'Fornecedor sem cadastro ou produto indisponivel.',409);
   const g=grouped.get(v.supplier_id)||{supplier_id:v.supplier_id,items:[],subtotal:0,cost:0};
   g.items.push({...item,cost_cents:v.supplier_cost_cents,stock_mode:v.stock_mode,preparation_days:v.preparation_days||2,delivery_days_min:v.delivery_days_min||5,delivery_days_max:v.delivery_days_max||15});
   g.subtotal+=item.line_cents;g.cost+=v.supplier_cost_cents*item.qty;grouped.set(v.supplier_id,g);
@@ -89,7 +89,7 @@ export async function POST(req,{params}){try{
    const v=fresh.get(id);ensure(v?.supplier_available&&v.active,'Produto indisponivel.',409);
    if(v.stock_mode==='quantity'){
     const r=await c.query("SELECT COALESCE(SUM(res.quantity),0)::int AS qty FROM supplier_stock_reservations res JOIN supplier_order_groups g ON g.id=res.group_id WHERE res.variant_id=$1 AND res.status='held' AND g.order_id IS NULL AND g.checkout_expires_at>now()",[id]);
-    ensure(v.stock>=n+r.rows[0].qty,'Estoque insuficiente.',409);
+    ensure(Number.isSafeInteger(v.stock)&&v.stock>=n+r.rows[0].qty,'Estoque insuficiente.',409);
    }
   }
   for(const g of list){
