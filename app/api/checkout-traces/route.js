@@ -1,5 +1,6 @@
 import {NextResponse} from 'next/server';
-import {originGuard,fail,ensure} from '@/lib/http';
+import {limitRequest} from '@/lib/rate-limit';
+import {originGuard,fail,ensure,body} from '@/lib/http';
 import {recordCheckoutEvent} from '@/lib/checkout-trace';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const allowed=new Set([
@@ -12,10 +13,8 @@ const allowed=new Set([
 export async function POST(req){
  try{
   originGuard(req);
-  const input=await req.text();
-  ensure(input.length<=2000,'Evento muito grande.',413);
-  let data;try{data=JSON.parse(input)}catch{data={}}
-  ensure(data&&typeof data==='object'&&!Array.isArray(data),'Dados invalidos.',400);
+  const data=await body(req,2000);
+  await limitRequest(req,'telemetry');
   ensure(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.trace_id||''),'ID de rastreamento invalido.',400);
   ensure(allowed.has(data.stage),'Etapa de rastreamento nao permitida.',400);
   // Client events are untrusted hints, never proof of a payment.

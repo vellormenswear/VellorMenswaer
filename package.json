@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/audit-launch-data.mjs && node --test tests/infinitepay-checkout.test.js tests/supplier-notifications.test.js tests/supplier-pix.test.js tests/auto-migration.test.js tests/catalog.test.js tests/storefront-discovery.test.js tests/security.test.js tests/support-faq.test.js tests/policies.test.js tests/unified-fixes.test.js tests/customer-supplier-privacy.test.js tests/checkout-validation-and-tls.test.js tests/checkout-login-font.test.js tests/variant-options.test.js tests/catalog-publication.test.js tests/supplier-inventory-regression.test.js tests/request-hardening.test.js tests/checkout-attempt.test.js && node scripts/migrate-support.mjs && next build && node scripts/cleanup-launch-data.mjs",
+    "build": "node scripts/audit-launch-data.mjs && node --test tests/infinitepay-checkout.test.js tests/supplier-notifications.test.js tests/supplier-pix.test.js tests/auto-migration.test.js tests/catalog.test.js tests/storefront-discovery.test.js tests/security.test.js tests/support-faq.test.js tests/policies.test.js tests/unified-fixes.test.js tests/customer-supplier-privacy.test.js tests/checkout-validation-and-tls.test.js tests/checkout-login-font.test.js tests/variant-options.test.js tests/catalog-publication.test.js tests/supplier-inventory-regression.test.js tests/request-hardening.test.js tests/checkout-attempt.test.js tests/rate-limit.test.js && node scripts/migrate-support.mjs && next build && node scripts/cleanup-launch-data.mjs",
     "start": "next start",
     "db:migrate": "node scripts/migrate.mjs",
     "admin:bootstrap": "node scripts/bootstrap-admin.mjs",

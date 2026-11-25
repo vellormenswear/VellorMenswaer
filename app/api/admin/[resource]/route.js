@@ -200,13 +200,18 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
   await requireRole(req,['super_admin']);const role=x.role;ensure(['employee','admin','super_admin'].includes(role),'Função inválida.');
   if(!x.id){const mail=email(x.email),name=txt(x.name,120);ensure(/^\S+@\S+\.\S+$/.test(mail)&&name.length>=3,'Dados inválidos.');const hash=await passwordHash(x.password);const r=await transaction(async c=>{const rr=await c.query('INSERT INTO users(full_name,email,password_hash,role) VALUES($1,$2,$3,$4) RETURNING id',[name,mail,hash,role]);if(role==='employee'){const perms=Array.isArray(x.permissions)?x.permissions.filter(p=>['orders.read','orders.process','products.read'].includes(p)):[];for(const perm of perms)await c.query('INSERT INTO staff_permissions(user_id,permission) VALUES($1,$2)',[rr.rows[0].id,perm]);}return rr});await audit(u.id,'staff.create','user',r.rows[0].id,null,{role,mail});return ok({id:r.rows[0].id})}
   ensure(uuid(x.id)&&x.id!==u.id,'Não pode modificar seu próprio acesso.',403);
-  const existing=await sql('SELECT id,role FROM users WHERE id=$1 AND launch_archived_at IS NULL',[x.id]);ensure(existing.rowCount&&['employee','admin','super_admin'].includes(existing.rows[0].role),'Usuário inválido.',404);
-  // Do not permit disabling the last active super admin.
-  if(existing.rows[0].role==='super_admin'&&(role!=='super_admin'||x.suspended)){const rr=await sql("SELECT count(*)::int AS n FROM users WHERE role='super_admin' AND suspended_at IS NULL");ensure(rr.rows[0].n>1,'É necessário manter ao menos um Super Administrador ativo.',409)}
-  await sql('UPDATE users SET role=$1,suspended_at=$2,updated_at=now() WHERE id=$3',[role,x.suspended?new Date():null,x.id]);
-  const perms=Array.isArray(x.permissions)?x.permissions.filter(p=>['orders.read','orders.process','products.read'].includes(p)):[];
-  await transaction(async c=>{await c.query('DELETE FROM staff_permissions WHERE user_id=$1',[x.id]);for(const p of perms)await c.query('INSERT INTO staff_permissions(user_id,permission) VALUES($1,$2)',[x.id,p]);if(x.suspended)await c.query('DELETE FROM sessions WHERE user_id=$1',[x.id])});
-  await audit(u.id,'staff.update','user',x.id,{role:existing.rows[0].role},{role,suspended:Boolean(x.suspended),permissions:perms});return ok({updated:true});
+  const perms=role==='employee'&&Array.isArray(x.permissions)?[...new Set(x.permissions.filter(p=>['orders.read','orders.process','products.read'].includes(p)))]:[];
+  await transaction(async c=>{
+   await c.query('SELECT pg_advisory_xact_lock($1)',[8033339]);
+   const actor=await c.query("SELECT id FROM users WHERE id=$1 AND role='super_admin' AND suspended_at IS NULL AND launch_archived_at IS NULL FOR UPDATE",[u.id]);ensure(actor.rowCount,'Sem permissão.',403);
+   const existing=await c.query('SELECT id,role,suspended_at FROM users WHERE id=$1 AND launch_archived_at IS NULL FOR UPDATE',[x.id]);ensure(existing.rowCount&&['employee','admin','super_admin'].includes(existing.rows[0].role),'Usuário inválido.',404);
+   const previous=existing.rows[0];
+   if(previous.role==='super_admin'&&!previous.suspended_at&&(role!=='super_admin'||x.suspended)){const rr=await c.query("SELECT count(*)::int AS n FROM users WHERE role='super_admin' AND suspended_at IS NULL AND launch_archived_at IS NULL");ensure(rr.rows[0].n>1,'É necessário manter ao menos um Super Administrador ativo.',409)}
+   await c.query('UPDATE users SET role=$1,suspended_at=$2,updated_at=now() WHERE id=$3',[role,x.suspended?new Date():null,x.id]);
+   await c.query('DELETE FROM staff_permissions WHERE user_id=$1',[x.id]);for(const p of perms)await c.query('INSERT INTO staff_permissions(user_id,permission) VALUES($1,$2)',[x.id,p]);
+   await c.query('DELETE FROM sessions WHERE user_id=$1',[x.id]);
+   await c.query('INSERT INTO audit_logs(actor_id,action,resource_type,resource_id,before_data,after_data) VALUES ($1,$2,$3,$4,$5,$6)',[u.id,'staff.update','user',x.id,JSON.stringify({role:previous.role,suspended:Boolean(previous.suspended_at)}),JSON.stringify({role,suspended:Boolean(x.suspended),permissions:perms})]);
+  });return ok({updated:true});
  }
  if(resource==='legal-identity'){
   await requireRole(req,['super_admin']);

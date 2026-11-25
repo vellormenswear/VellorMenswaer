@@ -1,4 +1,5 @@
 import {sql,transaction} from '@/lib/db';
+import {limitRequest} from '@/lib/rate-limit';
 import {getUser} from '@/lib/auth';
 import {randomToken,sha256} from '@/lib/security';
 import {ok,fail,body,originGuard,ensure,HttpError} from '@/lib/http';
@@ -32,6 +33,7 @@ export async function POST(req){
   let token=tokenOf(req);
   if(!/^[A-Za-z0-9_-]{43}$/.test(token||''))token=randomToken();
   const user=await getUser(req);
+  await limitRequest(req,'support',{identity:user?.id});
   if(token){const prior=await sql('SELECT customer_id FROM support_threads WHERE visitor_token_hash=$1',[sha256(token)]);if(prior.rowCount&&prior.rows[0].customer_id&&prior.rows[0].customer_id!==user?.id)token=randomToken();}
   let hash=sha256(token);
   const claim=()=>sql('INSERT INTO support_threads(visitor_token_hash,customer_id) VALUES($1,$2) ON CONFLICT(visitor_token_hash) DO UPDATE SET customer_id=COALESCE(support_threads.customer_id,excluded.customer_id) WHERE support_threads.customer_id IS NULL OR support_threads.customer_id=excluded.customer_id RETURNING id',[hash,user?.id||null]);
