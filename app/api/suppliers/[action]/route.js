@@ -116,6 +116,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
     const r=await c.query('SELECT * FROM supplier_submissions WHERE id=$1 FOR UPDATE',[x.id]);ensure(r.rowCount&&r.rows[0].status==='pending','Anúncio não está pendente.',409);const sub=r.rows[0];let productId=null,productCode=null;
     if(x.decision==='approved'){
      await activeSupplier(sub.supplier_id);
+     const category=await c.query('SELECT c.id FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1 AND c.active AND COALESCE(root.active,true)',[sub.category_id]);ensure(category.rowCount,'O anúncio precisa de uma categoria ativa antes de ser aprovado.',409);
      const prices=Array.isArray(x.prices)?x.prices:[];ensure(prices.length===sub.variants.length,'Informe o preço de venda de cada variação.');
      const sl=await resolveProductSlug(c,{name:sub.name,requested:txt(x.slug,200)});
      const p=await c.query(`INSERT INTO products(name,slug,description,category_id,shipping,active,hidden,supplier_id) VALUES($1,$2,$3,$4,'nacional',true,false,$5) RETURNING id,product_code`,[sub.name,sl,sub.description,sub.category_id,sub.supplier_id]);productId=p.rows[0].id;productCode=p.rows[0].product_code;
@@ -189,7 +190,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  if(action==='submit'){
   const variants=Array.isArray(x.variants)?x.variants:[];ensure(variants.length>0&&variants.length<=30,'Informe de 1 a 30 variações.');
-  const name=txt(x.name,220);ensure(name.length>=4,'Nome muito curto.');const cat=uuid(x.category_id)?x.category_id:null;const category=cat?(await sql('SELECT COALESCE(root.slug,c.slug) AS root_slug FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1',[cat])).rows[0]:null;
+  const name=txt(x.name,220);ensure(name.length>=4,'Nome muito curto.');const cat=uuid(x.category_id)?x.category_id:null;const category=cat?(await sql('SELECT COALESCE(root.slug,c.slug) AS root_slug FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1 AND c.active AND COALESCE(root.active,true)',[cat])).rows[0]:null;ensure(category,'Selecione uma categoria válida e ativa.');
   // SKU e URL da foto são opcionais no envio. A validação de publicação continua
   // exigindo imagem, para que a vitrine não exiba produtos sem fotografia.
   for(const v of variants){
