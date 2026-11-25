@@ -431,3 +431,39 @@ dialog.modal-overlay:not([open]){display:none}
 dialog.modal-overlay[open]{display:flex}
 dialog.modal-overlay::backdrop{background:rgba(7,18,13,.67)}
 dialog.modal-overlay .detail-modal{max-width:100%;overscroll-behavior:contain}
+
+/* Responsividade por largura CSS da janela, não por resolução física do monitor. */
+.container,.cart-products-panel,.cart-summary,.filters-start,.filters-end,.search-wrap,.vellor-mega-inner,.vellor-mega-links{min-width:0}
+.card-name,.card-category,.card-variants,.detail-info h2,.sku,.cart-row-name,.cart-row-var,.vellor-mega-links a{overflow-wrap:anywhere}
+.cart-list-head,.cart-row{min-width:0}
+.search-wrap input{max-width:100%;min-width:0}
+.vellor-mega-menu{max-height:65dvh;overflow-y:auto}
+dialog.modal-overlay .detail-modal{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);min-width:0}
+@media(min-width:1800px){
+ .container,.vellor-clean-nav .vellor-menu-list{max-width:1800px}
+ .site-header{padding-inline:max(54px,calc((100% - 1692px)/2))}
+ #grid.vellor-product-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+ #grid.vellor-product-rail>.card{flex-basis:calc((100% - 104px)/5)}
+ .vellor-footer-inner{max-width:1692px}
+}
+@media(min-width:2560px){
+ .container,.vellor-clean-nav .vellor-menu-list{max-width:2200px}
+ .site-header{padding-inline:max(54px,calc((100% - 2092px)/2))}
+ #grid.vellor-product-grid{grid-template-columns:repeat(6,minmax(0,1fr))}
+ #grid.vellor-product-rail>.card{flex-basis:calc((100% - 130px)/6)}
+ .vellor-footer-inner{max-width:2092px}
+}
+@media(max-width:760px){
+ .filters-end{min-width:0}
+ .search-wrap{flex:1 1 0}
+ .vellor-mega-links a{min-width:0}
+}
+@media(max-width:350px){
+ .filters-end{flex-wrap:wrap}
+ .search-wrap{flex:1 1 100%}
+ .filters-end .sort{width:100%;max-width:none}
+ .vellor-footer-top{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-height:500px){
+ dialog.modal-overlay .detail-modal{max-height:calc(100dvh - 20px)}
+}
