@@ -3,7 +3,6 @@ import {ok,fail,body,originGuard,ensure,HttpError,txt,uuid,email} from '@/lib/ht
 import {normalizeIdentity,IDENTITY_FIELDS} from '@/lib/store-identity.mjs';
 import {orderFilterPredicate,ADMIN_ORDER_PAGE_SIZE} from '@/lib/admin-order-filters.mjs';
 import {saveAdminProduct,saveAdminVariant} from '@/lib/admin-catalog-service';
-import {normalizeVariantSizes,validFootwearSizes} from '@/lib/variant-options.mjs';
 import {sizeChangeAllowed,availableSizes} from '@/lib/order-size-change.mjs';
 import {shippingAlerts} from '@/lib/shipping-deadline.mjs';
 import {catalogPublication} from '@/lib/catalog-publication.mjs';
@@ -141,10 +140,10 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
  if(resource==='variant'){await requireRole(req,['admin','super_admin']);return ok(await saveAdminVariant(u,x));}
  if(resource==='image'){
   await requireRole(req,['admin','super_admin']);ensure(uuid(x.product_id),'Produto inválido.');const img=txt(x.url,1000);ensure(img.startsWith('https://')||img.startsWith('/product-images/'),'Endereço da imagem inválido.');
-  return transaction(async c=>{const rr=await c.query('INSERT INTO product_images(product_id,variant_id,url,alt,source_filename,sort_order) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[x.product_id,uuid(x.variant_id)?x.variant_id:null,img,txt(x.alt,200),txt(x.filename,200),Number(x.sort_order)||0]);await auditTx(c,u.id,'image.add','image',rr.rows[0].id,null,{url:img});return ok({id:rr.rows[0].id});});
+  return await transaction(async c=>{const rr=await c.query('INSERT INTO product_images(product_id,variant_id,url,alt,source_filename,sort_order) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[x.product_id,uuid(x.variant_id)?x.variant_id:null,img,txt(x.alt,200),txt(x.filename,200),Number(x.sort_order)||0]);await auditTx(c,u.id,'image.add','image',rr.rows[0].id,null,{url:img});return ok({id:rr.rows[0].id});});
  }
  if(resource==='image-delete'){
-  await requireRole(req,['admin','super_admin']);ensure(uuid(x.id),'Imagem inválida.');return transaction(async c=>{const r=await c.query('DELETE FROM product_images WHERE id=$1 RETURNING id,product_id,url',[x.id]);ensure(r.rowCount,'Imagem não encontrada.',404);await auditTx(c,u.id,'image.unlink','image',x.id,{url:r.rows[0].url},null);return ok({deleted:true});});
+  await requireRole(req,['admin','super_admin']);ensure(uuid(x.id),'Imagem inválida.');return await transaction(async c=>{const r=await c.query('DELETE FROM product_images WHERE id=$1 RETURNING id,product_id,url',[x.id]);ensure(r.rowCount,'Imagem não encontrada.',404);await auditTx(c,u.id,'image.unlink','image',x.id,{url:r.rows[0].url},null);return ok({deleted:true});});
  }
  if(resource==='coupon'){
   await requireRole(req,['admin','super_admin']);const code=txt(x.code,40).toUpperCase();ensure(/^[A-Z0-9_-]{3,40}$/.test(code),'Código do cupom inválido.');const kind=x.discount_type,amount=Number(x.amount),max=x.max_uses===null||x.max_uses===''?null:Number(x.max_uses);
@@ -152,7 +151,7 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
   const min=Math.max(0,Number(x.min_subtotal_cents)||0);ensure(Number.isInteger(min),'Valor mínimo inválido.');
   let id=uuid(x.id)?x.id:null;
   const vals=[code,kind,amount,min,max,x.starts_at||null,x.expires_at||null,Boolean(x.active)];
-  return transaction(async c=>{if(id){const r=await c.query('UPDATE coupons SET code=$1,discount_type=$2,amount=$3,min_subtotal_cents=$4,max_uses=$5,starts_at=$6,expires_at=$7,active=$8 WHERE id=$9 RETURNING id',[...vals,id]);ensure(r.rowCount,'Cupom não encontrado.',404)}else{const r=await c.query('INSERT INTO coupons(code,discount_type,amount,min_subtotal_cents,max_uses,starts_at,expires_at,active,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',[...vals,u.id]);id=r.rows[0].id}
+  return await transaction(async c=>{if(id){const r=await c.query('UPDATE coupons SET code=$1,discount_type=$2,amount=$3,min_subtotal_cents=$4,max_uses=$5,starts_at=$6,expires_at=$7,active=$8 WHERE id=$9 RETURNING id',[...vals,id]);ensure(r.rowCount,'Cupom não encontrado.',404)}else{const r=await c.query('INSERT INTO coupons(code,discount_type,amount,min_subtotal_cents,max_uses,starts_at,expires_at,active,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',[...vals,u.id]);id=r.rows[0].id}
   await auditTx(c,u.id,'coupon.upsert','coupon',id,null,{code,kind,amount,active:x.active});return ok({id});});
  }
  if(resource==='staff-profile'){
