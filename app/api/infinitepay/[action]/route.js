@@ -47,7 +47,7 @@ export async function GET(req,{params}){try{
  const q=new URL(req.url).searchParams;let batch=q.get('checkout_id');
  if(!batch&&uuid(q.get('order_id'))){const r=await sql('SELECT checkout_batch_id FROM supplier_order_groups WHERE order_id=$1 AND customer_id=$2 LIMIT 1',[q.get('order_id'),u.id]);batch=r.rows[0]?.checkout_batch_id}
  ensure(uuid(batch),'Checkout invalido.',400);
- const r=await sql('SELECT g.id,g.order_id,g.checkout_batch_id,g.amount_cents,g.payment_status,g.fulfillment_status,b.checkout_url,g.tracking_code,g.carrier,g.created_at,g.checkout_expires_at,o.order_number FROM supplier_order_groups g LEFT JOIN orders o ON o.id=g.order_id JOIN infinitepay_checkout_batches b ON b.checkout_batch_id=g.checkout_batch_id WHERE g.checkout_batch_id=$1 AND g.customer_id=$2 ORDER BY g.created_at,g.id',[batch,u.id]);
+ const r=await sql('SELECT g.id,g.order_id,g.checkout_batch_id,g.amount_cents,g.payment_status,g.fulfillment_status,b.checkout_url,g.tracking_code,g.carrier,g.created_at,g.checkout_expires_at,o.order_number FROM supplier_order_groups g LEFT JOIN orders o ON o.id=g.order_id LEFT JOIN infinitepay_checkout_batches b ON b.checkout_batch_id=g.checkout_batch_id AND b.customer_id=g.customer_id WHERE g.checkout_batch_id=$1 AND g.customer_id=$2 ORDER BY g.created_at,g.id',[batch,u.id]);
  ensure(r.rowCount,'Nenhuma tentativa encontrada.',404);
  return ok({checkout_id:batch,groups:r.rows,provider:'infinitepay',mode:'real_disabled_by_default'});
  }catch(e){return fail(e)}}

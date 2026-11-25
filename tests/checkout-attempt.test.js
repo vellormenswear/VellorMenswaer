@@ -19,7 +19,7 @@ test('tentativa e reserva são transacionais e a conciliação aceita criação 
  assert.ok(route.indexOf('INSERT INTO checkout_attempts')<route.indexOf('INSERT INTO supplier_order_groups'));
  assert.match(route,/COUNT\(DISTINCT checkout_batch_id\)/);
  const reconcile=readFileSync('lib/infinitepay-reconcile.js','utf8');
- assert.ok(reconcile.indexOf('verifiedInfinitepayPayment(paid')<reconcile.indexOf("['creating','pending'].includes(current.status)"));
+ assert.ok(reconcile.indexOf('verifiedInfinitepayPayment(paid')<reconcile.indexOf("['creating','pending','failed'].includes(current.status)"));
  assert.match(reconcile,/if\(g.coupon_id&&stockOk\)/);
  const schema=readFileSync('db/016_checkout_attempts.sql','utf8');
  assert.match(schema,/PRIMARY KEY\(customer_id,idempotency_key\)/);

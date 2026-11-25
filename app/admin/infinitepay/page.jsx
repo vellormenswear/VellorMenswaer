@@ -26,7 +26,7 @@ export default function InfinitepayAdmin(){
   }catch(e){setErr(e.message)}finally{setBusy('')}
  }
  function captureReturnUrl(value){setReturnUrl(value);
-  try{const url=new URL(value);if(url.hostname!=='vellormenswear.vercel.app'||url.protocol!=='https:')return;
+  try{const url=new URL(value);if(!['vellormenswear.vercel.app','vellormenswear.com.br','www.vellormenswear.com.br'].includes(url.hostname)||url.protocol!=='https:'||url.username||url.password||url.port)return;
     const q=url.searchParams;setLookup(x=>({...x,checkout_id:q.get('order_nsu')||q.get('checkout_id')||x.checkout_id,transaction_nsu:q.get('transaction_nsu')||x.transaction_nsu,slug:q.get('slug')||x.slug}));
   }catch{}
  }
