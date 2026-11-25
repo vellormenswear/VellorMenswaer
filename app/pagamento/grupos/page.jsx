@@ -13,7 +13,8 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
   if(!r.ok)throw Error(j.error);setData(j);setError('');traceOk('checkout.groups.loaded',{group_count:j.groups.length});
   if(j.groups.length&&j.groups.every(g=>g.payment_status==='approved')){
    const saved=sessionStorage.getItem('vellor-last-checkout-cart');const current=localStorage.getItem('goston-cart-preview');
-   if(saved&&saved===current)localStorage.removeItem('goston-cart-preview');
+   if(saved&&saved===current&&sessionStorage.getItem('vellor-last-checkout-id')===j.checkout_id)localStorage.removeItem('goston-cart-preview');
+   try{const attempt=JSON.parse(sessionStorage.getItem('vellor-checkout-attempt')||'null');if(attempt?.checkout_id===j.checkout_id)sessionStorage.removeItem('vellor-checkout-attempt')}catch{}
   }
  }catch(e){traceError('checkout.groups.failed','GROUP_QUERY_FAILED',e.message);setError(e.message)}};
  useEffect(()=>{

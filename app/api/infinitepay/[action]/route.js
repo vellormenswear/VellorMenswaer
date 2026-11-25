@@ -4,6 +4,7 @@ import {canPurchase} from '@/lib/purchase-role.mjs';
 import {requireUser} from '@/lib/auth';
 import {ok,fail,ensure,body,originGuard,HttpError,uuid} from '@/lib/http';
 import {randomUUID} from 'node:crypto';
+import {checkoutRequestHash,couponHasCapacity} from '@/lib/checkout-attempt.mjs';
 import {distributeDiscount} from '@/lib/marketplace-rules.mjs';
 import {infinitepayApi,infinitepayLink} from '@/lib/infinitepay-api';
 import {infinitepayReady,buildInfinitepayCheckout,safeInfiniteRef} from '@/lib/infinitepay.mjs';
@@ -12,7 +13,7 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
 async function customer(req){const u=await requireUser(req);ensure(canPurchase(u),'Conta não autorizada a realizar compras.',403);return u}
 async function createCheckout(batch,u){
  const existing=await sql('SELECT * FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1 AND customer_id=$2',[batch,u.id]);
- if(existing.rowCount){const current=existing.rows[0];ensure(current.status==='pending'&&current.checkout_url,'Checkout encerrado ou ainda não finalizado.',409);const valid=await sql("SELECT 1 FROM supplier_order_groups WHERE checkout_batch_id=$1 AND customer_id=$2 AND payment_status='pending' AND order_id IS NULL AND checkout_expires_at>now() LIMIT 1",[batch,u.id]);ensure(valid.rowCount,'Checkout expirado.',409);return{checkout_url:current.checkout_url,checkout_id:batch}}
+ if(existing.rowCount){const current=existing.rows[0];ensure(current.status==='pending'&&current.checkout_url,current.status==='creating'?'Criação da cobrança ainda não confirmada. Não gere outra cobrança; consulte o atendimento.':'Checkout encerrado. Consulte seus pedidos.',409);const valid=await sql("SELECT 1 FROM supplier_order_groups WHERE checkout_batch_id=$1 AND customer_id=$2 AND payment_status='pending' AND order_id IS NULL AND checkout_expires_at>now() LIMIT 1",[batch,u.id]);ensure(valid.rowCount,'Checkout expirado.',409);return{checkout_url:current.checkout_url,checkout_id:batch}}
  const groups=await sql("SELECT g.* FROM supplier_order_groups g WHERE g.checkout_batch_id=$1 AND g.customer_id=$2 AND g.payment_status='pending' AND g.order_id IS NULL ORDER BY g.id",[batch,u.id]);
  ensure(groups.rowCount&&groups.rows.every(g=>new Date(g.checkout_expires_at)>new Date()),'Checkout expirado ou itens indisponiveis.',409);
  const info=buildInfinitepayCheckout(groups.rows,{batchId:batch,site:process.env.SITE_URL.replace(/\/$/,''),
@@ -29,8 +30,8 @@ async function createCheckout(batch,u){
  }
  // Falhas de rede podem deixar status=creating. Nao gerar novamente:
  // a InfinitePay nao permite recuperar ou cancelar links por order_nsu.
- const result=await infinitepayApi('/links',{handle:process.env.INFINITEPAY_HANDLE,...info.payload});
- const url=infinitepayLink(result);ensure(url,'InfinitePay nao retornou URL de checkout valida.',502);
+ let url;
+ try{const result=await infinitepayApi('/links',{handle:process.env.INFINITEPAY_HANDLE,...info.payload});url=infinitepayLink(result);ensure(url,'InfinitePay nao retornou URL de checkout valida.',502);}catch(e){throw new HttpError(503,'Não foi possível confirmar a criação da cobrança. A tentativa foi preservada. Não gere outro pagamento; consulte o atendimento.');}
  await transaction(async c=>{
   const row=await c.query("UPDATE infinitepay_checkout_batches SET checkout_url=$1,status='pending',updated_at=now() WHERE checkout_batch_id=$2 AND customer_id=$3 AND status='creating' RETURNING checkout_batch_id",
    [url,batch,u.id]);
@@ -69,6 +70,10 @@ export async function POST(req,{params}){try{
  }
  ensure(action==='checkout-create','Ação desconhecida.',404);
  ensure(uuid(x.address_id),'Endereco invalido.',400);
+ ensure(uuid(x.idempotency_key),'Atualize a página para iniciar uma tentativa de pagamento válida.',400);
+ let requestHash;try{requestHash=checkoutRequestHash(x)}catch{throw new HttpError(400,'Carrinho inválido.');}
+ const prior=await sql('SELECT checkout_batch_id,request_hash FROM checkout_attempts WHERE customer_id=$1 AND idempotency_key=$2',[u.id,x.idempotency_key]);
+ if(prior.rowCount){const row=prior.rows[0];ensure(row.request_hash===requestHash,'A tentativa pertence a outro carrinho. Atualize os dados.',409);const created=await createCheckout(row.checkout_batch_id,u);return ok({...created,provider:'infinitepay',mode:'real_disabled_by_default'});}
  const addr=await sql('SELECT * FROM addresses WHERE id=$1 AND user_id=$2',[x.address_id,u.id]);
  ensure(addr.rowCount,'Endereco nao encontrado.',404);
  const quote=await quoteCart(x.items,x.coupon);
@@ -86,7 +91,9 @@ export async function POST(req,{params}){try{
  const list=distributeDiscount([...grouped.values()],quote.discount_cents);
  ensure(list.every(g=>g.total>g.cost)&&list.length<=20,'Valor insuficiente para os fornecedores e taxas.',409);
  const batch=randomUUID();
- await transaction(async c=>{
+ const reservedBatch=await transaction(async c=>{
+  const attempt=await c.query('INSERT INTO checkout_attempts(customer_id,idempotency_key,checkout_batch_id,request_hash) VALUES($1,$2,$3,$4) ON CONFLICT(customer_id,idempotency_key) DO NOTHING RETURNING checkout_batch_id',[u.id,x.idempotency_key,batch,requestHash]);
+  if(!attempt.rowCount){const existing=await c.query('SELECT checkout_batch_id,request_hash FROM checkout_attempts WHERE customer_id=$1 AND idempotency_key=$2',[u.id,x.idempotency_key]);ensure(existing.rows[0]?.request_hash===requestHash,'A tentativa pertence a outro carrinho.',409);return existing.rows[0].checkout_batch_id;}
   const locked=await c.query('SELECT id,stock,stock_mode,supplier_available,active FROM product_variants WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE',[ids]);
   const fresh=new Map(locked.rows.map(v=>[v.id,v]));const quantities=new Map();
   for(const item of quote.items)quantities.set(item.variant_id,(quantities.get(item.variant_id)||0)+item.qty);
@@ -97,13 +104,22 @@ export async function POST(req,{params}){try{
     ensure(Number.isSafeInteger(v.stock)&&v.stock>=n+r.rows[0].qty,'Estoque insuficiente.',409);
    }
   }
+  if(quote.coupon){
+   const coupon=(await c.query('SELECT id,active,discount_type,amount,max_uses,used_count,min_subtotal_cents,starts_at,expires_at FROM coupons WHERE id=$1 FOR UPDATE',[quote.coupon.id])).rows[0];
+   ensure(coupon?.active&&(!coupon.starts_at||new Date(coupon.starts_at)<=new Date())&&(!coupon.expires_at||new Date(coupon.expires_at)>new Date())&&quote.subtotal_cents>=coupon.min_subtotal_cents,'Cupom indisponível.',409);
+   const freshDiscount=coupon.discount_type==='percent'?Math.floor(quote.subtotal_cents*Number(coupon.amount)/10000):Number(coupon.amount);
+   ensure(Math.min(quote.subtotal_cents,Math.max(0,freshDiscount))===quote.discount_cents,'Cupom alterado. Atualize os valores.',409);
+   const held=(await c.query("SELECT COUNT(DISTINCT checkout_batch_id)::int AS n FROM supplier_order_groups WHERE coupon_id=$1 AND payment_status='pending' AND order_id IS NULL AND checkout_expires_at>now()",[coupon.id])).rows[0].n;
+   ensure(couponHasCapacity(coupon,held),'Limite de utilização do cupom atingido. Tente novamente após a expiração de outras reservas.',409);
+  }
   for(const g of list){
    const r=await c.query("INSERT INTO supplier_order_groups(checkout_batch_id,customer_id,recipient_snapshot,items_snapshot,subtotal_cents,discount_cents,coupon_id,coupon_code_snapshot,checkout_expires_at,supplier_id,amount_cents,supplier_amount_cents,marketplace_fee_cents,preparation_days,delivery_days_min,delivery_days_max) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '2 hours',$9,$10,$11,$12,$13,$14,$15) RETURNING id",
     [batch,u.id,JSON.stringify(addr.rows[0]),JSON.stringify(g.items),g.subtotal,g.discount,quote.coupon?.id||null,quote.coupon?.code||null,g.supplier_id,g.total,g.cost,g.total-g.cost,Math.max(...g.items.map(i=>i.preparation_days)),Math.max(...g.items.map(i=>i.delivery_days_min)),Math.max(...g.items.map(i=>i.delivery_days_max))]);
    for(const item of g.items)if(item.stock_mode==='quantity')
     await c.query('INSERT INTO supplier_stock_reservations(group_id,variant_id,quantity) VALUES($1,$2,$3) ON CONFLICT(group_id,variant_id) DO UPDATE SET quantity=supplier_stock_reservations.quantity+excluded.quantity',[r.rows[0].id,item.variant_id,item.qty]);
   }
+  return batch;
  });
- const created=await createCheckout(batch,u);
- return ok({checkout_id:batch,checkout_url:created.checkout_url,group_count:list.length,provider:'infinitepay',mode:'real_disabled_by_default'},201);
+ const created=await createCheckout(reservedBatch,u);
+ return ok({checkout_id:reservedBatch,checkout_url:created.checkout_url,provider:'infinitepay',mode:'real_disabled_by_default'},201);
  }catch(e){return fail(e)}}
