@@ -30,5 +30,10 @@ if(process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_GIT_COMMIT_REF==='vell
   assert.equal(edited.published,true);assert.equal((await quoteCart([{sku:black.sku,qty:1,size:'39'}])).total_cents,12000);
   const after=(await sql('SELECT sku FROM product_variants WHERE id=$1',[black.id])).rows[0];assert.equal(after.sku,black.sku);
   console.log('[listing.qa] edição, SKU preservado e rollback de edição aprovados');
+  const single=await saveAdminListing(u,{product:{...product,slug:'qa-editor-'+randomUUID()},photos,variants:[{...variant,label:''}]});
+  assert.equal(single.published,true);
+  const only=(await sql('SELECT sku,label FROM product_variants WHERE product_id=$1',[single.id])).rows;
+  assert.equal(only.length,1);assert.equal(only[0].label,'Variação única');assert.equal((await quoteCart([{sku:only[0].sku,qty:1,size:'39'}])).total_cents,10000);
+  console.log('[listing.qa] variação única automática com tamanho e cotação aprovada');
  }finally{await db().end();}
 }else console.log('[listing.qa] testes de gravação restritos à prévia QA');
