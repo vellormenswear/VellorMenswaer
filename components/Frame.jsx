@@ -52,6 +52,8 @@ export default function Frame({children,user,logout}){
       <a href="/">Explorar produtos</a>
       <a href="/#carrinho">Meu carrinho</a>
       <Link href="/conta">Minha conta e pedidos</Link>
+      <Link href="/contato">Contato</Link>
+      <a href="mailto:contato@vellormenswear.com.br">contato@vellormenswear.com.br</a>
       {isSupplier&&<Link href="/fornecedor">Portal do fornecedor</Link>}
       {isAdmin&&<Link href="/admin">Administração</Link>}
      </nav>

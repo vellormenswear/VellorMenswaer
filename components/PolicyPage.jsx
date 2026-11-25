@@ -23,6 +23,7 @@ export default function PolicyPage({slug}){
      <aside className="vll-policy-contact">
       <h2>Precisa de ajuda?</h2>
       <p>Fale com a equipe VELLOR pelo atendimento da loja. Se já comprou, acesse sua conta para consultar o pedido ou solicitar suporte.</p>
+      <p>E-mail comercial: <a href="mailto:contato@vellormenswear.com.br">contato@vellormenswear.com.br</a></p>
       <div><Link href="/conta" className="vll-policy-action">Minha conta e pedidos</Link><Link href="/vitrine.html#informacoes-vellor">Atendimento VELLOR</Link></div>
      </aside>
     </article>
