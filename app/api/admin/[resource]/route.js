@@ -2,7 +2,7 @@ import {sql,transaction,audit,auditTx} from '@/lib/db';import {requireRole,requi
 import {ok,fail,body,originGuard,ensure,HttpError,txt,uuid,email} from '@/lib/http';import {passwordHash} from '@/lib/security';
 import {normalizeIdentity,IDENTITY_FIELDS} from '@/lib/store-identity.mjs';
 import {orderFilterPredicate,ADMIN_ORDER_PAGE_SIZE} from '@/lib/admin-order-filters.mjs';
-import {saveAdminProduct,saveAdminVariant} from '@/lib/admin-catalog-service';
+import {saveAdminProduct,saveAdminVariant,saveAdminListing} from '@/lib/admin-catalog-service';
 import {sizeChangeAllowed,availableSizes} from '@/lib/order-size-change.mjs';
 import {shippingAlerts} from '@/lib/shipping-deadline.mjs';
 import {catalogPublication} from '@/lib/catalog-publication.mjs';
@@ -136,6 +136,7 @@ export async function POST(req,{params}){try{originGuard(req);const u=await requ
    return {deleted:!archived,archived};
   });return ok(result);
  }
+ if(resource==='product-listing'){await requireRole(req,['admin','super_admin']);return ok(await saveAdminListing(u,x));}
  if(resource==='product'){await requireRole(req,['admin','super_admin']);return ok(await saveAdminProduct(u,x));}
  if(resource==='variant'){await requireRole(req,['admin','super_admin']);return ok(await saveAdminVariant(u,x));}
  if(resource==='image'){
