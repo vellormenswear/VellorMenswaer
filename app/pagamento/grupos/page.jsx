@@ -43,7 +43,7 @@ export default function GroupCheckout(){const [data,setData]=useState(null),[err
    });
    const x=await r.json().catch(()=>({}));
    if(!r.ok)throw Error(x.error||'Não foi possível conferir o pagamento na API.');
-   setProviderResult({group_id:id,...x});
+   setProviderResult({group_id:id,...x});if(x.result==='AWAITING_PROVIDER_REFERENCES'){setError('Aguardando as referências oficiais do pagamento. Consulte novamente após a confirmação.');return;}
    traceOk('payment.status',{status:x.provider_status||x.result||'checked'});
    await load();
   }catch(e){traceError('payment.failed','PAYMENT_RECHECK_FAILED',e.message);setError(e.message)}

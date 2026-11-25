@@ -53,8 +53,13 @@ export async function POST(req,{params}){try{
  const x=await body(req,120000);
  if(action==='recheck-payment'){
   ensure(uuid(x.checkout_id),'Identificador invalido.',400);
-  const found=await sql('SELECT 1 FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1 AND customer_id=$2',[x.checkout_id,u.id]);
-  ensure(found.rowCount,'Checkout nao pertence ao cliente.',403);ensure(safeInfiniteRef(x.transaction_nsu)&&safeInfiniteRef(x.slug),'Referencias invalidas.',400);return ok(await reconcileInfinitepayBatch(x.checkout_id,{transaction_nsu:x.transaction_nsu,invoice_slug:x.slug}));
+  const found=await sql('SELECT status,transaction_nsu,invoice_slug FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1 AND customer_id=$2',[x.checkout_id,u.id]);
+  ensure(found.rowCount,'Checkout nao pertence ao cliente.',403);const current=found.rows[0];
+  if(current.status==='approved')return ok({result:'ALREADY_APPROVED',confirmed:true});
+  if(current.status==='refunded')return ok({result:'ALREADY_REFUNDED',confirmed:false});
+  const transactionNsu=current.transaction_nsu||x.transaction_nsu,slug=current.invoice_slug||x.slug;
+  if(!transactionNsu||!slug)return ok({result:'AWAITING_PROVIDER_REFERENCES',confirmed:false});
+  ensure(safeInfiniteRef(transactionNsu)&&safeInfiniteRef(slug),'Referencias invalidas.',400);return ok(await reconcileInfinitepayBatch(x.checkout_id,{transaction_nsu:transactionNsu,invoice_slug:slug}));
  }
  // Confirmar uma venda ja realizada continua possivel, mesmo que o checkout comercial seja desligado.
  ensure(infinitepayReady(process.env,u),'Checkout InfinitePay bloqueado ate homologacao.',503);
