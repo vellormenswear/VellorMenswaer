@@ -48,7 +48,7 @@ export default function Checkout(){const [user,setUser]=useState(null),[ordersOp
   const fingerprint=JSON.stringify([user.id,address,coupon,cart.map(i=>[i.sku,i.size||'',i.qty]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))]);
   let previous=attemptRef.current;try{if(!previous)previous=JSON.parse(sessionStorage.getItem('vellor-checkout-attempt')||'null')}catch{}
   const attempt=previous?.fingerprint===fingerprint?previous:{fingerprint,key:crypto.randomUUID()};attemptRef.current=attempt;try{sessionStorage.setItem('vellor-checkout-attempt',JSON.stringify(attempt))}catch{}
-  const r=await api('infinitepay/checkout-create',{items:cart,coupon,address_id:address,trace_id:traceId(),idempotency_key:attempt.key});
+  const r=await api('infinitepay/checkout-create',{items:cart,coupon,address_id:address,trace_id:traceId(),idempotency_key:attempt.key,expected_total_cents:quote.total_cents});
   if(!r.checkout_id||!r.checkout_url||r.provider!=='infinitepay')throw new Error('Não foi possível abrir os pagamentos.');
   traceOk('checkout.create.success',{group_count:Number(r.group_count)||0});try{sessionStorage.setItem('vellor-last-checkout-id',r.checkout_id);
   // A compra NÃO foi concluída ainda: o carrinho é preservado até a confirmação de TODOS os pagamentos.

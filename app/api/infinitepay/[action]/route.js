@@ -5,6 +5,8 @@ import {requireUser} from '@/lib/auth';
 import {ok,fail,ensure,body,originGuard,HttpError,uuid} from '@/lib/http';
 import {randomUUID} from 'node:crypto';
 import {checkoutRequestHash,couponHasCapacity} from '@/lib/checkout-attempt.mjs';
+import {validateReservedQuote} from '@/lib/checkout-consistency.mjs';
+import {CATALOG_FROM,CATALOG_WHERE} from '@/lib/catalog-query.mjs';
 import {distributeDiscount} from '@/lib/marketplace-rules.mjs';
 import {infinitepayApi,infinitepayLink} from '@/lib/infinitepay-api';
 import {infinitepayReady,buildInfinitepayCheckout,safeInfiniteRef} from '@/lib/infinitepay.mjs';
@@ -71,12 +73,14 @@ export async function POST(req,{params}){try{
  ensure(action==='checkout-create','Ação desconhecida.',404);
  ensure(uuid(x.address_id),'Endereco invalido.',400);
  ensure(uuid(x.idempotency_key),'Atualize a página para iniciar uma tentativa de pagamento válida.',400);
+ ensure(Number.isSafeInteger(x.expected_total_cents)&&x.expected_total_cents>=100,'Atualize a cotação para confirmar o valor da compra.',400);
  let requestHash;try{requestHash=checkoutRequestHash(x)}catch{throw new HttpError(400,'Carrinho inválido.');}
  const prior=await sql('SELECT checkout_batch_id,request_hash FROM checkout_attempts WHERE customer_id=$1 AND idempotency_key=$2',[u.id,x.idempotency_key]);
  if(prior.rowCount){const row=prior.rows[0];ensure(row.request_hash===requestHash,'A tentativa pertence a outro carrinho. Atualize os dados.',409);const created=await createCheckout(row.checkout_batch_id,u);return ok({...created,provider:'infinitepay',mode:'real_disabled_by_default'});}
  const addr=await sql('SELECT * FROM addresses WHERE id=$1 AND user_id=$2',[x.address_id,u.id]);
  ensure(addr.rowCount,'Endereco nao encontrado.',404);
  const quote=await quoteCart(x.items,x.coupon);
+ ensure(quote.total_cents===x.expected_total_cents,'O valor da compra mudou. Atualize a cotação antes de pagar.',409);
  ensure(quote.items.length&&quote.items.length<=60&&quote.shipping_cents===0,'Itens ou frete invalidos.',409);
  const ids=quote.items.map(i=>i.variant_id);
  const found=await sql('SELECT v.id,v.supplier_cost_cents,p.supplier_id,s.status,v.stock_mode,v.stock,v.supplier_available,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM product_variants v JOIN products p ON p.id=v.product_id JOIN suppliers s ON s.id=p.supplier_id WHERE v.id=ANY($1::uuid[])',[ids]);
@@ -94,7 +98,8 @@ export async function POST(req,{params}){try{
  const reservedBatch=await transaction(async c=>{
   const attempt=await c.query('INSERT INTO checkout_attempts(customer_id,idempotency_key,checkout_batch_id,request_hash) VALUES($1,$2,$3,$4) ON CONFLICT(customer_id,idempotency_key) DO NOTHING RETURNING checkout_batch_id',[u.id,x.idempotency_key,batch,requestHash]);
   if(!attempt.rowCount){const existing=await c.query('SELECT checkout_batch_id,request_hash FROM checkout_attempts WHERE customer_id=$1 AND idempotency_key=$2',[u.id,x.idempotency_key]);ensure(existing.rows[0]?.request_hash===requestHash,'A tentativa pertence a outro carrinho.',409);return existing.rows[0].checkout_batch_id;}
-  const locked=await c.query('SELECT id,stock,stock_mode,supplier_available,active FROM product_variants WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE',[ids]);
+  const locked=await c.query(`SELECT v.id,v.sku,v.label,v.sizes,v.price_cents,v.supplier_cost_cents,v.stock,v.stock_mode,v.supplier_available,v.active,v.preparation_days,v.delivery_days_min,v.delivery_days_max,p.supplier_id,p.name ${CATALOG_FROM} JOIN users su ON su.id=s.user_id WHERE ${CATALOG_WHERE} AND su.suspended_at IS NULL AND su.launch_archived_at IS NULL AND v.id=ANY($1::uuid[]) ORDER BY v.id FOR UPDATE OF v FOR SHARE OF p,s,su`,[ids]);
+  ensure(validateReservedQuote(list,locked.rows),'Produto, preço, custo ou disponibilidade mudou. Atualize a cotação antes de pagar.',409);
   const fresh=new Map(locked.rows.map(v=>[v.id,v]));const quantities=new Map();
   for(const item of quote.items)quantities.set(item.variant_id,(quantities.get(item.variant_id)||0)+item.qty);
   for(const [id,n] of quantities){
