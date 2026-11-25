@@ -9,10 +9,10 @@ const storefront=read('public/vellor-approved.js');
 const source=storefront.slice(storefront.indexOf('async function goCheckout(){'),storefront.indexOf('function applyCoupon(){'));
 assert.ok(source.startsWith('async function goCheckout()'));
 
-async function attempt(user,fetchOk=true){
+async function attempt(user,fetchOk=true,available=true){
  let destination='',stored=0;
  const button={disabled:false,setAttribute(){},removeAttribute(){}};
- const context={tr(){},ts(){},te(){},trOk(){},trError(){},cart:[{sku:'ITEM-1',qty:1}],save(){stored++},document:{getElementById(){return button}},window:{location:{assign(v){destination=v}}},fetch:async()=>({ok:fetchOk,json:async()=>({user})})};
+ const context={tr(){},ts(){},te(){},trOk(){},trError(){},cart:[{sku:'ITEM-1',qty:1}],catalogLoaded:true,catalogFailed:false,bySku(){return available?{sku:'ITEM-1'}:undefined},save(){stored++},document:{getElementById(){return button}},window:{location:{assign(v){destination=v}}},fetch:async()=>({ok:fetchOk,json:async()=>({user})})};
  vm.runInNewContext(source,context);
  await vm.runInNewContext('goCheckout()',context);
  return {destination,stored,button};
@@ -46,3 +46,5 @@ test('Inter carrega com fonte variável sem alterar tamanhos CSS da última vers
  for(const css of styles){assert.ok(css.includes('fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap'));assert.ok(css.includes('font-optical-sizing:auto'));}
  assert.ok(read('public/vitrine.html').includes('fonts.gstatic.com'));
 });
+
+test('checkout não redireciona se o produto deixou de estar disponível',async()=>{const result=await attempt({role:'customer'},true,false);assert.equal(result.destination,'');assert.equal(result.stored,0)});

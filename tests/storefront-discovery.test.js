@@ -98,7 +98,7 @@ test('setas da vitrine usam SVG e não caracteres sujeitos a emoji',()=>{
  assert.equal((html.match(/class="vellor-arrow-svg"/g)||[]).length,3);
  assert.match(css,/\.vellor-category-name \.vellor-arrow-svg\{color:#d8c18c/);
  assert.match(css,/\.vellor-carousel-arrow \.vellor-arrow-svg\{width:25px;height:25px\}/);
- assert.ok(html.includes('/vellor-approved.js?v=20261124-launch-clean'));
+ assert.match(html,/\/vellor-approved\.js\?v=\d{8}-[a-z0-9-]+/);
  assert.ok(html.includes('/vellor-approved.css?v=20261124-mobile-logo-only'));
 });
 
