@@ -1,12 +1,12 @@
-[data-season="reveillon"]{--season-left:#142538;--season-mid:#24272e;--season-right:#34303e;--season-accent:#e6d8bb;--season-ornament:url('/campaign-balls.svg?v=3')}
-[data-season="carnaval"]{--season-left:#103b36;--season-mid:#252334;--season-right:#421c46;--season-accent:#e1bb68;--season-ornament:url('/campaign-confetti.svg?v=3')}
-[data-season="pascoa"]{--season-left:#483024;--season-mid:#34272c;--season-right:#38254c;--season-accent:#d8be8a;--season-ornament:url('/campaign-eggs.svg?v=3')}
-[data-season="maes"]{--season-left:#402637;--season-mid:#35252d;--season-right:#692a43;--season-accent:#e5b0c0;--season-ornament:url('/campaign-flowers.svg?v=3')}
-[data-season="namorados"]{--season-left:#46202a;--season-mid:#38242f;--season-right:#702038;--season-accent:#ec9fac;--season-ornament:url('/campaign-hearts.svg?v=3')}
-[data-season="pais"]{--season-left:#182e45;--season-mid:#302b30;--season-right:#483325;--season-accent:#c7aa78;--season-ornament:url('/campaign-stars.svg?v=3')}
-[data-season="halloween"]{--season-left:#60300f;--season-mid:#29202b;--season-right:#36164c;--season-accent:#ee9b47;--season-ornament:url('/campaign-pumpkins.svg?v=3')}
-[data-season="blackfriday"]{--season-left:#141414;--season-mid:#242119;--season-right:#493616;--season-accent:#e9c85c;--season-ornament:url('/campaign-tags.svg?v=3')}
-[data-season="natal"]{--season-left:#103b2c;--season-mid:#30252a;--season-right:#66202b;--season-accent:#d9bf82;--season-ornament:url('/campaign-christmas.svg?v=3')}
+[data-season="reveillon"]{--season-left:#142538;--season-mid:#24272e;--season-right:#34303e;--season-accent:#e6d8bb;--season-ornament:url('/campaign-balls.svg?v=4')}
+[data-season="carnaval"]{--season-left:#103b36;--season-mid:#252334;--season-right:#421c46;--season-accent:#e1bb68;--season-ornament:url('/campaign-confetti.svg?v=4')}
+[data-season="pascoa"]{--season-left:#483024;--season-mid:#34272c;--season-right:#38254c;--season-accent:#d8be8a;--season-ornament:url('/campaign-eggs.svg?v=4')}
+[data-season="maes"]{--season-left:#402637;--season-mid:#35252d;--season-right:#692a43;--season-accent:#e5b0c0;--season-ornament:url('/campaign-flowers.svg?v=4')}
+[data-season="namorados"]{--season-left:#46202a;--season-mid:#38242f;--season-right:#702038;--season-accent:#ec9fac;--season-ornament:url('/campaign-hearts.svg?v=4')}
+[data-season="pais"]{--season-left:#182e45;--season-mid:#302b30;--season-right:#483325;--season-accent:#c7aa78;--season-ornament:url('/campaign-stars.svg?v=4')}
+[data-season="halloween"]{--season-left:#60300f;--season-mid:#29202b;--season-right:#36164c;--season-accent:#ee9b47;--season-ornament:url('/campaign-pumpkins.svg?v=4')}
+[data-season="blackfriday"]{--season-left:#141414;--season-mid:#242119;--season-right:#493616;--season-accent:#e9c85c;--season-ornament:url('/campaign-tags.svg?v=4')}
+[data-season="natal"]{--season-left:#103b2c;--season-mid:#30252a;--season-right:#66202b;--season-accent:#d9bf82;--season-ornament:url('/campaign-christmas.svg?v=4')}
 .vll-site-header[data-season],.vll-app-footer[data-season]{background:linear-gradient(90deg,var(--season-left,#10362c),var(--season-mid,#242326),var(--season-right,#401328))}
 .campaign-ornament{position:absolute;top:2px;width:clamp(28px,5vw,66px);height:40px;pointer-events:none;background:var(--season-ornament) center/contain no-repeat;opacity:.8;z-index:0;}
 .campaign-ornament.left{left:clamp(3px,2vw,24px)}.campaign-ornament.right{right:clamp(3px,2vw,24px);transform:scaleX(-1)}
@@ -41,3 +41,46 @@ html:not([data-season]) .site-header .campaign-ornament{display:none}[data-seaso
 /* Grounded seasonal scenes, aligned to the lower header edge. */
 .campaign-ornament{top:auto;bottom:0;background-position:left bottom}.campaign-admin-preview::before,.campaign-admin-preview::after{top:auto;bottom:0;background-position:left bottom}
 @media(max-width:760px){.campaign-ornament,.campaign-ornament.left,.campaign-ornament.right{top:auto;bottom:0}}
+
+/* Interactive vignettes: preserve the existing logo, controls, palette and transitions. */
+vellor-seasonal-scene.campaign-ornament{display:block;--scene-target:clamp(72px,11vw,168px);width:min(var(--scene-target),var(--scene-available,168px));height:auto!important;aspect-ratio:160/88;max-height:100%;background-size:contain;pointer-events:none;transform-origin:center bottom}
+[data-season-intensity="moderada"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(90px,13vw,190px)}
+[data-season-intensity="festiva"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(112px,15vw,218px)}
+vellor-seasonal-scene.campaign-ornament.left{left:var(--scene-edge,4px);right:auto}
+vellor-seasonal-scene.campaign-ornament.right{right:var(--scene-edge,4px);left:auto}
+vellor-seasonal-scene[data-scene-ready]{background-image:none!important}
+vellor-seasonal-scene[data-no-space]{display:none!important}
+.campaign-admin-preview::before,.campaign-admin-preview::after{display:none}
+.campaign-admin-preview vellor-seasonal-scene{--scene-target:clamp(55px,15%,135px)}
+.campaign-admin-preview[data-season-intensity="moderada"] vellor-seasonal-scene{--scene-target:19%}
+.campaign-admin-preview[data-season-intensity="festiva"] vellor-seasonal-scene{--scene-target:23%}
+.campaign-scene-art{display:block;width:100%;height:100%;overflow:visible;pointer-events:none}
+.campaign-scene-art [data-motion]{pointer-events:visiblePainted;cursor:pointer;transform-box:fill-box;transform-origin:center bottom;outline:none}
+.campaign-scene-art [data-motion]:focus-visible{outline:1px solid #ecd4a3;outline-offset:2px}
+.campaign-scene-art [data-motion].is-active{animation:vll-scene-rock .82s ease-in-out}
+.campaign-scene-art [data-motion="roll"].is-active{animation:vll-scene-roll .85s ease-in-out}
+.campaign-scene-art [data-motion="heart"].is-active{animation:vll-scene-heart .85s ease-in-out;transform-origin:center}
+.campaign-scene-art [data-motion="bloom"].is-active{animation:vll-scene-bloom .9s ease-in-out;transform-origin:center}
+.campaign-scene-art [data-motion="toast"].is-active{animation:vll-scene-toast .85s ease-in-out}
+.campaign-scene-art [data-motion="mask"].is-active{animation:vll-scene-mask .85s ease-in-out}
+.campaign-scene-art [data-motion="gift"].is-active{animation:vll-scene-gift .85s ease-in-out}
+.campaign-scene-art [data-motion="tag"].is-active{animation:vll-scene-tag .85s ease-in-out}
+.campaign-scene-art [data-motion="glow"].is-active,.campaign-scene-art [data-motion="watch"].is-active,.campaign-scene-art [data-motion="tree"].is-active{animation:none}
+.campaign-scene-art .is-active [data-detail="eyes"]{transform-box:fill-box;transform-origin:center;animation:vll-scene-blink .85s ease-in-out}
+.campaign-scene-art .is-active [data-detail="mouth"]{transform-box:fill-box;transform-origin:center;animation:vll-scene-mouth .85s ease-in-out}
+.campaign-scene-art .is-active [data-detail="windows"],.campaign-scene-art .is-active [data-detail="lights"]{animation:vll-scene-light 1.15s ease-in-out}
+.campaign-scene-art .is-active [data-detail="hands"]{transform-box:fill-box;transform-origin:39% 100%;animation:vll-scene-hands 1s ease-in-out}
+@keyframes vll-scene-rock{0%,100%{transform:rotate(0)}25%{transform:rotate(-5deg)}55%{transform:rotate(4deg)}80%{transform:rotate(-2deg)}}
+@keyframes vll-scene-roll{0%,100%{transform:rotate(0)}40%{transform:rotate(11deg)}75%{transform:rotate(-7deg)}}
+@keyframes vll-scene-heart{0%,100%{transform:scale(1)}30%{transform:scale(1.09)}55%{transform:scale(1)}72%{transform:scale(1.055)}}
+@keyframes vll-scene-bloom{0%,100%{transform:scale(1)}45%{transform:scale(1.12) rotate(3deg)}}
+@keyframes vll-scene-toast{0%,100%{transform:rotate(0)}45%{transform:rotate(9deg)}}
+@keyframes vll-scene-mask{0%,100%{transform:rotate(0);filter:brightness(1)}45%{transform:rotate(-5deg);filter:brightness(1.24)}}
+@keyframes vll-scene-gift{0%,100%{transform:rotate(0)}30%{transform:rotate(-4deg)}65%{transform:rotate(3deg)}}
+@keyframes vll-scene-tag{0%,100%{transform:rotateY(0);filter:brightness(1)}40%{transform:rotateY(33deg);filter:brightness(1.35)}}
+@keyframes vll-scene-blink{0%,100%{transform:scaleY(1)}33%,39%{transform:scaleY(.12)}47%{transform:scaleY(1)}64%,70%{transform:scaleY(.2)}}
+@keyframes vll-scene-mouth{0%,100%{transform:scaleY(1)}45%{transform:scaleY(1.42)}}
+@keyframes vll-scene-light{0%,100%{filter:brightness(1)}40%,65%{filter:brightness(1.9) drop-shadow(0 0 3px #ffd28a)}}
+@keyframes vll-scene-hands{0%,100%{transform:rotate(0)}50%{transform:rotate(95deg)}}
+@media(max-width:760px){vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(34px,12vw,70px)}[data-season-intensity="moderada"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(42px,14vw,83px)}[data-season-intensity="festiva"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(48px,16vw,94px)}}
+@media(prefers-reduced-motion:reduce){.campaign-scene-art [data-motion].is-active,.campaign-scene-art [data-motion].is-active [data-detail]{animation:none!important;filter:brightness(1.13)}}
