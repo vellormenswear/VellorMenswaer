@@ -46,8 +46,8 @@ html:not([data-season]) .site-header .campaign-ornament{display:none}[data-seaso
 vellor-seasonal-scene.campaign-ornament{display:block;--scene-target:clamp(72px,11vw,168px);width:min(var(--scene-target),var(--scene-available,168px));height:auto!important;aspect-ratio:160/88;max-height:100%;background-size:contain;pointer-events:none;transform-origin:center bottom}
 [data-season-intensity="moderada"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(90px,13vw,190px)}
 [data-season-intensity="festiva"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(112px,15vw,218px)}
-vellor-seasonal-scene.campaign-ornament.left{left:var(--scene-edge,4px);right:auto}
-vellor-seasonal-scene.campaign-ornament.right{right:var(--scene-edge,4px);left:auto}
+vellor-seasonal-scene.campaign-ornament.left{left:0;right:auto}
+vellor-seasonal-scene.campaign-ornament.right{right:0;left:auto}
 vellor-seasonal-scene[data-scene-ready]{background-image:none!important}
 vellor-seasonal-scene[data-no-space]{display:none!important}
 .campaign-admin-preview::before,.campaign-admin-preview::after{display:none}
@@ -84,3 +84,11 @@ vellor-seasonal-scene[data-no-space]{display:none!important}
 @keyframes vll-scene-hands{0%,100%{transform:rotate(0)}50%{transform:rotate(95deg)}}
 @media(max-width:760px){vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(34px,12vw,70px)}[data-season-intensity="moderada"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(42px,14vw,83px)}[data-season-intensity="festiva"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(48px,16vw,94px)}}
 @media(prefers-reduced-motion:reduce){.campaign-scene-art [data-motion].is-active,.campaign-scene-art [data-motion].is-active [data-detail]{animation:none!important;filter:brightness(1.13)}}
+
+/* Edge-aligned scenes sit inside the header, below functional controls. */
+.site-header,.vll-site-header{overflow:hidden;overflow:clip}
+.site-header vellor-seasonal-scene.campaign-ornament,.vll-site-header vellor-seasonal-scene.campaign-ornament{z-index:0}
+.site-header .hd-left,.site-header .hd-right,.vll-site-header .vll-header-left,.vll-site-header .vll-header-right{z-index:2}
+.site-header .hd-left,.site-header .hd-right,.vll-site-header .vll-header-left,.vll-site-header .vll-header-right{pointer-events:none}
+.site-header .hd-left :is(a,button),.site-header .hd-right :is(a,button),.vll-site-header .vll-header-left :is(a,button),.vll-site-header .vll-header-right :is(a,button){pointer-events:auto}
+html[data-season] .site-header :is(.hd-left,.hd-right) :is(a,button),.vll-site-header[data-season] :is(.vll-header-left,.vll-header-right) :is(a,button){filter:drop-shadow(0 1px 2px rgba(0,0,0,.85))}

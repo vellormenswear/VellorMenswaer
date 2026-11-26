@@ -38,9 +38,10 @@ class SeasonalScene extends HTMLElement{
  }
  measure(){
   const host=this.parentElement,logo=host?.querySelector(':scope > .brand,:scope > .vll-brand,:scope > img');if(!host||!logo)return;
-  const a=host.getBoundingClientRect(),b=logo.getBoundingClientRect(),left=this.classList.contains('left'),nav=host.querySelector(left?':scope > .hd-left,:scope > .vll-header-left':':scope > .hd-right,:scope > .vll-header-right');
-  const n=nav?.getBoundingClientRect(),gap=a.width<=760?4:10;
-  const edge=Math.max(2,left?(n?n.right-a.left+gap:4):(n?a.right-n.left+gap:4));
+  const a=host.getBoundingClientRect(),b=logo.getBoundingClientRect(),left=this.classList.contains('left');
+  const gap=a.width<=760?4:10;
+  // Decorations hug the actual header edge. Navigation is layered above them.
+  const edge=0;
   const available=Math.floor((left?b.left-a.left:a.right-b.right)-edge-gap);
   this.style.setProperty('--scene-edge',edge+'px');this.style.setProperty('--scene-available',Math.max(0,available)+'px');
   this.toggleAttribute('data-no-space',available<24);
