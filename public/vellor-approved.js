@@ -10,7 +10,7 @@ function applyDepartmentTheme(value){
  const theme=['masculino','feminino'].includes(value)?value:'todos';
  document.documentElement.dataset.departmentTheme=theme;
  const brand=document.querySelector('.site-header .brand');
- if(brand)brand.setAttribute('aria-label',theme==='feminino'?'VELLOR Woman Wear — página inicial':'VELLOR Menswear — página inicial');
+ if(brand)brand.setAttribute('aria-label',(theme==='feminino'?'VELLOR Woman Wear':theme==='masculino'?'VELLOR Menswear':'VellorWear')+' — página inicial');
 }
 function bindDepartmentTheme(){
  const links=document.querySelectorAll('#vellor-departments a');
@@ -109,7 +109,8 @@ function renderDiscovery(){
  document.getElementById('vellor-leaf-crumb').textContent=pageLeaf?(leaf?.name||'Todos os produtos'):'';
  document.querySelector('#colecao h1').textContent=pageParent?(leaf?.name||parent?.name||'Produtos'):'Produtos';
  if(invalid)document.getElementById('vellor-subcategory-title').textContent='Categoria não encontrada';
- if(pageParent)document.title=(leaf?.name||parent?.name||'Categoria')+' — VELLOR Menswear';
+ const name=department==='masculino'?'VELLOR Menswear':department==='feminino'?'VELLOR Woman Wear':'VellorWear';
+ if(pageParent)document.title=(leaf?.name||parent?.name||'Categoria')+' — '+name;else document.title=name+' — Moda Masculina e Feminina';
 }
 function focusSearch(){if(location.hash==='#carrinho'){location.hash='busca';}document.getElementById('search').focus();}
 function slideProducts(direction){

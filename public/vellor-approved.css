@@ -487,3 +487,9 @@ html[data-department-theme="feminino"] .site-header::after,html[data-department-
 html[data-department-theme="feminino"] .site-header .brand .vellor-menswear-logo{opacity:0;}
 html[data-department-theme="feminino"] .site-header .brand .vellor-woman-logo{opacity:1;}
 @media(prefers-reduced-motion:reduce){.site-header::before,.site-header::after,.site-footer::before,.site-footer::after,.site-header .brand img{transition:opacity 180ms linear!important;}}
+
+/* Home brand: original artwork with WEAR subtitle; department logos fade in without shifting layout. */
+.site-header .brand .vellor-menswear-logo,.site-header .brand .vellor-woman-logo{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0;pointer-events:none;}
+html[data-department-theme="masculino"] .site-header .brand .vellor-wear-logo,html[data-department-theme="feminino"] .site-header .brand .vellor-wear-logo{opacity:0;}
+html[data-department-theme="masculino"] .site-header .brand .vellor-menswear-logo{opacity:1;}
+html[data-department-theme="feminino"] .site-header .brand .vellor-woman-logo{opacity:1;}

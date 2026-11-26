@@ -24,8 +24,8 @@ export default function Frame({children,user,logout}){
    <nav className="vll-header-left" aria-label="Ir à loja">
     <a href="/" className="vll-hd-link">EXPLORAR</a>
    </nav>
-   <Link className="vll-brand" href="/" aria-label="VELLOR Menswear — página inicial">
-    <img src="/logo-vellor.png" alt="VELLOR Menswear"/>
+   <Link className="vll-brand" href="/" aria-label="VellorWear — página inicial">
+    <img src="/logo-vellor-wear.svg" alt="VellorWear"/>
    </Link>
    <nav className="vll-header-right" aria-label="Acesso rápido">
     <a href="/#carrinho" className="vll-icon-link" title="Carrinho" aria-label="Meu carrinho">
@@ -44,7 +44,7 @@ export default function Frame({children,user,logout}){
    <div className="vll-footer-inner">
     <div className="vll-footer-top">
      <section className="vll-footer-brand">
-      <strong>VELLOR</strong><span>MENSWEAR · ELEGÂNCIA MASCULINA</span>
+      <strong>VELLOR</strong><span>WEAR · MODA MASCULINA E FEMININA</span>
       <p>Peças selecionadas para o seu estilo. Conte com nossa equipe para esclarecer dúvidas antes e depois da compra.</p>
      </section>
      <nav className="vll-footer-links" aria-label="Navegação do rodapé">
@@ -71,7 +71,7 @@ export default function Frame({children,user,logout}){
      </section>
     </div>
     <section className="vll-trust" aria-label="Compre com tranquilidade">
-     <div className="vll-trust-heading"><span>VELLOR MENSWEAR</span><h2>Compre com tranquilidade.</h2></div>
+     <div className="vll-trust-heading"><span>VELLOR WEAR</span><h2>Compre com tranquilidade.</h2></div>
      <div className="vll-trust-grid">
       <Link href="/termos-de-compra" className="vll-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2 20 6v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg><span><strong>Pagamento protegido</strong><small>Checkout processado pela InfinitePay.</small></span></Link>
       <Link href="/entregas" className="vll-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="12" height="12" rx="1"/><path d="M14.5 10h4l3 3v5h-7"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg><span><strong>Envio em até 3 dias</strong><small>Postagem após a confirmação do pagamento.</small></span></Link>
@@ -86,7 +86,7 @@ export default function Frame({children,user,logout}){
      <Link href="/termos-de-compra">Termos de compra</Link>
     </nav>
     <StoreIdentity/>
-    <div className="vll-footer-bottom"><span>VELLOR MENSWEAR</span><span>Atendimento e informações para sua compra.</span></div>
+    <div className="vll-footer-bottom"><span>VELLOR WEAR</span><span>Atendimento e informações para sua compra.</span></div>
    </div>
   </footer>
   {showSupport&&<SupportWidget/>}

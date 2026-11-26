@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 
-<html lang="pt-BR"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><meta content="#092f25" name="theme-color"/><title>VELLOR Menswear — Moda Masculina e Acessórios</title><meta content="VELLOR Menswear: relógios, vestuário, calçados e acessórios masculinos. Confira os modelos e variações disponíveis." name="description"/>
-<link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="/vellor-approved.css?v=20261126-departamentos-3" rel="stylesheet"/></head><body>
-<header class="site-header"><div class="hd-left"><button aria-label="Ir para categorias" class="icon-btn mobile-menu-icon" onclick="document.getElementById('vellor-root-nav').scrollIntoView({behavior:'smooth'});document.querySelector('.vellor-menu-trigger')?.focus()" type="button"><svg class="icon" viewbox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button></div><a aria-label="VELLOR Menswear — página inicial" class="brand" href="/"><img class="vellor-menswear-logo" alt="VELLOR Menswear" src="/logo-vellor.png"/><img class="vellor-woman-logo" alt="" aria-hidden="true" src="/logo-vellor-woman.svg?v=20261126-typography-2"/></a><div class="hd-right"><button aria-label="Ir para busca" class="icon-btn" onclick="focusSearch()" title="Buscar" type="button"><svg class="icon" viewbox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5"></path></svg></button><a aria-label="Minha conta" class="account-link" href="/conta" title="Minha conta"><svg aria-hidden="true" class="icon" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-2a8 8 0 0 1 16 0v2"></path></svg></a><button aria-label="Abrir carrinho" class="icon-btn" onclick="openCart()" type="button"><svg class="icon" viewbox="0 0 24 24"><path d="M5 9h14l-1 12H6L5 9ZM9 10V7a3 3 0 0 1 6 0v3"></path></svg><span class="count-dot" id="cart-count">0</span></button></div></header>
+<html lang="pt-BR"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><meta content="#092f25" name="theme-color"/><title>VellorWear — Moda Masculina e Feminina</title><meta content="VellorWear: relógios, vestuário, calçados e acessórios masculinos e femininos. Confira os modelos e variações disponíveis." name="description"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="/vellor-approved.css?v=20261126-vellorwear-1" rel="stylesheet"/></head><body>
+<header class="site-header"><div class="hd-left"><button aria-label="Ir para categorias" class="icon-btn mobile-menu-icon" onclick="document.getElementById('vellor-root-nav').scrollIntoView({behavior:'smooth'});document.querySelector('.vellor-menu-trigger')?.focus()" type="button"><svg class="icon" viewbox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button></div><a aria-label="VellorWear — página inicial" class="brand" href="/"><img class="vellor-wear-logo" alt="VellorWear" src="/logo-vellor-wear.svg"/><img class="vellor-menswear-logo" alt="" aria-hidden="true" src="/logo-vellor.png"/><img class="vellor-woman-logo" alt="" aria-hidden="true" src="/logo-vellor-woman.svg?v=20261126-typography-2"/></a><div class="hd-right"><button aria-label="Ir para busca" class="icon-btn" onclick="focusSearch()" title="Buscar" type="button"><svg class="icon" viewbox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5"></path></svg></button><a aria-label="Minha conta" class="account-link" href="/conta" title="Minha conta"><svg aria-hidden="true" class="icon" viewbox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-2a8 8 0 0 1 16 0v2"></path></svg></a><button aria-label="Abrir carrinho" class="icon-btn" onclick="openCart()" type="button"><svg class="icon" viewbox="0 0 24 24"><path d="M5 9h14l-1 12H6L5 9ZM9 10V7a3 3 0 0 1 6 0v3"></path></svg><span class="count-dot" id="cart-count">0</span></button></div></header>
 <div class="brand-top"></div><nav id="vellor-departments" class="vellor-departments" aria-label="Departamentos"><a href="/?departamento=masculino" data-department="masculino">Masculino</a><a href="/" data-department="todos">Início</a><a href="/?departamento=feminino" data-department="feminino">Feminino</a></nav><nav aria-label="Categorias da VELLOR" class="category-nav vellor-category-nav vellor-clean-nav" id="vellor-root-nav"><ul class="vellor-menu-list" id="vellor-category-rail" aria-label="Categorias principais"></ul></nav>
 <nav class="vellor-category-breadcrumb" id="vellor-category-breadcrumb" aria-label="Localização" hidden><a href="/">Vitrine</a><span aria-hidden="true">/</span><a id="vellor-parent-crumb" href="/"></a><span id="vellor-leaf-crumb"></span></nav>
 <main id="vellor-subcategory-panel" class="container" aria-labelledby="vellor-subcategory-title" hidden><h1 id="vellor-subcategory-title"></h1><p><a href="/">Voltar à vitrine</a></p></main>
@@ -10,7 +10,7 @@
 <main class="container" id="catalog-page"><section aria-label="Filtros de produtos" class="filters-row"><div class="filters-start"><button aria-controls="filter-panel" aria-expanded="false" class="filter-toggle" id="filter-toggle" onclick="toggleFilters()" type="button"><svg class="icon" viewbox="0 0 24 24"><path d="M4 7h16M8 12h8M11 17h2"></path></svg>Filtrar</button><span class="muted" id="count"></span></div><div class="filters-end"><div class="search-wrap"><input aria-label="Buscar produto" id="search" placeholder="Buscar produto..." type="search"/><svg class="icon" viewbox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5"></path></svg></div><select aria-label="Ordenar produtos" class="sort" id="sort" onchange="render()"><option value="featured">Destaques</option><option value="low">Menor preço</option><option value="high">Maior preço</option><option value="az">Nome A–Z</option></select></div></section>
 <section aria-label="Opções de filtro" class="filter-panel" id="filter-panel"><div class="filter-col"><label for="max-price">Preço máximo</label><select id="max-price" onchange="render()"><option value="">Todos os preços</option><option value="80">Até R$ 80</option><option value="120">Até R$ 120</option><option value="200">Até R$ 200</option><option value="350">Até R$ 350</option></select></div><div class="filter-col"><label for="color">Cor / variação</label><select id="color" onchange="render()"><option value="">Todas as cores</option><option>Preto</option><option>Prata</option><option>Branco</option><option>Azul</option><option>Dourado</option><option>Verde</option><option>Cinza</option><option>Bege</option></select></div><div class="filter-col" id="size-filter"><label for="size">Tamanho</label><select id="size" onchange="render()"><option value="">Todos os tamanhos</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>38</option><option>39</option><option>40</option><option>41</option><option>42</option><option>43</option><option>44</option></select></div><button class="reset-btn" onclick="resetFilters()" type="button">Limpar filtros</button></section>
 <section class="vellor-products-heading" id="colecao" aria-label="Modelos VELLOR">
- <div><p class="vellor-discovery-eyebrow">VELLOR MENSWEAR</p><h1>Destaques</h1></div><a class="vellor-nav-all" id="vellor-all-products" href="/produtos">Ver todos os produtos</a>
+ <div><p class="vellor-discovery-eyebrow">VELLOR WEAR</p><h1>Destaques</h1></div><a class="vellor-nav-all" id="vellor-all-products" href="/produtos">Ver todos os produtos</a>
 </section>
 <div class="vellor-carousel-shell">
  <button type="button" class="vellor-carousel-arrow vellor-carousel-prev" id="vellor-products-prev" onclick="slideProducts(-1)" aria-label="Ver produtos anteriores" disabled><svg class="vellor-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 5-7 7 7 7"></path></svg></button>
@@ -21,14 +21,14 @@
 <!-- Carrinho em uma página própria (hash #carrinho) -->
 <section aria-label="Página do carrinho de compras" class="cart-page container" hidden="" id="cart-page">
 <div class="cart-breadcrumb"><button onclick="closeCart()" type="button">← Voltar à loja</button><span>VELLOR <span class="crumb-divider">/</span> Carrinho</span></div>
-<div class="cart-page-heading"><div><p class="cart-eyebrow">VELLOR MENSWEAR</p><h1>Meu carrinho</h1><p class="cart-page-subtitle" id="cart-heading-count">Confira os produtos selecionados.</p></div><button class="cart-shop-again" onclick="closeCart()" type="button">Continuar comprando <svg class="vellor-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"></path></svg></button></div>
+<div class="cart-page-heading"><div><p class="cart-eyebrow">VELLOR WEAR</p><h1>Meu carrinho</h1><p class="cart-page-subtitle" id="cart-heading-count">Confira os produtos selecionados.</p></div><button class="cart-shop-again" onclick="closeCart()" type="button">Continuar comprando <svg class="vellor-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"></path></svg></button></div>
 <div class="cart-page-grid">
 <div class="cart-products-panel">
 <div aria-hidden="true" class="cart-list-head"><span>Produto</span><span>Valor unitário</span><span>Quantidade</span><span>Valor total</span></div>
 <div aria-live="polite" class="cart-list" id="cart-list"></div>
 </div>
 <aside aria-label="Resumo da compra" class="cart-summary">
-<p class="cart-summary-kicker">VELLOR MENSWEAR</p><h2>Resumo do pedido</h2>
+<p class="cart-summary-kicker">VELLOR WEAR</p><h2>Resumo do pedido</h2>
 <div class="cart-summary-line"><span>Quantidade de itens</span><strong id="cart-quantity">0</strong></div>
 <div class="cart-summary-line"><span>Subtotal dos produtos</span><strong id="cart-subtotal">R$ 0,00</strong></div>
 <div class="cart-summary-divider"></div>
@@ -47,7 +47,7 @@
   <div class="vellor-footer-top">
    <section class="vellor-footer-brand" aria-label="VELLOR Menswear">
     <div class="footer-title">VELLOR</div>
-    <p class="vellor-footer-subtitle">MENSWEAR · ELEGÂNCIA MASCULINA</p>
+    <p class="vellor-footer-subtitle">WEAR · MODA MASCULINA E FEMININA</p>
     <p>Peças selecionadas para o seu estilo. Conte com nosso atendimento para esclarecer dúvidas antes e depois da compra.</p>
    </section>
    <nav class="vellor-footer-links" aria-label="Links úteis">
@@ -73,7 +73,7 @@
    </section>
   </div>
   <section class="vellor-trust" aria-label="Compre com tranquilidade">
-   <div class="vellor-trust-title"><span>VELLOR MENSWEAR</span><h2>Compre com tranquilidade.</h2></div>
+   <div class="vellor-trust-title"><span>VELLOR WEAR</span><h2>Compre com tranquilidade.</h2></div>
    <div class="vellor-trust-grid">
    <a href="/termos-de-compra" class="vellor-trust-item">
     <span class="vellor-trust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 20 6v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></span>
@@ -116,7 +116,7 @@
    <a href="/termos-de-compra">Termos de compra</a>
   </nav>
   <section class="vellor-company-disclosure" id="vellor-legal-identity" aria-label="Identificação do responsável comercial" hidden></section>
-  <div class="vellor-footer-bottom"><span>VELLOR MENSWEAR</span><span>Atendimento e informações para sua compra.</span></div>
+  <div class="vellor-footer-bottom"><span>VELLOR WEAR</span><span>Atendimento e informações para sua compra.</span></div>
  </div>
 </footer>
 <div class="vellor-support" id="vellor-support">
@@ -133,4 +133,4 @@
 <link href="/vellor-support.css?v=20261124-support-v2" rel="stylesheet"/><script defer src="/vellor-support.js?v=20261124-support-v2"></script>
 <dialog class="modal-overlay" id="product-modal" aria-label="Detalhes do produto" onclick="if(event.target===this)closeProduct()"><article class="detail-modal" id="detail"></article></dialog>
 <script id="catalog" type="application/json">[]</script>
-<script defer src="/checkout-trace.js?v=20261122"></script><script defer src="/vellor-category-defaults.js?v=20261124"></script><script defer src="/vellor-approved.js?v=20261126-departamentos-3"></script><script defer src="/vellor-identity.js?v=20261123-legal"></script></body></html>
+<script defer src="/checkout-trace.js?v=20261122"></script><script defer src="/vellor-category-defaults.js?v=20261124"></script><script defer src="/vellor-approved.js?v=20261126-vellorwear-1"></script><script defer src="/vellor-identity.js?v=20261123-legal"></script></body></html>
