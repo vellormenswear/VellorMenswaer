@@ -15,12 +15,14 @@ function applyDepartmentTheme(value){
 function bindDepartmentTheme(){
  const links=document.querySelectorAll('#vellor-departments a');
  const restore=()=>applyDepartmentTheme(department||'todos');
+ document.documentElement.setAttribute('data-department-initializing','');
  restore();
+ requestAnimationFrame(()=>requestAnimationFrame(()=>document.documentElement.removeAttribute('data-department-initializing')));
  links.forEach(link=>{
   link.addEventListener('pointerenter',e=>{if(e.pointerType!=='touch')applyDepartmentTheme(link.dataset.department)});
   link.addEventListener('pointerleave',e=>{if(e.pointerType!=='touch'&&!e.relatedTarget?.closest?.('#vellor-departments a'))restore()});
   link.addEventListener('focus',()=>applyDepartmentTheme(link.dataset.department));
-  link.addEventListener('blur',restore);
+  link.addEventListener('blur',e=>{if(!e.relatedTarget?.closest?.('#vellor-departments a'))restore()});
  });
  window.addEventListener('pageshow',restore);
 }
