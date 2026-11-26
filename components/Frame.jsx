@@ -1,11 +1,15 @@
 'use client';
-import {useState} from 'react';
+import {useState,useEffect} from 'react';
+import {THEMES} from '@/lib/campaigns.mjs';
 import Link from 'next/link';
 import SupportWidget from '@/components/SupportWidget';
 import StoreIdentity from '@/components/StoreIdentity';
 import {logoutAndRedirect} from '@/lib/logout-client.mjs';
 
 export default function Frame({children,user,logout}){
+ const [campaign,setCampaign]=useState(null);
+ useEffect(()=>{let active=true;const refresh=()=>fetch('/api/store/campaign',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(active&&j)setCampaign(j.campaign)}).catch(()=>{});refresh();const timer=setInterval(refresh,60000);return()=>{active=false;clearInterval(timer)}},[]);
+ const theme=campaign?.decoration&&Object.hasOwn(THEMES,campaign.theme)?campaign.theme:undefined;
  const [signingOut,setSigningOut]=useState(false);
  const [logoutError,setLogoutError]=useState('');
  async function handleSignOut(){
@@ -20,7 +24,7 @@ export default function Frame({children,user,logout}){
  const isSupplier=user?.role==='supplier';
  const showSupport=!isAdmin&&!isSupplier;
  return <>
-  <header className="vll-site-header">
+  <header className="vll-site-header" data-season={theme} data-season-intensity={theme?campaign.intensity:undefined}>
    <nav className="vll-header-left" aria-label="Ir à loja">
     <a href="/" className="vll-hd-link">EXPLORAR</a>
    </nav>
@@ -36,11 +40,13 @@ export default function Frame({children,user,logout}){
     </Link>
     {user&&<button className="vll-signout" type="button" disabled={signingOut} onClick={handleSignOut}>{signingOut?'SAINDO...':'SAIR'}</button>}
    </nav>
+   {theme&&<><span className="campaign-ornament left" aria-hidden="true"/><span className="campaign-ornament right" aria-hidden="true"/></>}
   </header>
+  {campaign&&(campaign.headline||campaign.message)&&<aside className="campaign-announcement" data-season={theme}><strong>{campaign.headline}</strong><small>{campaign.message}</small></aside>}
   <div className="vll-brand-top" aria-hidden="true"/>
   {logoutError&&<p className="notice error" role="alert">{logoutError}</p>}
   <div className="vll-layout-content">{children}</div>
-  <footer className="vll-app-footer" aria-label="Informações VELLOR">
+  <footer className="vll-app-footer" data-season={theme} aria-label="Informações VELLOR">
    <div className="vll-footer-inner">
     <div className="vll-footer-top">
      <section className="vll-footer-brand">
