@@ -6,6 +6,25 @@ const tid=()=>window.VellorTrace?.id||null;
 let categoryTree=DEFAULT_CATEGORY_TREE,categoryTreeReady=false;
 const routeSlug=location.pathname.match(/^\/([a-z0-9-]+)\/?$/)?.[1]||null;
 const department=['masculino','feminino'].includes(new URLSearchParams(location.search).get('departamento'))?new URLSearchParams(location.search).get('departamento'):null;
+function applyDepartmentTheme(value){
+ const theme=['masculino','feminino'].includes(value)?value:'todos';
+ document.documentElement.dataset.departmentTheme=theme;
+ const brand=document.querySelector('.site-header .brand');
+ if(brand)brand.setAttribute('aria-label',theme==='feminino'?'VELLOR Woman Wear — página inicial':'VELLOR Menswear — página inicial');
+}
+function bindDepartmentTheme(){
+ const links=document.querySelectorAll('#vellor-departments a');
+ const restore=()=>applyDepartmentTheme(department||'todos');
+ restore();
+ links.forEach(link=>{
+  link.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')applyDepartmentTheme(link.dataset.department)});
+  link.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')restore()});
+  link.addEventListener('focus',()=>applyDepartmentTheme(link.dataset.department));
+  link.addEventListener('blur',restore);
+ });
+ window.addEventListener('pageshow',restore);
+}
+bindDepartmentTheme();
 const departmentSuffix=department?'?departamento='+department:'';
 const departmentMatches=p=>!department||p.department===department;
 const fullCatalog=routeSlug==='produtos'||new URLSearchParams(location.search).get('catalogo')==='1';
