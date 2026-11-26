@@ -1,7 +1,7 @@
 import {sql,transaction,auditTx} from '@/lib/db';import {requireRole} from '@/lib/auth';import {ok,fail,ensure,body,originGuard,uuid,HttpError} from '@/lib/http';import {THEMES,validCampaign,calendarReminders,FEE_BUFFER_BPS} from '@/lib/campaigns.mjs';import {CATALOG_FROM,CATALOG_WHERE} from '@/lib/catalog-query.mjs';import {promotionalPrice} from '@/lib/campaign-pricing.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 export async function GET(req){try{const u=await requireRole(req,['admin','super_admin']);const campaigns=(await sql('SELECT * FROM store_campaigns ORDER BY created_at DESC LIMIT 250')).rows;const decisions=(await sql('SELECT * FROM campaign_reminder_decisions WHERE user_id=$1',[u.id])).rows;
- const reminders=calendarReminders().filter(e=>!decisions.some(d=>d.theme===e.id&&d.event_year===e.year&&(d.decision==='ignore'||d.stage===e.stage))&&!campaigns.some(c=>c.theme===e.id&&c.enabled&&String(new Date(c.starts_at).getUTCFullYear())===String(e.year)));
+ const reminders=calendarReminders().filter(e=>!decisions.some(d=>d.theme===e.id&&d.event_year===e.year&&(d.decision==='ignore'||(d.stage===e.stage&&Date.now()-Date.parse(d.updated_at)<2*86400000)))&&!campaigns.some(c=>c.theme===e.id&&c.enabled&&new Date(c.starts_at)<=new Date(e.date+'T23:59:59-03:00')&&new Date(c.ends_at)>=new Date(e.date+'T00:00:00-03:00')));
  const products=(await sql("SELECT p.id,p.name,p.department,array_agg(v.sku ORDER BY v.sku) skus FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.launch_archived_at IS NULL AND p.active AND NOT p.hidden GROUP BY p.id ORDER BY p.name,p.id LIMIT 5000")).rows;
  return ok({campaigns,reminders,products,fee_buffer_bps:FEE_BUFFER_BPS,pix_ready:false});
 }catch(e){return fail(e)}}

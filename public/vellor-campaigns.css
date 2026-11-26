@@ -1,17 +1,17 @@
-html[data-season="reveillon"],.campaign-admin-preview[data-season="reveillon"]{--season-left:#142538;--season-mid:#24272e;--season-right:#34303e;--season-accent:#e6d8bb;--season-ornament:url('/campaign-balls.svg')}
-html[data-season="carnaval"],.campaign-admin-preview[data-season="carnaval"]{--season-left:#103b36;--season-mid:#252334;--season-right:#421c46;--season-accent:#e1bb68;--season-ornament:url('/campaign-confetti.svg')}
-html[data-season="pascoa"],.campaign-admin-preview[data-season="pascoa"]{--season-left:#483024;--season-mid:#34272c;--season-right:#38254c;--season-accent:#d8be8a;--season-ornament:url('/campaign-eggs.svg')}
-html[data-season="maes"],.campaign-admin-preview[data-season="maes"]{--season-left:#402637;--season-mid:#35252d;--season-right:#692a43;--season-accent:#e5b0c0;--season-ornament:url('/campaign-flowers.svg')}
-html[data-season="namorados"],.campaign-admin-preview[data-season="namorados"]{--season-left:#46202a;--season-mid:#38242f;--season-right:#702038;--season-accent:#ec9fac;--season-ornament:url('/campaign-hearts.svg')}
-html[data-season="pais"],.campaign-admin-preview[data-season="pais"]{--season-left:#182e45;--season-mid:#302b30;--season-right:#483325;--season-accent:#c7aa78;--season-ornament:url('/campaign-stars.svg')}
-html[data-season="halloween"],.campaign-admin-preview[data-season="halloween"]{--season-left:#60300f;--season-mid:#29202b;--season-right:#36164c;--season-accent:#ee9b47;--season-ornament:url('/campaign-pumpkins.svg')}
-html[data-season="blackfriday"],.campaign-admin-preview[data-season="blackfriday"]{--season-left:#141414;--season-mid:#242119;--season-right:#493616;--season-accent:#e9c85c;--season-ornament:url('/campaign-tags.svg')}
-html[data-season="natal"],.campaign-admin-preview[data-season="natal"]{--season-left:#103b2c;--season-mid:#30252a;--season-right:#66202b;--season-accent:#d9bf82;--season-ornament:url('/campaign-christmas.svg')}
-html[data-season] .vll-site-header,html[data-season] .vll-app-footer{background:linear-gradient(90deg,var(--season-left,#10362c),var(--season-mid,#242326),var(--season-right,#401328))}
+[data-season="reveillon"]{--season-left:#142538;--season-mid:#24272e;--season-right:#34303e;--season-accent:#e6d8bb;--season-ornament:url('/campaign-balls.svg')}
+[data-season="carnaval"]{--season-left:#103b36;--season-mid:#252334;--season-right:#421c46;--season-accent:#e1bb68;--season-ornament:url('/campaign-confetti.svg')}
+[data-season="pascoa"]{--season-left:#483024;--season-mid:#34272c;--season-right:#38254c;--season-accent:#d8be8a;--season-ornament:url('/campaign-eggs.svg')}
+[data-season="maes"]{--season-left:#402637;--season-mid:#35252d;--season-right:#692a43;--season-accent:#e5b0c0;--season-ornament:url('/campaign-flowers.svg')}
+[data-season="namorados"]{--season-left:#46202a;--season-mid:#38242f;--season-right:#702038;--season-accent:#ec9fac;--season-ornament:url('/campaign-hearts.svg')}
+[data-season="pais"]{--season-left:#182e45;--season-mid:#302b30;--season-right:#483325;--season-accent:#c7aa78;--season-ornament:url('/campaign-stars.svg')}
+[data-season="halloween"]{--season-left:#60300f;--season-mid:#29202b;--season-right:#36164c;--season-accent:#ee9b47;--season-ornament:url('/campaign-pumpkins.svg')}
+[data-season="blackfriday"]{--season-left:#141414;--season-mid:#242119;--season-right:#493616;--season-accent:#e9c85c;--season-ornament:url('/campaign-tags.svg')}
+[data-season="natal"]{--season-left:#103b2c;--season-mid:#30252a;--season-right:#66202b;--season-accent:#d9bf82;--season-ornament:url('/campaign-christmas.svg')}
+.vll-site-header[data-season],.vll-app-footer[data-season]{background:linear-gradient(90deg,var(--season-left,#10362c),var(--season-mid,#242326),var(--season-right,#401328))}
 .campaign-ornament{position:absolute;top:2px;width:clamp(28px,5vw,66px);height:40px;pointer-events:none;background:var(--season-ornament) center/contain no-repeat;opacity:.8;z-index:0;}
 .campaign-ornament.left{left:clamp(3px,2vw,24px)}.campaign-ornament.right{right:clamp(3px,2vw,24px);transform:scaleX(-1)}
-html:not([data-season]) .campaign-ornament{display:none}html[data-season-intensity="moderada"] .campaign-ornament{opacity:.94;height:46px}html[data-season-intensity="festiva"] .campaign-ornament{opacity:1;height:50px}
-.vll-site-header{position:relative}.site-header .brand,.vll-site-header .vll-brand{z-index:1}
+html:not([data-season]) .site-header .campaign-ornament{display:none}[data-season-intensity="moderada"] .campaign-ornament{opacity:.94;height:46px}[data-season-intensity="festiva"] .campaign-ornament{opacity:1;height:50px}
+.site-header .brand,.vll-site-header .vll-brand{z-index:1}
 .campaign-announcement{background:var(--season-mid,#242326);color:#fff8e9;text-align:center;padding:10px 18px;font-size:13px;line-height:1.5;border-bottom:1px solid var(--season-accent,#b79b65)}.campaign-announcement[hidden]{display:none!important}.campaign-announcement strong{display:block;color:#f2e5c9;font-weight:600;letter-spacing:.025em}.campaign-announcement small{display:block;color:#efe8de}
 .campaign-original-price{color:#777;font-size:.8em;font-weight:400;margin-right:4px}
 .campaign-admin-preview{height:120px;position:relative;display:grid;place-items:center;border-radius:6px;margin:12px 0;overflow:hidden}.campaign-admin-preview img{width:min(72%,280px);height:auto;position:relative;z-index:1}.campaign-admin-preview::before,.campaign-admin-preview::after{content:"";position:absolute;top:8px;width:55px;height:45px;background:var(--season-ornament) center/contain no-repeat}.campaign-admin-preview::before{left:12px}.campaign-admin-preview::after{right:12px;transform:scaleX(-1)}

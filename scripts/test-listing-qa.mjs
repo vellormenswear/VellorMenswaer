@@ -37,5 +37,18 @@ if(process.env.VERCEL_ENV==='preview'&&['vellor-stability-qa-20261125','vellor-d
   assert.equal((await sql('SELECT department FROM products WHERE id=$1',[single.id])).rows[0].department,'feminino');assert.equal((await sql('SELECT department FROM products WHERE id=$1',[saved.id])).rows[0].department,'masculino');
   console.log('[listing.qa] departamentos persistidos corretamente');
   console.log('[listing.qa] variação única automática com tamanho e cotação aprovada');
+  if((await sql("SELECT to_regclass('public.store_campaigns') AS table_name")).rows[0].table_name){
+   const {CAMPAIGN_JOIN,CAMPAIGN_PRICE}=await import('../lib/campaign-pricing.mjs');
+   const {CATALOG_FROM,CATALOG_WHERE}=await import('../lib/catalog-query.mjs');
+   const campaign=(await sql("INSERT INTO store_campaigns(name,theme,starts_at,ends_at,enabled,decoration,store_bps,product_discounts,created_by) VALUES($1,'natal',now()-interval '1 minute',now()+interval '5 minutes',true,false,1000,$2,$3) RETURNING id",['QA campaign '+randomUUID(),JSON.stringify({[saved.id]:2000}),actor])).rows[0];
+   try{
+    const discounted=await quoteCart([{sku:black.sku,qty:1,size:'39'}]);assert.equal(discounted.total_cents,9600);
+    const global=await quoteCart([{sku:only[0].sku,qty:1,size:'39'}]);assert.equal(global.total_cents,9000);
+    const locked=(await sql("SELECT v.price_cents AS original_price_cents,("+CAMPAIGN_PRICE+") AS final_cents,v.supplier_cost_cents "+CATALOG_FROM+" "+CAMPAIGN_JOIN+" WHERE "+CATALOG_WHERE+" AND v.sku=$1",[black.sku])).rows[0];assert.equal(locked.original_price_cents,12000);assert.equal(locked.final_cents,9600);assert.equal(locked.supplier_cost_cents,6000);
+    await sql("UPDATE store_campaigns SET store_bps=9000,product_discounts='{}' WHERE id=$1",[campaign.id]);assert.equal((await quoteCart([{sku:black.sku,qty:1,size:'39'}])).total_cents,12000);
+    await sql("UPDATE store_campaigns SET store_bps=1000,ends_at=now()-interval '1 second',starts_at=now()-interval '2 minutes' WHERE id=$1",[campaign.id]);assert.equal((await quoteCart([{sku:black.sku,qty:1,size:'39'}])).total_cents,12000);
+    console.log('[campaign.qa] desconto geral, individual, custo, proteção financeira e expiração aprovados');
+   }finally{await sql('UPDATE store_campaigns SET enabled=false WHERE id=$1',[campaign.id]);}
+  }
  }finally{await db().end();}
 }else console.log('[listing.qa] testes de gravação restritos à prévia QA');
