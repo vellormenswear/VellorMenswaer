@@ -73,25 +73,16 @@ function render(host,state){
   }catch(e){/* The independent fallback stays visible and animated. */}
  })
 }
-var motion=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):null;
-try{var preference=localStorage.getItem('vellor-season-motion');if(preference==='on'||preference==='off')root.setAttribute('data-season-motion',preference)}catch(e){}
-function motionControl(){
- var host=document.querySelector('.site-header vellor-seasonal-scene,.vll-site-header vellor-seasonal-scene'),button=document.getElementById('vellor-motion-control');
- if(!host||(!(motion&&motion.matches)&&!root.hasAttribute('data-season-motion'))){if(button&&button.parentNode)button.parentNode.removeChild(button);return}
- var parent=host.parentNode.nextElementSibling;
- if(!parent||!parent.classList.contains('campaign-announcement')||parent.hidden)parent=host.parentNode;
- if(!button){button=document.createElement('button');button.id='vellor-motion-control';button.className='campaign-motion-control';button.type='button';button.addEventListener('click',function(){var next=isOn()?'off':'on';root.setAttribute('data-season-motion',next);try{localStorage.setItem('vellor-season-motion',next)}catch(e){}motionControl()})}
- var label=isOn()?'Pausar animações':'Ativar animações';if(button.textContent!==label)button.textContent=label;
- button.setAttribute('aria-pressed',isOn()?'true':'false');if(button.parentNode!==parent)parent.appendChild(button)
-}
-function isOn(){var v=root.getAttribute('data-season-motion');return v==='on'||(v!=='off'&&!(motion&&motion.matches))}
+// Campaign activation is controlled only by the administration panel.
+root.removeAttribute('data-season-motion');
+try{localStorage.removeItem('vellor-season-motion')}catch(e){}
 var resize=window.ResizeObserver?new ResizeObserver(function(){scenes.forEach(function(s){measure(s.host)})}):null;
 function scan(){scheduled=false;scenes=scenes.filter(function(s){if(attached(s.host))return true;clearTimeout(s.timer);s.rev++;if(resize&&s.parent&&!attached(s.parent))resize.unobserve(s.parent);return false});
  arr(document.querySelectorAll('vellor-seasonal-scene.campaign-ornament')).forEach(function(host){var s=null;for(var i=0;i<scenes.length;i++)if(scenes[i].host===host){s=scenes[i];break}
  if(!s){s={host:host,parent:host.parentNode,rev:0,failures:0,theme:null};scenes.push(s);if(resize&&s.parent)resize.observe(s.parent)}
- var theme=host.getAttribute('data-theme');if(s.theme!==theme){s.theme=theme;s.failures=0;clearTimeout(s.timer);render(host,s)}measure(host)});motionControl()}
+ var theme=host.getAttribute('data-theme');if(s.theme!==theme){s.theme=theme;s.failures=0;clearTimeout(s.timer);render(host,s)}measure(host)})}
 function schedule(){if(scheduled)return;scheduled=true;(window.requestAnimationFrame||function(f){setTimeout(f,16)})(scan)}
 if(window.MutationObserver)new MutationObserver(schedule).observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['data-theme','data-season','data-season-intensity','hidden']});else setInterval(schedule,1500);
 window.addEventListener('resize',schedule);window.addEventListener('load',schedule);window.addEventListener('pageshow',schedule);document.addEventListener('visibilitychange',function(){if(!document.hidden)schedule()});
-if(motion){if(motion.addEventListener)motion.addEventListener('change',motionControl);else if(motion.addListener)motion.addListener(motionControl)}schedule()
+schedule()
 })();
