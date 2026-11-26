@@ -5,15 +5,17 @@ import {shippingDeadline,isShipmentPending,shippingAlerts} from '../lib/shipping
 import {isBrazilianDocument,normalizeIdentity,publicLegalIdentity} from '../lib/store-identity.mjs';
 import {customerOrderLabel,customerPaymentLabel,customerRequestLabel} from '../lib/customer-order-status.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-test('setas laterais são posicionadas sobre as imagens',()=>{
+test('setas verticais ficam acima e abaixo dos cards',()=>{
  const html=read('public/vitrine.html'),css=read('public/vellor-approved.css');
  assert.equal(html.split('id="vellor-products-prev"').length-1,1);
  assert.equal(html.split('id="vellor-products-next"').length-1,1);
  const shell=html.slice(html.indexOf('class="vellor-carousel-shell"'),html.indexOf('id="cart-page"'));
  for(const name of ['vellor-carousel-prev','vellor-carousel-next','id="grid"'])assert.ok(shell.includes(name));
- assert.ok(css.includes('position:absolute;top:31%'));
- assert.ok(css.includes('.vellor-carousel-prev{left:'));
- assert.ok(css.includes('.vellor-carousel-next{right:'));
+ assert.ok(shell.indexOf('id="vellor-products-prev"')<shell.indexOf('id="grid"'));
+ assert.ok(shell.indexOf('id="vellor-products-next"')>shell.indexOf('id="grid"'));
+ assert.ok(css.includes('.vellor-carousel-prev{margin-bottom:'));
+ assert.ok(css.includes('.vellor-carousel-next{margin-top:'));
+ assert.ok(css.includes('margin-inline:auto'));
 });
 test('busca de categoria inclui todos os descendentes e reconhece subcategorias',()=>{
  const js=read('public/vellor-approved.js'),defaults=read('public/vellor-category-defaults.js');
