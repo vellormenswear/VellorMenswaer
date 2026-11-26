@@ -20,7 +20,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  if(action==='forgot'){
  const mail=email(x.email);await limitRequest(req,'forgot',{identity:mail});const token=randomToken();
  const issued=process.env.RESEND_API_KEY&&process.env.EMAIL_FROM?await transaction(async c=>{const result=await c.query('SELECT id FROM users WHERE email=$1 AND suspended_at IS NULL AND launch_archived_at IS NULL FOR UPDATE',[mail]);if(!result.rowCount)return false;await c.query("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval'30 minutes')",[result.rows[0].id,sha256(token)]);return true}):false;
- if(issued){const url=new URL('/conta?reset='+encodeURIComponent(token),process.env.SITE_URL||new URL(req.url).origin);await sendMail(mail,'Vellor Menswear — redefinição de senha',`<p>Você solicitou a redefinição da senha.</p><p><a href="${url}">Redefinir senha (30 minutos)</a></p><p>Se não foi você, ignore esta mensagem.</p>`)}
+ if(issued){const url=new URL('/conta?reset='+encodeURIComponent(token),process.env.SITE_URL||new URL(req.url).origin);await sendMail(mail,'VellorWear — redefinição de senha',`<p>Você solicitou a redefinição da senha.</p><p><a href="${url}">Redefinir senha (30 minutos)</a></p><p>Se não foi você, ignore esta mensagem.</p>`)}
  return ok({message:'Se o e-mail existir e o envio estiver configurado, enviaremos as instruções.'});
  }
  if(action==='reset'){

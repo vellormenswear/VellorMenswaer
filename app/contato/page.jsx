@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Frame from '@/components/Frame';
-export const metadata={title:'Contato | VELLOR Menswear',description:'Entre em contato com a equipe VELLOR.'};
+export const metadata={title:'Contato | VellorWear',description:'Entre em contato com a equipe VELLOR.'};
 export default function Contato(){return <Frame user={null}>
  <main className="page vll-policy" id="conteudo">
   <nav className="vll-policy-crumb" aria-label="Navegação estrutural"><Link href="/">VELLOR</Link><span aria-hidden="true">/</span><span>Contato</span></nav>
