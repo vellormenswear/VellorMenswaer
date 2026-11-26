@@ -1,12 +1,12 @@
-[data-season="reveillon"]{--season-left:#142538;--season-mid:#24272e;--season-right:#34303e;--season-accent:#e6d8bb;--season-ornament:url('/campaign-balls.svg?v=2')}
-[data-season="carnaval"]{--season-left:#103b36;--season-mid:#252334;--season-right:#421c46;--season-accent:#e1bb68;--season-ornament:url('/campaign-confetti.svg?v=2')}
-[data-season="pascoa"]{--season-left:#483024;--season-mid:#34272c;--season-right:#38254c;--season-accent:#d8be8a;--season-ornament:url('/campaign-eggs.svg?v=2')}
-[data-season="maes"]{--season-left:#402637;--season-mid:#35252d;--season-right:#692a43;--season-accent:#e5b0c0;--season-ornament:url('/campaign-flowers.svg?v=2')}
-[data-season="namorados"]{--season-left:#46202a;--season-mid:#38242f;--season-right:#702038;--season-accent:#ec9fac;--season-ornament:url('/campaign-hearts.svg?v=2')}
-[data-season="pais"]{--season-left:#182e45;--season-mid:#302b30;--season-right:#483325;--season-accent:#c7aa78;--season-ornament:url('/campaign-stars.svg?v=2')}
-[data-season="halloween"]{--season-left:#60300f;--season-mid:#29202b;--season-right:#36164c;--season-accent:#ee9b47;--season-ornament:url('/campaign-pumpkins.svg?v=2')}
-[data-season="blackfriday"]{--season-left:#141414;--season-mid:#242119;--season-right:#493616;--season-accent:#e9c85c;--season-ornament:url('/campaign-tags.svg?v=2')}
-[data-season="natal"]{--season-left:#103b2c;--season-mid:#30252a;--season-right:#66202b;--season-accent:#d9bf82;--season-ornament:url('/campaign-christmas.svg?v=2')}
+[data-season="reveillon"]{--season-left:#142538;--season-mid:#24272e;--season-right:#34303e;--season-accent:#e6d8bb;--season-ornament:url('/campaign-balls.svg?v=3')}
+[data-season="carnaval"]{--season-left:#103b36;--season-mid:#252334;--season-right:#421c46;--season-accent:#e1bb68;--season-ornament:url('/campaign-confetti.svg?v=3')}
+[data-season="pascoa"]{--season-left:#483024;--season-mid:#34272c;--season-right:#38254c;--season-accent:#d8be8a;--season-ornament:url('/campaign-eggs.svg?v=3')}
+[data-season="maes"]{--season-left:#402637;--season-mid:#35252d;--season-right:#692a43;--season-accent:#e5b0c0;--season-ornament:url('/campaign-flowers.svg?v=3')}
+[data-season="namorados"]{--season-left:#46202a;--season-mid:#38242f;--season-right:#702038;--season-accent:#ec9fac;--season-ornament:url('/campaign-hearts.svg?v=3')}
+[data-season="pais"]{--season-left:#182e45;--season-mid:#302b30;--season-right:#483325;--season-accent:#c7aa78;--season-ornament:url('/campaign-stars.svg?v=3')}
+[data-season="halloween"]{--season-left:#60300f;--season-mid:#29202b;--season-right:#36164c;--season-accent:#ee9b47;--season-ornament:url('/campaign-pumpkins.svg?v=3')}
+[data-season="blackfriday"]{--season-left:#141414;--season-mid:#242119;--season-right:#493616;--season-accent:#e9c85c;--season-ornament:url('/campaign-tags.svg?v=3')}
+[data-season="natal"]{--season-left:#103b2c;--season-mid:#30252a;--season-right:#66202b;--season-accent:#d9bf82;--season-ornament:url('/campaign-christmas.svg?v=3')}
 .vll-site-header[data-season],.vll-app-footer[data-season]{background:linear-gradient(90deg,var(--season-left,#10362c),var(--season-mid,#242326),var(--season-right,#401328))}
 .campaign-ornament{position:absolute;top:2px;width:clamp(28px,5vw,66px);height:40px;pointer-events:none;background:var(--season-ornament) center/contain no-repeat;opacity:.8;z-index:0;}
 .campaign-ornament.left{left:clamp(3px,2vw,24px)}.campaign-ornament.right{right:clamp(3px,2vw,24px);transform:scaleX(-1)}
@@ -37,3 +37,7 @@ html:not([data-season]) .site-header .campaign-ornament{display:none}[data-seaso
 [data-season-intensity="moderada"] .campaign-ornament,.campaign-admin-preview[data-season-intensity="moderada"]::before,.campaign-admin-preview[data-season-intensity="moderada"]::after{filter:drop-shadow(0 2px 1px rgba(0,0,0,.85)) drop-shadow(0 6px 6px rgba(0,0,0,.64)) drop-shadow(0 -1px 3px rgba(255,219,153,.25)) brightness(1.1) contrast(1.07)}
 [data-season-intensity="festiva"] .campaign-ornament,.campaign-admin-preview[data-season-intensity="festiva"]::before,.campaign-admin-preview[data-season-intensity="festiva"]::after{filter:drop-shadow(0 2px 2px rgba(0,0,0,.88)) drop-shadow(0 8px 7px rgba(0,0,0,.68)) drop-shadow(0 -1px 4px rgba(255,219,153,.34)) brightness(1.14) contrast(1.09)}
 @media(max-width:760px){.campaign-ornament{filter:drop-shadow(0 1px 1px rgba(0,0,0,.82)) drop-shadow(0 3px 3px rgba(0,0,0,.54)) drop-shadow(0 -1px 1px rgba(255,219,153,.2)) brightness(1.08) contrast(1.05)}}
+
+/* Grounded seasonal scenes, aligned to the lower header edge. */
+.campaign-ornament{top:auto;bottom:0;background-position:left bottom}.campaign-admin-preview::before,.campaign-admin-preview::after{top:auto;bottom:0;background-position:left bottom}
+@media(max-width:760px){.campaign-ornament,.campaign-ornament.left,.campaign-ornament.right{top:auto;bottom:0}}
