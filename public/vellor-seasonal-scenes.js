@@ -3,7 +3,7 @@
 if(!window.customElements||customElements.get('vellor-seasonal-scene'))return;
 const assets=Object.freeze({reveillon:'balls',carnaval:'confetti',pascoa:'eggs',maes:'flowers',namorados:'hearts',pais:'stars',halloween:'pumpkins',blackfriday:'tags',natal:'christmas'});
 const cache=new Map();let seq=0;
-const allowed=new Set(['svg','defs','radialGradient','linearGradient','stop','filter','feDropShadow','mask','rect','g','ellipse','path','circle']);
+const allowed=new Set(['svg','defs','radialGradient','linearGradient','stop','filter','feDropShadow','mask','rect','g','ellipse','path','circle','image','text']);
 function parse(source){
  const d=new DOMParser().parseFromString(source,'image/svg+xml'),svg=d.documentElement;
  if(svg.localName!=='svg'||svg.namespaceURI!=='http://www.w3.org/2000/svg')throw Error('Invalid seasonal SVG');
@@ -11,6 +11,7 @@ function parse(source){
  for(const el of [svg,...svg.querySelectorAll('*')]){
   if(!allowed.has(el.localName)||el.namespaceURI!==svg.namespaceURI)throw Error('Invalid seasonal artwork tag');
   for(const a of [...el.attributes]){
+   if(a.name==='href'&&el.localName==='image'&&a.value==='/logo-vellor-wear.svg')continue;
    if(/^on/i.test(a.name)||/^(?:href|xlink:href|style|src)$/i.test(a.name))throw Error('Invalid seasonal artwork attribute');
    if(a.value.includes('url(')&&!/^(?:url\(#[\w-]+\))$/.test(a.value))throw Error('Invalid seasonal artwork reference');
    if(a.name==='id')el.setAttribute('id',prefix+a.value);
@@ -20,10 +21,11 @@ function parse(source){
  svg.removeAttribute('aria-hidden');svg.setAttribute('role','group');svg.setAttribute('aria-label','Decoração comemorativa interativa');svg.setAttribute('focusable','false');svg.setAttribute('class','campaign-scene-art');
  return document.importNode(svg,true);
 }
-function load(theme){
+function load(theme,side){
  if(!Object.hasOwn(assets,theme))return Promise.reject(Error('Invalid theme'));
- if(!cache.has(theme))cache.set(theme,fetch('/campaign-'+assets[theme]+'.svg?v=4',{cache:'force-cache',credentials:'same-origin'}).then(r=>{if(!r.ok)throw Error('Seasonal art unavailable');return r.text()}).catch(e=>{cache.delete(theme);throw e}));
- return cache.get(theme);
+ const key=theme+':'+side;
+ if(!cache.has(key))cache.set(key,fetch('/campaign-'+assets[theme]+(side==='right'?'-right':'')+'.svg?v=6',{cache:'force-cache',credentials:'same-origin'}).then(r=>{if(!r.ok)throw Error('Seasonal art unavailable');return r.text()}).catch(e=>{cache.delete(key);throw e}));
+ return cache.get(key);
 }
 class SeasonalScene extends HTMLElement{
  static get observedAttributes(){return ['data-theme']}
@@ -51,7 +53,7 @@ class SeasonalScene extends HTMLElement{
   this.removeAttribute('data-scene-ready');this.replaceChildren();
   if(!Object.hasOwn(assets,theme||''))return;
   try{
-   const source=await load(theme);if(!this.isConnected||this.revision!==revision)return;
+   const source=await load(theme,this.classList.contains('right')?'right':'left');if(!this.isConnected||this.revision!==revision)return;
    const svg=parse(source);
    for(const item of svg.querySelectorAll('[data-motion]')){
     item.setAttribute('role','button');item.setAttribute('tabindex','0');item.setAttribute('aria-label',item.getAttribute('data-label')||'Animar enfeite');
