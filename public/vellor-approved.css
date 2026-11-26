@@ -201,24 +201,17 @@
 .vellor-carousel-controls button:hover:not(:disabled){background:#092f25;color:#f3e6c4;border-color:#092f25}
 .vellor-carousel-controls button:disabled{opacity:.36;cursor:not-allowed}
 #grid.vellor-product-rail{
- display:flex;gap:26px;overflow-x:auto;overscroll-behavior-x:contain;
- scroll-snap-type:x mandatory;scroll-padding-inline:3px;scrollbar-width:thin;
- scrollbar-color:#c3b08b #f2f1ec;
- padding:8px 2px 34px;margin-bottom:43px;
+ display:block;min-width:0;max-width:100%;height:var(--featured-height,auto);overflow-x:hidden;overflow-y:auto;
+ scroll-snap-type:y mandatory;scrollbar-width:none;padding:0;margin:0;
  -webkit-overflow-scrolling:touch;
 }
-#grid.vellor-product-rail>.card{
- flex:0 0 calc((100% - 78px)/4);min-width:0;
- scroll-snap-align:start;animation:none;
-}
-#grid.vellor-product-rail>.card .photo{
- border-radius:5px 5px 0 0;aspect-ratio:4/4.6;
-}
-#grid.vellor-product-rail>.card .card-meta{padding:15px 3px 0}
-#grid.vellor-product-rail>.card .card-name{min-height:44px}
-#grid.vellor-product-rail>.empty{
- flex:1 0 100%;padding:55px 15px;max-width:100%;
-}
+#grid.vellor-product-rail::-webkit-scrollbar{display:none}
+#grid.vellor-product-rail>.vellor-product-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:1fr;gap:22px 26px;}
+#grid.vellor-product-rail .vellor-product-track>.card{min-width:0;width:100%;scroll-snap-align:start;animation:none;}
+#grid.vellor-product-rail .vellor-product-track>.card .photo{border-radius:5px 5px 0 0;aspect-ratio:4/4.6;}
+#grid.vellor-product-rail .vellor-product-track>.card .card-meta{padding:15px 3px 0}
+#grid.vellor-product-rail .vellor-product-track>.card .card-name{min-height:44px}
+#grid.vellor-product-rail>.empty{padding:55px 15px;max-width:100%;}
 .vellor-discovery{padding:8px 0 90px;border-top:1px solid #eae6df}
 .vellor-discovery-group{padding-top:36px}
 .vellor-discovery-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:23px}
@@ -252,12 +245,9 @@
 .vellor-arrow-svg{display:inline-block;width:1em;height:1em;flex:none;vertical-align:middle}
 .vellor-category-name .vellor-arrow-svg{color:#d8c18c;width:17px;height:17px}
 @media(max-width:1160px){
- #grid.vellor-product-rail>.card{flex-basis:calc((100% - 52px)/3)}
  .vellor-category-rail{grid-auto-columns:calc((100% - 32px)/3)}
 }
 @media(max-width:760px){
- #grid.vellor-product-rail{gap:16px;margin-bottom:24px}
- #grid.vellor-product-rail>.card{flex-basis:calc((100% - 16px)/2)}
  .vellor-products-heading{padding-top:25px}
  .vellor-carousel-controls button{width:40px;height:40px}
  .vellor-category-rail{grid-auto-columns:calc((100% - 16px)/2);gap:12px}
@@ -265,7 +255,6 @@
  .vellor-prices-group{padding-top:32px}
 }
 @media(max-width:480px){
- #grid.vellor-product-rail>.card{flex-basis:79%}
  .vellor-category-rail{grid-auto-columns:73%}
  .vellor-category-tile{height:218px}
  .vellor-discovery{padding-bottom:48px}
@@ -322,27 +311,26 @@
 @media(max-width:600px){.vellor-trust{padding:40px 0 30px}.vellor-trust-grid{grid-template-columns:1fr 1fr;gap:10px 12px}.vellor-trust-item{flex-direction:column;gap:9px;padding:14px 3px}.vellor-trust-icon{height:35px;width:35px}.vellor-trust-item strong{font-size:11px}.vellor-trust-item small{font-size:10px}.vellor-footer-policies{justify-content:flex-start;gap:13px 19px}.vellor-footer-policies a{font-size:11px}}
 
 
-/* Ajuste único: controles laterais sobre as fotos do carrossel, sem mudar os cards. */
-.vellor-carousel-shell{position:relative;min-width:0}
+/* Navegação vertical: controles discretos, fora das fotos. */
+.vellor-carousel-shell{position:relative;min-width:0;margin-bottom:34px}
 .vellor-carousel-arrow{
- position:absolute;top:31%;transform:translateY(-50%);
- z-index:5;width:52px;height:52px;display:flex;
- align-items:center;justify-content:center;
+ position:relative;z-index:5;width:40px;height:40px;display:flex;
+ align-items:center;justify-content:center;margin-inline:auto;
  border-radius:50%;border:1px solid rgba(224,196,135,.85);
  background:#073024;color:#e7d09b;
- box-shadow:0 7px 22px rgba(1,22,15,.24);
+ box-shadow:0 3px 10px rgba(1,22,15,.12);
  cursor:pointer;transition:opacity .18s,background .18s,box-shadow .18s;
 }
 .vellor-carousel-arrow .vellor-arrow-svg{width:25px;height:25px}
-.vellor-carousel-arrow:hover:not(:disabled){background:#0e4533;box-shadow:0 10px 27px rgba(1,22,15,.34)}
+.vellor-carousel-arrow:hover:not(:disabled){background:#0e4533;box-shadow:0 6px 15px rgba(1,22,15,.25)}
 .vellor-carousel-arrow:focus-visible{outline:2px solid #b69d62;outline-offset:3px}
-.vellor-carousel-arrow:disabled{opacity:0;pointer-events:none}
-.vellor-carousel-prev{left:9px}
-.vellor-carousel-next{right:9px}
+.vellor-carousel-arrow:disabled{visibility:hidden;pointer-events:none}
+.vellor-carousel-prev{margin-bottom:9px}
+.vellor-carousel-next{margin-top:9px}
 @media(max-width:760px){
- .vellor-carousel-arrow{width:43px;height:43px;top:31%}
+ #grid.vellor-product-rail>.vellor-product-track{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 13px;}
+ .vellor-carousel-arrow{width:36px;height:36px}
  .vellor-carousel-arrow .vellor-arrow-svg{width:22px;height:22px}
- .vellor-carousel-prev{left:6px}.vellor-carousel-next{right:6px}
 }
 @media(prefers-reduced-motion:reduce){.vellor-carousel-arrow{transition:none}}
 /* Botão flutuante: círculo somente com o pictograma de conversa. */
@@ -443,14 +431,12 @@ dialog.modal-overlay .detail-modal{grid-template-columns:minmax(0,1.05fr) minmax
  .container,.vellor-clean-nav .vellor-menu-list{max-width:1800px}
  .site-header{padding-inline:max(54px,calc((100% - 1692px)/2))}
  #grid.vellor-product-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
- #grid.vellor-product-rail>.card{flex-basis:calc((100% - 104px)/5)}
  .vellor-footer-inner{max-width:1692px}
 }
 @media(min-width:2560px){
  .container,.vellor-clean-nav .vellor-menu-list{max-width:2200px}
  .site-header{padding-inline:max(54px,calc((100% - 2092px)/2))}
  #grid.vellor-product-grid{grid-template-columns:repeat(6,minmax(0,1fr))}
- #grid.vellor-product-rail>.card{flex-basis:calc((100% - 130px)/6)}
  .vellor-footer-inner{max-width:2092px}
 }
 @media(max-width:760px){

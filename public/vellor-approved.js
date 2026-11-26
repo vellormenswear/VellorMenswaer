@@ -115,19 +115,46 @@ function renderDiscovery(){
  if(pageParent)document.title=(leaf?.name||parent?.name||'Categoria')+' — '+name;else document.title=name+' — Moda Masculina e Feminina';
 }
 function focusSearch(){if(location.hash==='#carrinho'){location.hash='busca';}document.getElementById('search').focus();}
+let featuredObserver=null;
+function layoutFeatured(){
+ const rail=document.getElementById('grid'),track=rail?.querySelector('.vellor-product-track'),card=track?.querySelector('.card');
+ if(!rail||!track||!card||rail.clientWidth===0)return;
+ const height=Math.ceil(card.getBoundingClientRect().height);
+ if(height>0&&rail.style.getPropertyValue('--featured-height')!==height+'px')rail.style.setProperty('--featured-height',height+'px');
+ updateProductNav();
+}
+function setupFeatured(){
+ featuredObserver?.disconnect();
+ const rail=document.getElementById('grid'),track=rail.querySelector('.vellor-product-track');
+ rail.style.removeProperty('--featured-height');
+ rail.scrollTop=0;
+ if(track){
+  layoutFeatured();
+  if(typeof ResizeObserver==='function'){
+   featuredObserver=new ResizeObserver(layoutFeatured);
+   featuredObserver.observe(track);
+  }
+  requestAnimationFrame(layoutFeatured);
+ }
+ updateProductNav();
+}
 function slideProducts(direction){
- const rail=document.getElementById('grid'),card=rail?.querySelector('.card');
+ const rail=document.getElementById('grid'),track=rail?.querySelector('.vellor-product-track'),card=track?.querySelector('.card');
  if(!rail||!card||!rail.classList.contains('vellor-product-rail'))return;
- rail.scrollBy({left:direction*(card.getBoundingClientRect().width+26)*2,behavior:'smooth'});
+ const pitch=card.getBoundingClientRect().height+(parseFloat(getComputedStyle(track).rowGap)||0);
+ if(pitch<=0)return;
+ const row=Math.round(rail.scrollTop/pitch);
+ rail.scrollTo({top:Math.max(0,(row+direction)*pitch),behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
 }
 function updateProductNav(){
  const rail=document.getElementById('grid'),prev=document.getElementById('vellor-products-prev'),next=document.getElementById('vellor-products-next');
  if(!rail||!prev||!next)return;
  const carousel=rail.classList.contains('vellor-product-rail');
  prev.hidden=next.hidden=!carousel;
- const overflow=carousel&&rail.scrollWidth>rail.clientWidth+5;
- prev.disabled=!overflow||rail.scrollLeft<=5;
- next.disabled=!overflow||rail.scrollLeft+rail.clientWidth>=rail.scrollWidth-5;
+ const overflow=carousel&&rail.scrollHeight>rail.clientHeight+5;
+ prev.hidden=next.hidden=!overflow;
+ prev.disabled=!overflow||rail.scrollTop<=5;
+ next.disabled=!overflow||rail.scrollTop+rail.clientHeight>=rail.scrollHeight-5;
 }
 
 /* Busca por categoria: termo completo (singular/plural, com ou sem acento)
@@ -171,8 +198,8 @@ function selectFeatured(items,roots,rootOf,rank){
 }
 function isFeaturedView(){return !department&&!pageParent&&!fullCatalog&&active==='Todos'&&['search','max-price','color','size'].every(id=>!document.getElementById(id).value.trim())&&document.getElementById('sort').value==='featured'}
 function render(){const carousel=isFeaturedView(),allItems=modelsSorted(),items=carousel?selectFeatured(allItems.filter(m=>groupFor(m).some(available)),categoryTree.filter(c=>!c.parent_slug).map(c=>c.slug),m=>categoryKeys(m).root,featuredRank):allItems;
-const grid=document.getElementById('grid');grid.classList.toggle('vellor-product-rail',carousel);grid.classList.toggle('vellor-product-grid',!carousel);grid.setAttribute('aria-label',carousel?'Destaques VELLOR, deslize para ver mais':'Todos os produtos encontrados');document.getElementById('vellor-products-prev').hidden=document.getElementById('vellor-products-next').hidden=!carousel;
-document.getElementById('count').textContent=`${items.length} ${items.length===1?'modelo':'modelos'}`;renderDiscovery();if(!pageParent)document.querySelector('#colecao h1').textContent=department==='masculino'?'Masculino':department==='feminino'?'Feminino':carousel?'Destaques':'Produtos';document.getElementById('vellor-all-products').hidden=!carousel;document.getElementById('size-filter').hidden=['relogios','acessorios'].includes(categoryTree.find(c=>c.slug===active)?.parent_slug||active);document.getElementById('grid').innerHTML=items.length?items.map(m=>{const group=m.matching,priced=group,price=m.low,display=priced.find(v=>v.price_brl===price)||m;return `<article class="card"><div class="photo-wrap" style="position:relative">${photo(display)}<button class="hover-quick" data-product-slug="${htmlEsc(m.slug)}" data-product-sku="${htmlEsc(display.sku)}">Visualizar produto</button></div><div class="card-meta"><span class="card-category">${htmlEsc(m.category)}</span><h3 class="card-name" data-product-slug="${htmlEsc(m.slug)}" data-product-sku="${htmlEsc(display.sku)}">${htmlEsc(m.name)}</h3>${group.length>1?`<div class="card-variants">${group.length} opções disponíveis</div>`:''}<div class="card-price">${priced.length&&group.length>1?'A partir de ':''}${MONEY(price)}</div><button type="button" class="card-action" data-product-slug="${htmlEsc(m.slug)}" data-product-sku="${htmlEsc(display.sku)}">Ver detalhes ⟶</button></div></article>`}).join(''):'<div class="empty"><strong>'+(catalogFailed?'Catálogo temporariamente indisponível':!catalogLoaded?'Carregando catálogo...':'Nenhum produto encontrado')+'</strong>'+(catalogFailed?'Atualize a página para tentar novamente.':!catalogLoaded?'':'Experimente outra categoria ou ajuste os filtros.')+'</div>';document.getElementById('grid').scrollLeft=0;requestAnimationFrame(updateProductNav);save()}
+const grid=document.getElementById('grid');grid.classList.toggle('vellor-product-rail',carousel);grid.classList.toggle('vellor-product-grid',!carousel);grid.setAttribute('aria-label',carousel?'Destaques VELLOR, deslize para cima ou para baixo':'Todos os produtos encontrados');document.getElementById('vellor-products-prev').hidden=document.getElementById('vellor-products-next').hidden=!carousel;
+document.getElementById('count').textContent=`${items.length} ${items.length===1?'modelo':'modelos'}`;renderDiscovery();if(!pageParent)document.querySelector('#colecao h1').textContent=department==='masculino'?'Masculino':department==='feminino'?'Feminino':carousel?'Destaques':'Produtos';document.getElementById('vellor-all-products').hidden=!carousel;document.getElementById('size-filter').hidden=['relogios','acessorios'].includes(categoryTree.find(c=>c.slug===active)?.parent_slug||active);const cards=items.length?items.map(m=>{const group=m.matching,priced=group,price=m.low,display=priced.find(v=>v.price_brl===price)||m;return `<article class="card"><div class="photo-wrap" style="position:relative">${photo(display)}<button class="hover-quick" data-product-slug="${htmlEsc(m.slug)}" data-product-sku="${htmlEsc(display.sku)}">Visualizar produto</button></div><div class="card-meta"><span class="card-category">${htmlEsc(m.category)}</span><h3 class="card-name" data-product-slug="${htmlEsc(m.slug)}" data-product-sku="${htmlEsc(display.sku)}">${htmlEsc(m.name)}</h3>${group.length>1?`<div class="card-variants">${group.length} opções disponíveis</div>`:''}<div class="card-price">${priced.length&&group.length>1?'A partir de ':''}${MONEY(price)}</div><button type="button" class="card-action" data-product-slug="${htmlEsc(m.slug)}" data-product-sku="${htmlEsc(display.sku)}">Ver detalhes ⟶</button></div></article>`}).join(''):'<div class="empty"><strong>'+(catalogFailed?'Catálogo temporariamente indisponível':!catalogLoaded?'Carregando catálogo...':'Nenhum produto encontrado')+'</strong>'+(catalogFailed?'Atualize a página para tentar novamente.':!catalogLoaded?'':'Experimente outra categoria ou ajuste os filtros.')+'</div>';grid.innerHTML=carousel&&items.length?'<div class="vellor-product-track">'+cards+'</div>':cards;setupFeatured();save()}
 let previousProductFocus=null;
 function showProduct(slug,sku){const group=productsBySlug.get(slug)||[];selected=group.find(p=>p.sku===sku)||group.find(available)||group[0];if(!selected){te('product.selected','PRODUCT_MISSING','Produto indisponivel no catalogo.');return}tr('product.selected',{sku:selected.sku});selectedSize='';renderModal()}
 function renderModal(){const p=selected,group=groupFor(p);document.getElementById('detail').innerHTML=`<div class="detail-photo">${photo(p)}</div><div class="detail-info"><button type="button" class="close-btn modal-close" onclick="closeProduct()" aria-label="Fechar">×</button><p class="eyebrow">${htmlEsc(p.category)} · VELLOR</p><h2>${htmlEsc(p.name)}</h2><div class="price">${MONEY(p.price_brl)}</div>${p.description?`<p class="minor-note" style="white-space:pre-wrap;overflow-wrap:anywhere">${htmlEsc(p.description)}</p>`:''}${group.length>1?`<label>Escolha a variação</label><div class="variants-list">${group.map(g=>`<button class="variant-pill ${g.sku===p.sku?'active':''}" type="button" data-variant-sku="${htmlEsc(g.sku)}">${htmlEsc(g.variant)}</button>`).join('')}</div>`:''}${sizesFor(p).length?`<label for="modal-size">Tamanho</label><select class="size-select" id="modal-size" onchange="selectedSize=this.value;window.VellorTrace?.event('product.size',{sku:selected.sku})"><option value="">Selecione seu tamanho</option>${sizesFor(p).map(s=>`<option value="${htmlEsc(s)}">${htmlEsc(s)}</option>`).join('')}</select>`:''}<div class="modal-actions"><button type="button" class="primary-btn" ${available(p)?'':'disabled'} onclick="addProduct(false)">Adicionar ao carrinho</button><button type="button" class="buy-now" ${available(p)?'':'disabled'} onclick="addProduct(true)">Comprar agora</button></div>${productGallery(p)}${productDisclaimer(p)}<p class="minor-note">Envio em até 3 dias após a confirmação do pagamento. Previsão de entrega: ${htmlEsc(supplierDeadline(p).label)}.</p><p class="sku">SKU: ${htmlEsc(p.sku)}</p></div>`;const modal=document.getElementById('product-modal');if(!modal.open){previousProductFocus=document.activeElement;modal.showModal();document.body.classList.add('lock');modal.querySelector('.modal-close')?.focus()}else modal.querySelector('.variant-pill.active')?.focus()}
@@ -330,7 +357,8 @@ let searchTimer;document.getElementById('search').addEventListener('input',()=>{
 document.getElementById('grid').addEventListener('click',event=>{const trigger=event.target.closest('[data-product-slug]');if(trigger)showProduct(trigger.dataset.productSlug,trigger.dataset.productSku)});
  document.getElementById('detail').addEventListener('click',event=>{const variant=event.target.closest('[data-variant-sku]');if(variant){changeVariant(variant.dataset.variantSku);return}const image=event.target.closest('[data-gallery-url]');if(image)selectGalleryImage(image,image.dataset.galleryUrl)});
  document.getElementById('grid').addEventListener('scroll',updateProductNav,{passive:true});
-window.addEventListener('resize',updateProductNav);
+window.addEventListener('resize',()=>{layoutFeatured();updateProductNav()});
+ document.getElementById('grid').addEventListener('keydown',event=>{if(event.target!==event.currentTarget||!event.currentTarget.classList.contains('vellor-product-rail'))return;if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();slideProducts(event.key==='ArrowDown'?1:-1)}});
 document.getElementById('product-modal').addEventListener('cancel',()=>{document.body.classList.remove('lock')});
 window.addEventListener('hashchange',syncCartRoute);
 try{coupon=sessionStorage.getItem('pg-goston-cupom')||''}catch{}

@@ -9,14 +9,14 @@ const html=read('public/vitrine.html'),js=read('public/vellor-approved.js'),css=
 const catalog=JSON.parse(read('data/catalogo-nacional.json')).filter(p=>p.public_ready&&Number.isFinite(p.price_brl));
 const models=[...new Map(catalog.map(p=>[p.slug,p])).values()];
 const minPrice=model=>Math.min(...catalog.filter(p=>p.slug===model.slug).map(p=>Math.round(p.price_brl*100)));
-test('destaques usam uma unica fileira horizontal com navegacao acessivel',()=>{
+test('destaques usam fileiras verticais com navegacao acessivel',()=>{
  assert.equal((html.match(/id="grid"/g)||[]).length,1);
  assert.match(html,/id="grid"[^>]*tabindex="0"/);
  assert.match(html,/class="grid vellor-product-rail"/);
  assert.match(html,/id="vellor-products-prev"/);
  assert.match(html,/id="vellor-products-next"/);
- assert.match(css,/#grid\.vellor-product-rail\s*\{[^}]*display:flex/);
- assert.match(css,/scroll-snap-type:x mandatory/);
+ assert.match(css,/#grid\.vellor-product-rail\s*\{[^}]*overflow-y:auto/);
+ assert.match(css,/scroll-snap-type:y mandatory/);assert.match(css,/vellor-product-track\{display:grid;grid-template-columns:repeat\(4/);assert.match(css,/vellor-product-track\{grid-template-columns:repeat\(2/);assert.match(js,/rail\.scrollTo\(\{top:/);assert.match(js,/rail\.scrollHeight>rail\.clientHeight/);assert.match(js,/new ResizeObserver\(layoutFeatured\)/);assert.match(html,/m5 15 7-7 7 7/);assert.match(html,/m5 9 7 7 7-7/);
  assert.ok(js.includes('slideProducts(direction)'));
  assert.ok(js.includes("addEventListener('scroll',updateProductNav"));
 });
