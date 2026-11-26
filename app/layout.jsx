@@ -1,4 +1,4 @@
 import './globals.css';
 import Script from 'next/script';
 export const metadata={title:'VellorWear — Moda Masculina e Feminina',description:'VellorWear: moda masculina e feminina, relógios, calçados e acessórios.',icons:{icon:[{url:'/vellor-favicon-48.png?v=20261126-1',sizes:'48x48',type:'image/png'}],apple:[{url:'/apple-touch-icon.png?v=20261119',sizes:'180x180'}]}};
-export default function RootLayout({children}){return <html lang="pt-BR"><body><Script src="/checkout-trace.js?v=20261122" strategy="beforeInteractive"/>{children}</body></html>}
+export default function RootLayout({children}){return <html lang="pt-BR"><body><link rel="stylesheet" href="/vellor-campaigns.css?v=1"/><Script src="/vellor-campaigns.js?v=1" strategy="afterInteractive"/><Script src="/checkout-trace.js?v=20261122" strategy="beforeInteractive"/>{children}</body></html>}

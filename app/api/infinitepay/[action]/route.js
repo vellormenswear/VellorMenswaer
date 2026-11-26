@@ -1,3 +1,4 @@
+import {CAMPAIGN_JOIN,CAMPAIGN_PRICE,promoGroupSafe} from '@/lib/campaign-pricing.mjs';
 import {sql,transaction} from '@/lib/db';
 import {quoteCart} from '@/lib/commerce';
 import {canPurchase} from '@/lib/purchase-role.mjs';
@@ -93,12 +94,13 @@ export async function POST(req,{params}){try{
   g.subtotal+=item.line_cents;g.cost+=v.supplier_cost_cents*item.qty;grouped.set(v.supplier_id,g);
  }
  const list=distributeDiscount([...grouped.values()],quote.discount_cents);
- ensure(list.every(g=>g.total>g.cost)&&list.length<=20,'Valor insuficiente para os fornecedores e taxas.',409);
+ ensure(list.every(g=>g.total>g.cost&&(!g.items.some(i=>i.promotion_discount_cents>0)||promoGroupSafe(g.total,g.cost)))&&list.length<=20,'Valor insuficiente para os fornecedores e taxas.',409);
  const batch=randomUUID();
  const reservedBatch=await transaction(async c=>{
   const attempt=await c.query('INSERT INTO checkout_attempts(customer_id,idempotency_key,checkout_batch_id,request_hash) VALUES($1,$2,$3,$4) ON CONFLICT(customer_id,idempotency_key) DO NOTHING RETURNING checkout_batch_id',[u.id,x.idempotency_key,batch,requestHash]);
   if(!attempt.rowCount){const existing=await c.query('SELECT checkout_batch_id,request_hash FROM checkout_attempts WHERE customer_id=$1 AND idempotency_key=$2',[u.id,x.idempotency_key]);ensure(existing.rows[0]?.request_hash===requestHash,'A tentativa pertence a outro carrinho.',409);return existing.rows[0].checkout_batch_id;}
-  const locked=await c.query(`SELECT v.id,v.sku,v.label,v.sizes,v.price_cents,v.supplier_cost_cents,v.stock,v.stock_mode,v.supplier_available,v.active,v.preparation_days,v.delivery_days_min,v.delivery_days_max,p.supplier_id,p.name ${CATALOG_FROM} JOIN users su ON su.id=s.user_id WHERE ${CATALOG_WHERE} AND su.suspended_at IS NULL AND su.launch_archived_at IS NULL AND v.id=ANY($1::uuid[]) ORDER BY v.id FOR UPDATE OF v FOR SHARE OF p,s,su`,[ids]);
+  await c.query('SELECT pg_advisory_xact_lock_shared(8033340)');
+  const locked=await c.query(`SELECT v.id,v.sku,v.label,v.sizes,(${CAMPAIGN_PRICE}) AS price_cents,v.supplier_cost_cents,v.stock,v.stock_mode,v.supplier_available,v.active,v.preparation_days,v.delivery_days_min,v.delivery_days_max,p.supplier_id,p.name ${CATALOG_FROM} JOIN users su ON su.id=s.user_id ${CAMPAIGN_JOIN} WHERE ${CATALOG_WHERE} AND su.suspended_at IS NULL AND su.launch_archived_at IS NULL AND v.id=ANY($1::uuid[]) ORDER BY v.id FOR UPDATE OF v FOR SHARE OF p,s,su`,[ids]);
   ensure(validateReservedQuote(list,locked.rows),'Produto, preço, custo ou disponibilidade mudou. Atualize a cotação antes de pagar.',409);
   const fresh=new Map(locked.rows.map(v=>[v.id,v]));const quantities=new Map();
   for(const item of quote.items)quantities.set(item.variant_id,(quantities.get(item.variant_id)||0)+item.qty);
