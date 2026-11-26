@@ -1,3 +1,4 @@
+import {supplierListings,mutateSupplierListing,reviewSupplierListing} from '@/lib/supplier-listings';
 import {validDepartment} from '@/lib/departments.mjs';
 import {sql,db,transaction,audit} from '@/lib/db';
 import {applyMarketplaceMigrations} from '@/lib/marketplace-auto-schema.mjs';
@@ -31,7 +32,7 @@ async function supplierNotices(supplierId){
  return result.rows;
 }
 
-async function currentSupplier(req){const u=await requireUser(req);ensure(u.role==='supplier','Somente fornecedores podem acessar esta operação.',403);const r=await sql('SELECT * FROM suppliers WHERE user_id=$1',[u.id]);ensure(r.rowCount&&r.rows[0].status==='active','Fornecedor não habilitado.',403);return {user:u,supplier:r.rows[0]}}
+async function currentSupplier(req){const u=await requireUser(req);ensure(u.role==='supplier','Somente fornecedores podem acessar esta operação.',403);const r=await sql('SELECT * FROM suppliers WHERE user_id=$1 AND launch_archived_at IS NULL',[u.id]);ensure(r.rowCount&&r.rows[0].status==='active','Fornecedor não habilitado.',403);return {user:u,supplier:r.rows[0]}}
 const activeSupplier=async(id)=>{const r=await sql("SELECT id FROM suppliers WHERE id=$1 AND status='active'",[id]);ensure(r.rowCount,'Fornecedor indisponível.',409)};
 export async function GET(req,{params}){try{const {action}=await params;const q=new URL(req.url).searchParams;
  if(action==='invite-check'){const token=txt(q.get('token'),200);const r=await sql('SELECT email,expires_at FROM supplier_invites WHERE token_hash=$1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at>now()',[sha256(token)]);ensure(r.rowCount,'Convite inválido, vencido ou utilizado.',404);return ok({invite:r.rows[0]})}
@@ -39,7 +40,7 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
   if(action==='admin-list'){const [suppliers,invites,queue,categories,unlinked]=await Promise.all([
    sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_pix_accounts pix WHERE pix.supplier_id=s.id) AS pix_registered FROM suppliers s JOIN users u ON u.id=s.user_id WHERE s.launch_archived_at IS NULL AND u.launch_archived_at IS NULL ORDER BY s.created_at DESC`),
    sql('SELECT id,email,expires_at,used_at,revoked_at,created_at FROM supplier_invites ORDER BY created_at DESC LIMIT 70'),
-   sql(`SELECT sub.*,s.business_name FROM supplier_submissions sub JOIN suppliers s ON s.id=sub.supplier_id ORDER BY (sub.status='pending') DESC,sub.created_at DESC LIMIT 100`),
+   sql(`SELECT sub.*,s.business_name FROM supplier_submissions sub JOIN suppliers s ON s.id=sub.supplier_id WHERE sub.status<>'deleted' ORDER BY (sub.status='pending') DESC,sub.created_at DESC LIMIT 100`),
    sql('SELECT id,name FROM categories WHERE active ORDER BY name'),
    sql(`SELECT COUNT(*)::int AS total FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.supplier_id IS NULL AND p.launch_archived_at IS NULL`)
   ]);return ok({suppliers:suppliers.rows,invites:invites.rows,queue:queue.rows,categories:categories.rows,unlinked_variants:unlinked.rows[0].total})}
@@ -66,10 +67,11 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  }
  const {supplier}=await currentSupplier(req);
  if(action==='notifications')return ok({notifications:await supplierNotices(supplier.id)});
+ if(action==='listings')return ok({listings:await supplierListings(supplier.id)});
  if(action==='dashboard'){
   const [subs,products,orders,changes,notices,pixAccount]=await Promise.all([
-   sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
-   sql(`SELECT p.id,p.name,p.slug,p.product_code,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
+   sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 AND status<>'deleted' ORDER BY created_at DESC LIMIT 100',[supplier.id]),
+   sql(`SELECT p.id,p.name,p.slug,p.product_code,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.sizes,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
    sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.amount_cents,g.supplier_amount_cents,g.mp_fee_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,(SELECT n.id FROM notifications n WHERE n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text AND n.kind='supplier_size_changed' ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS size_revision,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
    COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'product_code',p.product_code,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id LEFT JOIN product_variants v ON v.id=i.variant_id LEFT JOIN products p ON p.id=v.product_id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
@@ -111,27 +113,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   }
   if(action==='admin-invite-revoke'){ensure(uuid(x.id),'Convite inválido.');await sql('UPDATE supplier_invites SET revoked_at=now() WHERE id=$1 AND used_at IS NULL',[x.id]);await audit(u.id,'supplier.invite_revoke','supplier_invite',x.id);return ok({revoked:true})}
   if(action==='admin-suspend'){ensure(uuid(x.id),'Fornecedor inválido.');const status=x.suspended?'suspended':'active';const r=await sql('UPDATE suppliers SET status=$1,updated_at=now() WHERE id=$2 AND launch_archived_at IS NULL RETURNING user_id',[status,x.id]);ensure(r.rowCount,'Fornecedor inexistente.',404);await sql('UPDATE users SET suspended_at=$1 WHERE id=$2',[x.suspended?new Date():null,r.rows[0].user_id]);if(x.suspended)await sql('DELETE FROM sessions WHERE user_id=$1',[r.rows[0].user_id]);await audit(u.id,'supplier.status','supplier',x.id,null,{status});return ok({status})}
-  if(action==='admin-review'){
-   ensure(uuid(x.id),'Anúncio inválido.');ensure(['approved','rejected'].includes(x.decision),'Decisão inválida.');
-   const result=await transaction(async c=>{
-    const r=await c.query('SELECT * FROM supplier_submissions WHERE id=$1 FOR UPDATE',[x.id]);ensure(r.rowCount&&r.rows[0].status==='pending','Anúncio não está pendente.',409);const sub=r.rows[0];let productId=null,productCode=null;
-    if(x.decision==='approved'){
-     await activeSupplier(sub.supplier_id);
-     const category=await c.query('SELECT c.id FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1 AND c.active AND COALESCE(root.active,true)',[sub.category_id]);ensure(category.rowCount,'O anúncio precisa de uma categoria ativa antes de ser aprovado.',409);
-     const prices=Array.isArray(x.prices)?x.prices:[];ensure(prices.length===sub.variants.length,'Informe o preço de venda de cada variação.');
-     const sl=await resolveProductSlug(c,{name:sub.name,requested:txt(x.slug,200)});
-     const p=await c.query(`INSERT INTO products(name,slug,description,category_id,shipping,active,hidden,supplier_id,department) VALUES($1,$2,$3,$4,'nacional',true,false,$5,$6) RETURNING id,product_code`,[sub.name,sl,sub.description,sub.category_id,sub.supplier_id,sub.department]);productId=p.rows[0].id;productCode=p.rows[0].product_code;
-     for(let i=0;i<sub.variants.length;i++){
-      const v=sub.variants[i],price=Number(prices[i]);
-      const imageUrl=resolveApprovedProductImage(v.image_url);
-      ensure(supplierVariantValid({...v,image_url:imageUrl})&&Number.isInteger(price)&&price>=1&&price<=100000000,'Revise o preço de venda e os dados da variação.');feeOf(price,Number(v.cost_cents));
-      await c.query(`INSERT INTO product_variants(product_id,sku,label,price_cents,stock,stock_mode,supplier_available,supplier_cost_cents,sizes,active,primary_image_url,preparation_days,delivery_days_min,delivery_days_max) VALUES($1,$2,$3,$4,$5,$6,true,$7,$8,true,$9,$10,$11,$12)`,[
-       productId,v.sku.trim().toUpperCase(),v.label.trim(),price,v.stock_mode==='availability'?null:Number(v.stock),v.stock_mode,Number(v.cost_cents),v.sizes||[],imageUrl,Number(v.preparation_days)||2,Number(v.delivery_days_min)||5,Number(v.delivery_days_max)||15]);
-     }
-    }
-    await c.query('UPDATE supplier_submissions SET status=$1,admin_note=$2,product_id=$3,reviewed_by=$4,reviewed_at=now(),updated_at=now() WHERE id=$5',[x.decision,txt(x.note,1000),productId,u.id,x.id]);return {productId,product_code:productCode}
-   });await audit(u.id,'supplier.review','supplier_submission',x.id,null,{decision:x.decision,productId:result.productId});return ok(result)
-  }
+  if(action==='admin-review')return ok(await reviewSupplierListing(u,x));
   if(action==='admin-assign-legacy'){
    ensure(uuid(x.supplier_id)&&uuid(x.variant_id),'Identificador inválido.');const cost=Number(x.cost_cents);ensure(Number.isInteger(cost)&&cost>=1,'Preço de fornecimento inválido.');await activeSupplier(x.supplier_id);
    const v=await transaction(async c=>{const r=await c.query(`SELECT v.*,p.supplier_id,p.id AS product_id FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=$1 FOR UPDATE`,[x.variant_id]);ensure(r.rowCount,'Variação inexistente.',404);const p=r.rows[0];ensure(!p.supplier_id||p.supplier_id===x.supplier_id,'Produto atribuído a outro fornecedor.',409);ensure(p.price_cents!==null,'Preço final ainda não definido.',409);
@@ -184,36 +166,20 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
     [supplier.id,x.notification_id]);
   return ok({read:true});
  }
+ if(action==='request-price'||action==='leadtime')throw new HttpError(409,'Edite o anúncio para solicitar a alteração.');
  if(action==='request-price'){
   ensure(uuid(x.variant_id),'Variação inválida.');const cost=Number(x.cost_cents);ensure(Number.isInteger(cost)&&cost>0&&cost<=100000000,'Valor inválido.');
   const owns=await sql('SELECT 1 FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=$1 AND p.supplier_id=$2',[x.variant_id,supplier.id]);ensure(owns.rowCount,'Variação não pertence ao fornecedor.',403);
   const r=await sql("INSERT INTO supplier_price_requests(supplier_id,variant_id,requested_cost_cents) VALUES($1,$2,$3) RETURNING id",[supplier.id,x.variant_id,cost]);await audit(user.id,'supplier.price_request','variant',x.variant_id);return ok({id:r.rows[0].id},201)
  }
- if(action==='submit'){
-  const variants=Array.isArray(x.variants)?x.variants:[];ensure(variants.length>0&&variants.length<=30,'Informe de 1 a 30 variações.');
-  ensure(validDepartment(x.department),'Selecione Masculino ou Feminino.');const name=txt(x.name,220);ensure(name.length>=4,'Nome muito curto.');const cat=uuid(x.category_id)?x.category_id:null;const category=cat?(await sql('SELECT COALESCE(root.slug,c.slug) AS root_slug FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1 AND c.active AND COALESCE(root.active,true)',[cat])).rows[0]:null;ensure(category,'Selecione uma categoria válida e ativa.');
-  // SKU e URL da foto são opcionais no envio. A validação de publicação continua
-  // exigindo imagem, para que a vitrine não exiba produtos sem fotografia.
-  for(const v of variants){
-    v.sku=txt(v.sku,120).toUpperCase()||generatedSupplierSku(randomUUID());
-    v.image_url=txt(v.image_url,2048);v.sizes=normalizeVariantSizes(v.sizes);ensure(category?.root_slug!=='calcados'||validFootwearSizes(v.sizes),'Marque a numeração válida do calçado.');
-  }
-  ensure(variants.every(supplierSubmissionValid),'Revise modelo, custo e estoque de cada variação.');
-  ensure(new Set(variants.map(v=>v.sku)).size===variants.length,'SKU duplicado.');ensure(variants.every(v=>v.stock_mode==='availability'||!Array.isArray(v.sizes)||v.sizes.length<=1),'Para estoque exato por tamanho, cadastre um SKU separado para cada tamanho.',400);
-  for(const v of variants){v.sku=txt(v.sku,120).toUpperCase();v.label=txt(v.label,120);v.sizes=Array.isArray(v.sizes)?v.sizes.map(s=>txt(s,30)).slice(0,40):[];
-    v.preparation_days=Number(v.preparation_days??supplier.preparation_days);v.delivery_days_min=Number(v.delivery_days_min??supplier.delivery_days_min);v.delivery_days_max=Number(v.delivery_days_max??supplier.delivery_days_max);
-    ensure(Number.isInteger(v.preparation_days)&&v.preparation_days>=0&&v.preparation_days<=90&&Number.isInteger(v.delivery_days_min)&&v.delivery_days_min>=1&&v.delivery_days_max>=v.delivery_days_min&&v.delivery_days_max<=180,'Prazo de entrega inválido.');
-  }
-  const r=await sql("INSERT INTO supplier_submissions(supplier_id,name,description,category_id,variants,status,department) VALUES($1,$2,$3,$4,$5,'pending',$6) RETURNING id",[supplier.id,name,txt(x.description,4000),cat,JSON.stringify(variants),x.department]);
-  await audit(user.id,'supplier.product_submit','supplier_submission',r.rows[0].id);return ok({id:r.rows[0].id},201)
- }
+ if(['submit','edit','deactivate','reactivate','delete'].includes(action))return ok(await mutateSupplierListing(user,supplier,action,x),action==='submit'?201:200);
  if(action==='inventory'){
-  ensure(uuid(x.variant_id),'Variação inválida.');const mode=x.stock_mode;ensure(['quantity','availability'].includes(mode),'Modalidade inválida.');const qty=Number(x.stock);ensure(mode==='availability'||Number.isInteger(qty)&&qty>=0,'Quantidade inválida.');
-  const r=await sql(`UPDATE product_variants v SET stock_mode=$1::text,stock=CASE WHEN $1::text='availability' THEN NULL ELSE $2::integer END,supplier_available=$3::boolean,updated_at=now() FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 RETURNING v.id`,[mode,mode==='availability'?null:qty,Boolean(x.available),supplier.id,x.variant_id]);ensure(r.rowCount,'Variação não encontrada.',404);await audit(user.id,'supplier.inventory','variant',x.variant_id);return ok({updated:true})
+  ensure(uuid(x.variant_id),'Variação inválida.');const mode=x.stock_mode;ensure(['quantity','availability'].includes(mode),'Modalidade inválida.');const qty=Number(x.stock);ensure(mode==='availability'||x.stock!==null&&String(x.stock).trim()!==''&&Number.isInteger(qty)&&qty>=0&&qty<=2147483647,'Quantidade inválida.');
+  const r=await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock_shared(8033340)');return c.query(`UPDATE product_variants v SET stock_mode=$1::text,stock=CASE WHEN $1::text='availability' THEN NULL ELSE $2::integer END,supplier_available=$3::boolean,updated_at=now() FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL AND ($1::text='availability' OR cardinality(v.sizes)=1) RETURNING v.id`,[mode,mode==='availability'?null:qty,Boolean(x.available),supplier.id,x.variant_id])});ensure(r.rowCount,'Variação não encontrada.',404);await audit(user.id,'supplier.inventory','variant',x.variant_id);return ok({updated:true})
  }
  if(action==='leadtime'){
   ensure(uuid(x.variant_id),'Variação inválida.');const prep=Number(x.preparation_days),min=Number(x.delivery_days_min),max=Number(x.delivery_days_max);ensure([prep,min,max].every(Number.isInteger)&&prep>=0&&prep<=90&&min>=1&&max>=min&&max<=180,'Prazo inválido.');
-  const r=await sql(`UPDATE product_variants v SET preparation_days=$1,delivery_days_min=$2,delivery_days_max=$3 FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 RETURNING v.id`,[prep,min,max,supplier.id,x.variant_id]);ensure(r.rowCount,'Variação inválida.',404);await audit(user.id,'supplier.leadtime','variant',x.variant_id);return ok({updated:true})
+  const r=await sql(`UPDATE product_variants v SET preparation_days=$1,delivery_days_min=$2,delivery_days_max=$3 FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL RETURNING v.id`,[prep,min,max,supplier.id,x.variant_id]);ensure(r.rowCount,'Variação inválida.',404);await audit(user.id,'supplier.leadtime','variant',x.variant_id);return ok({updated:true})
  }
  if(action==='ship'){
   ensure(uuid(x.group_id),'Pedido inválido.');const carrier=txt(x.carrier,120),tracking=txt(x.tracking,150);ensure(carrier.length>=2&&tracking.length>=4,'Transportadora e rastreamento são obrigatórios.');

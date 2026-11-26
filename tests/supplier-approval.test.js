@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {resolveApprovedProductImage,parseRetailPriceCents,MISSING_PRODUCT_IMAGE} from '../lib/marketplace-rules.mjs';
 
-const backend=readFileSync('app/api/suppliers/[action]/route.js','utf8');
+const backend=readFileSync('lib/supplier-listings.js','utf8');
 const admin=readFileSync('app/admin/fornecedores/page.jsx','utf8');
 const catalog=readFileSync('app/api/catalog/route.js','utf8');
 
@@ -15,7 +15,7 @@ test('aprovação aceita anúncio sem foto usando imagem explicitamente provisó
  assert.match(readFileSync('public/product-images/sem-foto.svg','utf8'),/Imagem indisponível/);
  assert.match(backend,/const imageUrl=resolveApprovedProductImage\(v.image_url\)/);
  assert.match(backend,/supplierVariantValid\(\{\.\.\.v,image_url:imageUrl\}\)/);
- assert.match(backend,/v.sizes\|\|\[\],imageUrl,/);
+ assert.match(backend,/v.sizes,imageUrl,/);
 });
 
 test('preço R$ 2 para custo R$ 1 é aceito; formato inválido dá erro legível',()=>{
