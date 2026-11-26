@@ -83,7 +83,7 @@ vellor-seasonal-scene[data-no-space]{display:none!important}
 @keyframes vll-scene-light{0%,100%{filter:brightness(1)}40%,65%{filter:brightness(1.9) drop-shadow(0 0 3px #ffd28a)}}
 @keyframes vll-scene-hands{0%,100%{transform:rotate(0)}50%{transform:rotate(95deg)}}
 @media(max-width:760px){vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(34px,12vw,70px)}[data-season-intensity="moderada"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(42px,14vw,83px)}[data-season-intensity="festiva"] vellor-seasonal-scene.campaign-ornament{--scene-target:clamp(48px,16vw,94px)}}
-@media(prefers-reduced-motion:reduce){html:not([data-season-motion="on"]) .campaign-scene-art [data-motion].is-active,html:not([data-season-motion="on"]) .campaign-scene-art [data-motion].is-active [data-detail]{animation:none!important;filter:brightness(1.13)}}
+@media(prefers-reduced-motion:reduce){.campaign-scene-art [data-motion].is-active,.campaign-scene-art [data-motion].is-active [data-detail]{animation:none!important;filter:brightness(1.13)}}
 
 /* Edge-aligned scenes sit inside the header, below functional controls. */
 .site-header,.vll-site-header{overflow:hidden;overflow:clip}
@@ -132,7 +132,7 @@ html[data-season] .site-header :is(.hd-left,.hd-right) :is(a,button),.vll-site-h
 @keyframes vll-scene-balloon{0%,100%{transform:rotate(0)}30%{transform:rotate(-6deg)}70%{transform:rotate(5deg)}}
 @keyframes vll-scene-wave{0%,100%{transform:rotate(0)}25%,70%{transform:rotate(-16deg)}45%,85%{transform:rotate(8deg)}}
 @keyframes vll-scene-sew{0%,100%{transform:translate(0,0)}25%,75%{transform:translate(1px,-2px)}50%{transform:translate(-1px,1px)}}
-@media(prefers-reduced-motion:reduce){html:not([data-season-motion="on"]) .campaign-scene-art [data-ambient],html:not([data-season-motion="on"]) .campaign-scene-art [data-detail="wings"]{animation:none!important}html:not([data-season-motion="on"]) .campaign-scene-art [data-ambient="firework"]{opacity:.25}}
+@media(prefers-reduced-motion:reduce){.campaign-scene-art [data-ambient],.campaign-scene-art [data-detail="wings"]{animation:none!important}.campaign-scene-art [data-ambient="firework"]{opacity:.25}}
 
 /* Portable dimensions and lightweight fallback. */
 vellor-seasonal-scene.campaign-ornament{width:150px;width:min(var(--scene-target),var(--scene-available,168px));height:82px;max-width:35%;overflow:hidden}
@@ -145,8 +145,5 @@ vellor-seasonal-scene.campaign-ornament{width:150px;width:min(var(--scene-target
 .campaign-fallback-particle.bat{background:#141019;width:15px;height:7px;clip-path:polygon(0 0,25% 20%,40% 45%,50% 0,60% 45%,75% 20%,100% 0,83% 100%,64% 65%,50% 100%,36% 65%,17% 100%);animation:vll-fallback-bat 5s ease-in-out infinite}
 @keyframes vll-fallback-fall{0%{transform:translate(-6px,-12px) rotate(0);opacity:0}15%{opacity:.8}85%{opacity:.75}100%{transform:translate(8px,120px) rotate(170deg);opacity:0}}
 @keyframes vll-fallback-bat{0%{transform:translate(-40px,25px);opacity:0}20%{opacity:.9}40%{transform:translate(0,12px) scaleY(.5)}60%{transform:translate(25px,23px)}100%{transform:translate(100px,3px) scaleY(.5);opacity:0}}
-@media(prefers-reduced-motion:reduce){html:not([data-season-motion="on"]) .campaign-fallback-particle{animation:none!important}}
-html[data-season-motion="off"] .campaign-scene-art [data-ambient],html[data-season-motion="off"] .campaign-scene-art [data-detail="wings"],html[data-season-motion="off"] .campaign-scene-art [data-motion].is-active,html[data-season-motion="off"] .campaign-scene-art [data-motion].is-active [data-detail],html[data-season-motion="off"] .campaign-fallback-particle{animation:none!important}
-.campaign-motion-control{font:inherit;font-size:11px;line-height:1.2;border:1px solid #ab9368;border-radius:4px;padding:3px 8px;background:#242326;color:#f2e5c9;cursor:pointer;position:relative;z-index:3;margin:3px auto 0;display:block}
-.site-header>.campaign-motion-control,.vll-site-header>.campaign-motion-control{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);margin:0}
+@media(prefers-reduced-motion:reduce){.campaign-fallback-particle{animation:none!important}}
 .campaign-pix-price{display:block;color:#176347;font-size:.92rem;font-weight:600;line-height:1.35;margin:5px 0 2px}.detail-info .campaign-pix-price{font-size:1.08rem;margin:5px 0 12px}
