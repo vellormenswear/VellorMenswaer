@@ -1,3 +1,4 @@
+import {validDepartment} from '@/lib/departments.mjs';
 import {sql,db,transaction,audit} from '@/lib/db';
 import {applyMarketplaceMigrations} from '@/lib/marketplace-auto-schema.mjs';
 import {resolveProductSlug} from '@/lib/product-slug';
@@ -119,7 +120,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
      const category=await c.query('SELECT c.id FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1 AND c.active AND COALESCE(root.active,true)',[sub.category_id]);ensure(category.rowCount,'O anúncio precisa de uma categoria ativa antes de ser aprovado.',409);
      const prices=Array.isArray(x.prices)?x.prices:[];ensure(prices.length===sub.variants.length,'Informe o preço de venda de cada variação.');
      const sl=await resolveProductSlug(c,{name:sub.name,requested:txt(x.slug,200)});
-     const p=await c.query(`INSERT INTO products(name,slug,description,category_id,shipping,active,hidden,supplier_id) VALUES($1,$2,$3,$4,'nacional',true,false,$5) RETURNING id,product_code`,[sub.name,sl,sub.description,sub.category_id,sub.supplier_id]);productId=p.rows[0].id;productCode=p.rows[0].product_code;
+     const p=await c.query(`INSERT INTO products(name,slug,description,category_id,shipping,active,hidden,supplier_id,department) VALUES($1,$2,$3,$4,'nacional',true,false,$5,$6) RETURNING id,product_code`,[sub.name,sl,sub.description,sub.category_id,sub.supplier_id,sub.department]);productId=p.rows[0].id;productCode=p.rows[0].product_code;
      for(let i=0;i<sub.variants.length;i++){
       const v=sub.variants[i],price=Number(prices[i]);
       const imageUrl=resolveApprovedProductImage(v.image_url);
@@ -190,7 +191,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  if(action==='submit'){
   const variants=Array.isArray(x.variants)?x.variants:[];ensure(variants.length>0&&variants.length<=30,'Informe de 1 a 30 variações.');
-  const name=txt(x.name,220);ensure(name.length>=4,'Nome muito curto.');const cat=uuid(x.category_id)?x.category_id:null;const category=cat?(await sql('SELECT COALESCE(root.slug,c.slug) AS root_slug FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1 AND c.active AND COALESCE(root.active,true)',[cat])).rows[0]:null;ensure(category,'Selecione uma categoria válida e ativa.');
+  ensure(validDepartment(x.department),'Selecione Masculino ou Feminino.');const name=txt(x.name,220);ensure(name.length>=4,'Nome muito curto.');const cat=uuid(x.category_id)?x.category_id:null;const category=cat?(await sql('SELECT COALESCE(root.slug,c.slug) AS root_slug FROM categories c LEFT JOIN categories root ON root.id=c.parent_id WHERE c.id=$1 AND c.active AND COALESCE(root.active,true)',[cat])).rows[0]:null;ensure(category,'Selecione uma categoria válida e ativa.');
   // SKU e URL da foto são opcionais no envio. A validação de publicação continua
   // exigindo imagem, para que a vitrine não exiba produtos sem fotografia.
   for(const v of variants){
@@ -203,7 +204,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
     v.preparation_days=Number(v.preparation_days??supplier.preparation_days);v.delivery_days_min=Number(v.delivery_days_min??supplier.delivery_days_min);v.delivery_days_max=Number(v.delivery_days_max??supplier.delivery_days_max);
     ensure(Number.isInteger(v.preparation_days)&&v.preparation_days>=0&&v.preparation_days<=90&&Number.isInteger(v.delivery_days_min)&&v.delivery_days_min>=1&&v.delivery_days_max>=v.delivery_days_min&&v.delivery_days_max<=180,'Prazo de entrega inválido.');
   }
-  const r=await sql("INSERT INTO supplier_submissions(supplier_id,name,description,category_id,variants,status) VALUES($1,$2,$3,$4,$5,'pending') RETURNING id",[supplier.id,name,txt(x.description,4000),cat,JSON.stringify(variants)]);
+  const r=await sql("INSERT INTO supplier_submissions(supplier_id,name,description,category_id,variants,status,department) VALUES($1,$2,$3,$4,$5,'pending',$6) RETURNING id",[supplier.id,name,txt(x.description,4000),cat,JSON.stringify(variants),x.department]);
   await audit(user.id,'supplier.product_submit','supplier_submission',r.rows[0].id);return ok({id:r.rows[0].id},201)
  }
  if(action==='inventory'){

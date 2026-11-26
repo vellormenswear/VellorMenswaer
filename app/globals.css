@@ -279,3 +279,5 @@ body{background:#faf9f6;color:#15241e;font-size:14px}
  .vll-admin-app .cols3,.vll-admin-app .productgrid,.app-quicklinks{grid-template-columns:minmax(0,1fr)}
  .vll-account-app .navtabs button,.vll-account-app .navtabs a{max-width:100%;white-space:normal}
 }
+
+.vll-site-header,.vll-app-footer{background-color:#10362c;background-image:linear-gradient(90deg,#10362c 0%,#242326 50%,#401328 100%);background-size:100% 100%;}

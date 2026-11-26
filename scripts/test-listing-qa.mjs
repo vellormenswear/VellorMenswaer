@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-if(process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_GIT_COMMIT_REF==='vellor-stability-qa-20261125'){
+if(process.env.VERCEL_ENV==='preview'&&['vellor-stability-qa-20261125','vellor-departamentos-qa-20261125'].includes(process.env.VERCEL_GIT_COMMIT_REF)){
  const {db,sql}=await import('../lib/db.js');
  try{
   const marker=(await sql("SELECT p.category_id,p.supplier_id,u.id AS actor FROM products p CROSS JOIN users u WHERE p.slug='qa-vellor-homologacao-20261125' AND u.email='qa-vellor-20261125-admin@example.invalid'")).rows;
@@ -9,7 +9,7 @@ if(process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_GIT_COMMIT_REF==='vell
   const {quoteCart}=await import('../lib/commerce.js');
   const {category_id,supplier_id,actor}=marker[0],u={id:actor};
   const slug='qa-editor-'+randomUUID();
-  const product={name:'QA editor calçado',slug,description:'Teste isolado',category_id,supplier_id,shipping:'nacional',active:true,hidden:false};
+  const product={name:'QA editor calçado',slug,description:'Teste isolado',category_id,supplier_id,department:'masculino',shipping:'nacional',active:true,hidden:false};
   const photos=['/product-images/sem-foto.svg'];
   const variant={label:'Preto',supplier_cost_cents:6000,price_cents:10000,stock:4,stock_mode:'quantity',sizes:['39'],active:true,supplier_available:true,image_url:photos[0]};
   const invalid={...variant,label:'Inválida',sizes:['PP']};
@@ -30,10 +30,12 @@ if(process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_GIT_COMMIT_REF==='vell
   assert.equal(edited.published,true);assert.equal((await quoteCart([{sku:black.sku,qty:1,size:'39'}])).total_cents,12000);
   const after=(await sql('SELECT sku FROM product_variants WHERE id=$1',[black.id])).rows[0];assert.equal(after.sku,black.sku);
   console.log('[listing.qa] edição, SKU preservado e rollback de edição aprovados');
-  const single=await saveAdminListing(u,{product:{...product,slug:'qa-editor-'+randomUUID()},photos,variants:[{...variant,label:''}]});
+  const single=await saveAdminListing(u,{product:{...product,department:'feminino',slug:'qa-editor-'+randomUUID()},photos,variants:[{...variant,label:''}]});
   assert.equal(single.published,true);
   const only=(await sql('SELECT sku,label FROM product_variants WHERE product_id=$1',[single.id])).rows;
   assert.equal(only.length,1);assert.equal(only[0].label,'Variação única');assert.equal((await quoteCart([{sku:only[0].sku,qty:1,size:'39'}])).total_cents,10000);
+  assert.equal((await sql('SELECT department FROM products WHERE id=$1',[single.id])).rows[0].department,'feminino');assert.equal((await sql('SELECT department FROM products WHERE id=$1',[saved.id])).rows[0].department,'masculino');
+  console.log('[listing.qa] departamentos persistidos corretamente');
   console.log('[listing.qa] variação única automática com tamanho e cotação aprovada');
  }finally{await db().end();}
 }else console.log('[listing.qa] testes de gravação restritos à prévia QA');
