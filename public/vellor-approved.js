@@ -17,8 +17,8 @@ function bindDepartmentTheme(){
  const restore=()=>applyDepartmentTheme(department||'todos');
  restore();
  links.forEach(link=>{
-  link.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')applyDepartmentTheme(link.dataset.department)});
-  link.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')restore()});
+  link.addEventListener('pointerenter',e=>{if(e.pointerType!=='touch')applyDepartmentTheme(link.dataset.department)});
+  link.addEventListener('pointerleave',e=>{if(e.pointerType!=='touch'&&!e.relatedTarget?.closest?.('#vellor-departments a'))restore()});
   link.addEventListener('focus',()=>applyDepartmentTheme(link.dataset.department));
   link.addEventListener('blur',restore);
  });
