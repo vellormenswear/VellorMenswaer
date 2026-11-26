@@ -55,7 +55,7 @@ test('cabeçalho e rodapé seguem a identidade da vitrine nas rotas Next',()=>{
  }
  assert.ok(!frame.includes('className="vll-category-nav"'));
  assert.ok(read('public/vitrine.html').includes('category-nav'));
- assert.ok(frame.includes('logo-vellor.png'));
+ assert.ok(frame.includes('logo-vellor-wear.svg'));
  assert.ok(groups.includes("<Frame user={null}>"));
  assert.ok(paid.includes("<Frame user={null}>"));
 });

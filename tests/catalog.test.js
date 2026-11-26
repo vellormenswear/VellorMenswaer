@@ -11,7 +11,7 @@ test('catálogo público não possui produtos nem fotos de teste embutidos',()=>
  assert.deepEqual(fs.readdirSync(path.join(root,'public/product-images')),['sem-foto.svg']);
 });
 
-test('HTML preservado e responsivo, com ponte para checkout',()=>{const html=fs.readFileSync(path.join(root,'public/vitrine.html'),'utf8');const css=fs.readFileSync(path.join(root,'public/vellor-approved.css'),'utf8');assert.ok(css.includes('@media(max-width:620px)'));assert.ok(html.includes('vellor-approved.js'));assert.ok(html.includes('vellor-approved.css'));assert.ok(html.includes('VELLOR MENSWEAR'));assert.ok(!fs.existsSync(path.join(root,'docs/HTML-ORIGINAL-APROVADO.html')))});
+test('HTML preservado e responsivo, com ponte para checkout',()=>{const html=fs.readFileSync(path.join(root,'public/vitrine.html'),'utf8');const css=fs.readFileSync(path.join(root,'public/vellor-approved.css'),'utf8');assert.ok(css.includes('@media(max-width:620px)'));assert.ok(html.includes('vellor-approved.js'));assert.ok(html.includes('vellor-approved.css'));assert.ok(html.includes('VELLOR WEAR'));assert.ok(!fs.existsSync(path.join(root,'docs/HTML-ORIGINAL-APROVADO.html')))});
 
 test('rodape aprovado inclui FAQ, pagamento sem bandeiras inventadas e contato humano',()=>{
  const html=fs.readFileSync(path.join(root,'public/vitrine.html'),'utf8');
