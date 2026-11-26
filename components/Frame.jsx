@@ -9,7 +9,7 @@ import {logoutAndRedirect} from '@/lib/logout-client.mjs';
 export default function Frame({children,user,logout}){
  const [campaign,setCampaign]=useState(null);
  useEffect(()=>{let active=true;const refresh=()=>fetch('/api/store/campaign',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(active&&j)setCampaign(j.campaign)}).catch(()=>{});refresh();const timer=setInterval(refresh,60000);return()=>{active=false;clearInterval(timer)}},[]);
- const theme=campaign?.decoration&&Object.hasOwn(THEMES,campaign.theme)?campaign.theme:undefined;
+ const theme=campaign?.decoration&&Object.prototype.hasOwnProperty.call(THEMES,campaign.theme)?campaign.theme:undefined;
  const [signingOut,setSigningOut]=useState(false);
  const [logoutError,setLogoutError]=useState('');
  async function handleSignOut(){
