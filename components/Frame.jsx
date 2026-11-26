@@ -40,7 +40,7 @@ export default function Frame({children,user,logout}){
     </Link>
     {user&&<button className="vll-signout" type="button" disabled={signingOut} onClick={handleSignOut}>{signingOut?'SAINDO...':'SAIR'}</button>}
    </nav>
-   {theme&&<><span className="campaign-ornament left" aria-hidden="true"/><span className="campaign-ornament right" aria-hidden="true"/></>}
+   {theme&&<><vellor-seasonal-scene className="campaign-ornament left" data-theme={theme}/><vellor-seasonal-scene className="campaign-ornament right" data-theme={theme}/></>}
   </header>
   {campaign&&(campaign.headline||campaign.message)&&<aside className="campaign-announcement" data-season={theme}><strong>{campaign.headline}</strong><small>{campaign.message}</small></aside>}
   <div className="vll-brand-top" aria-hidden="true"/>
