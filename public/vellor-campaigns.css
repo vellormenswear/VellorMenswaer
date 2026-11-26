@@ -1,12 +1,12 @@
-[data-season="reveillon"]{--season-left:#142538;--season-mid:#24272e;--season-right:#34303e;--season-accent:#e6d8bb;--season-ornament:url('/campaign-balls.svg')}
-[data-season="carnaval"]{--season-left:#103b36;--season-mid:#252334;--season-right:#421c46;--season-accent:#e1bb68;--season-ornament:url('/campaign-confetti.svg')}
-[data-season="pascoa"]{--season-left:#483024;--season-mid:#34272c;--season-right:#38254c;--season-accent:#d8be8a;--season-ornament:url('/campaign-eggs.svg')}
-[data-season="maes"]{--season-left:#402637;--season-mid:#35252d;--season-right:#692a43;--season-accent:#e5b0c0;--season-ornament:url('/campaign-flowers.svg')}
-[data-season="namorados"]{--season-left:#46202a;--season-mid:#38242f;--season-right:#702038;--season-accent:#ec9fac;--season-ornament:url('/campaign-hearts.svg')}
-[data-season="pais"]{--season-left:#182e45;--season-mid:#302b30;--season-right:#483325;--season-accent:#c7aa78;--season-ornament:url('/campaign-stars.svg')}
-[data-season="halloween"]{--season-left:#60300f;--season-mid:#29202b;--season-right:#36164c;--season-accent:#ee9b47;--season-ornament:url('/campaign-pumpkins.svg')}
-[data-season="blackfriday"]{--season-left:#141414;--season-mid:#242119;--season-right:#493616;--season-accent:#e9c85c;--season-ornament:url('/campaign-tags.svg')}
-[data-season="natal"]{--season-left:#103b2c;--season-mid:#30252a;--season-right:#66202b;--season-accent:#d9bf82;--season-ornament:url('/campaign-christmas.svg')}
+[data-season="reveillon"]{--season-left:#142538;--season-mid:#24272e;--season-right:#34303e;--season-accent:#e6d8bb;--season-ornament:url('/campaign-balls.svg?v=2')}
+[data-season="carnaval"]{--season-left:#103b36;--season-mid:#252334;--season-right:#421c46;--season-accent:#e1bb68;--season-ornament:url('/campaign-confetti.svg?v=2')}
+[data-season="pascoa"]{--season-left:#483024;--season-mid:#34272c;--season-right:#38254c;--season-accent:#d8be8a;--season-ornament:url('/campaign-eggs.svg?v=2')}
+[data-season="maes"]{--season-left:#402637;--season-mid:#35252d;--season-right:#692a43;--season-accent:#e5b0c0;--season-ornament:url('/campaign-flowers.svg?v=2')}
+[data-season="namorados"]{--season-left:#46202a;--season-mid:#38242f;--season-right:#702038;--season-accent:#ec9fac;--season-ornament:url('/campaign-hearts.svg?v=2')}
+[data-season="pais"]{--season-left:#182e45;--season-mid:#302b30;--season-right:#483325;--season-accent:#c7aa78;--season-ornament:url('/campaign-stars.svg?v=2')}
+[data-season="halloween"]{--season-left:#60300f;--season-mid:#29202b;--season-right:#36164c;--season-accent:#ee9b47;--season-ornament:url('/campaign-pumpkins.svg?v=2')}
+[data-season="blackfriday"]{--season-left:#141414;--season-mid:#242119;--season-right:#493616;--season-accent:#e9c85c;--season-ornament:url('/campaign-tags.svg?v=2')}
+[data-season="natal"]{--season-left:#103b2c;--season-mid:#30252a;--season-right:#66202b;--season-accent:#d9bf82;--season-ornament:url('/campaign-christmas.svg?v=2')}
 .vll-site-header[data-season],.vll-app-footer[data-season]{background:linear-gradient(90deg,var(--season-left,#10362c),var(--season-mid,#242326),var(--season-right,#401328))}
 .campaign-ornament{position:absolute;top:2px;width:clamp(28px,5vw,66px);height:40px;pointer-events:none;background:var(--season-ornament) center/contain no-repeat;opacity:.8;z-index:0;}
 .campaign-ornament.left{left:clamp(3px,2vw,24px)}.campaign-ornament.right{right:clamp(3px,2vw,24px);transform:scaleX(-1)}
@@ -16,3 +16,18 @@ html:not([data-season]) .site-header .campaign-ornament{display:none}[data-seaso
 .campaign-original-price{color:#777;font-size:.8em;font-weight:400;margin-right:4px}
 .campaign-admin-preview{height:120px;position:relative;display:grid;place-items:center;border-radius:6px;margin:12px 0;overflow:hidden}.campaign-admin-preview img{width:min(72%,280px);height:auto;position:relative;z-index:1}.campaign-admin-preview::before,.campaign-admin-preview::after{content:"";position:absolute;top:8px;width:55px;height:45px;background:var(--season-ornament) center/contain no-repeat}.campaign-admin-preview::before{left:12px}.campaign-admin-preview::after{right:12px;transform:scaleX(-1)}
 @media(max-width:760px){.campaign-ornament{top:0;width:28px;height:23px!important;opacity:.65}.campaign-announcement{font-size:12px;padding:7px 12px}.campaign-admin-preview::before,.campaign-admin-preview::after{width:30px}}
+
+/* Seasonal art upgrade: keep original header geometry, logo assets and gradient transitions. */
+.site-header,.vll-site-header{isolation:isolate}
+.vll-site-header{position:relative}
+.site-header .hd-left,.site-header .hd-right,.vll-site-header .vll-header-left,.vll-site-header .vll-header-right{position:relative;z-index:2}
+.campaign-ornament{top:0;width:clamp(72px,11vw,168px);height:clamp(42px,6vw,86px);opacity:.84;pointer-events:none;background-position:left top}
+.campaign-ornament.left{left:clamp(2px,1.4vw,22px)}.campaign-ornament.right{right:clamp(2px,1.4vw,22px)}
+[data-season-intensity="moderada"] .campaign-ornament{width:clamp(90px,13vw,190px);height:clamp(48px,7vw,92px);opacity:.96}
+[data-season-intensity="festiva"] .campaign-ornament{width:clamp(112px,15vw,218px);height:clamp(55px,8vw,98px);opacity:1}
+.campaign-announcement{position:relative;z-index:1;clear:both;display:block;isolation:isolate;min-height:0}.campaign-announcement strong:empty,.campaign-announcement small:empty{display:none}
+.campaign-admin-preview::before,.campaign-admin-preview::after{top:0;width:clamp(55px,15%,135px);height:70px;background-position:left top;opacity:.84}
+.campaign-admin-preview[data-season-intensity="moderada"]::before,.campaign-admin-preview[data-season-intensity="moderada"]::after{width:19%;height:83px;opacity:.96}
+.campaign-admin-preview[data-season-intensity="festiva"]::before,.campaign-admin-preview[data-season-intensity="festiva"]::after{width:23%;height:95px;opacity:1}
+.campaign-admin-preview::before{left:0}.campaign-admin-preview::after{right:0}
+@media(max-width:760px){.campaign-ornament,.campaign-ornament.left,.campaign-ornament.right{top:0;width:clamp(34px,12vw,70px);height:clamp(23px,8vw,44px)!important;opacity:.78}.campaign-ornament.left{left:0}.campaign-ornament.right{right:0}[data-season-intensity="moderada"] .campaign-ornament{width:clamp(42px,14vw,83px);opacity:.9}[data-season-intensity="festiva"] .campaign-ornament{width:clamp(48px,16vw,94px);opacity:1}.campaign-admin-preview::before,.campaign-admin-preview::after{height:48px;width:18%}}
