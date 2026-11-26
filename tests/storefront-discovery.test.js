@@ -138,8 +138,9 @@ test('URLs públicas usam raiz e slugs únicos sem extensão ou prefixo',()=>{
  assert.ok(config.includes("source:'/:categoria([a-z0-9-]+)'"));
  assert.ok(!page.includes('redirect(')&&!frame.includes('/vitrine.html')&&!html.includes('href="/vitrine.html'));
  const start=js.indexOf('const categoryUrl='),end=js.indexOf(';',start)+1;
- const url=new Function(js.slice(start,end)+';return categoryUrl')();
+ const url=new Function('departmentSuffix',js.slice(start,end)+';return categoryUrl')('');
  assert.equal(url('vestuario','camisas'),'/camisas');assert.equal(url('vestuario','todos'),'/vestuario');assert.equal(url('relogios','relogios-classicos'),'/relogios-classicos');
+ const departmentUrl=new Function('departmentSuffix',js.slice(start,end)+';return categoryUrl')('?departamento=feminino');assert.equal(departmentUrl('vestuario','camisas'),'/camisas?departamento=feminino');
  assert.ok(js.includes('resolveCategoryRoute();active=pageLeaf||pageParent'));
 });
 
