@@ -1,3 +1,4 @@
+import {recipientSnapshot} from '@/lib/address-recipient.mjs';
 import {CAMPAIGN_JOIN,CAMPAIGN_PRICE,promoGroupSafe,CAMPAIGN_PIX_JOIN,CAMPAIGN_PIX_PRICE,pixPlan} from '@/lib/campaign-pricing.mjs';
 import {sql,transaction} from '@/lib/db';
 import {quoteCart} from '@/lib/commerce';
@@ -123,7 +124,7 @@ export async function POST(req,{params}){try{
   }
   for(const g of list){
    const r=await c.query("INSERT INTO supplier_order_groups(checkout_batch_id,customer_id,recipient_snapshot,items_snapshot,subtotal_cents,discount_cents,coupon_id,coupon_code_snapshot,checkout_expires_at,supplier_id,amount_cents,supplier_amount_cents,marketplace_fee_cents,preparation_days,delivery_days_min,delivery_days_max) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '2 hours',$9,$10,$11,$12,$13,$14,$15) RETURNING id",
-    [batch,u.id,JSON.stringify(addr.rows[0]),JSON.stringify(g.items),g.subtotal,g.discount,quote.coupon?.id||null,quote.coupon?.code||null,g.supplier_id,g.total,g.cost,g.total-g.cost,Math.max(...g.items.map(i=>i.preparation_days)),Math.max(...g.items.map(i=>i.delivery_days_min)),Math.max(...g.items.map(i=>i.delivery_days_max))]);
+    [batch,u.id,JSON.stringify(recipientSnapshot(addr.rows[0],u.full_name)),JSON.stringify(g.items),g.subtotal,g.discount,quote.coupon?.id||null,quote.coupon?.code||null,g.supplier_id,g.total,g.cost,g.total-g.cost,Math.max(...g.items.map(i=>i.preparation_days)),Math.max(...g.items.map(i=>i.delivery_days_min)),Math.max(...g.items.map(i=>i.delivery_days_max))]);
    for(const item of g.items)if(item.stock_mode==='quantity')
     await c.query('INSERT INTO supplier_stock_reservations(group_id,variant_id,quantity) VALUES($1,$2,$3) ON CONFLICT(group_id,variant_id) DO UPDATE SET quantity=supplier_stock_reservations.quantity+excluded.quantity',[r.rows[0].id,item.variant_id,item.qty]);
   }
