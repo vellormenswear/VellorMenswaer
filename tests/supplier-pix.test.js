@@ -65,7 +65,7 @@ test('fornecedor antigo pode cadastrar e atualizar sua própria chave Pix com au
  assert.ok(page.includes("pix_key_mask"));
 });
 test('um repasse manual é bloqueado sem chave cadastrada ou se ela mudou no meio da operação',()=>{
- const backend=read('app/api/admin/infinitepay/route.js'),ui=read('app/admin/infinitepay/page.jsx');
+ const backend=read('app/api/admin/infinitepay/route.js'),ui=read('components/OrderPayouts.jsx');
  assert.ok(backend.includes('WHERE supplier_id=$1 FOR SHARE'));
  assert.ok(backend.includes("ensure(pix.rowCount"));
  assert.ok(backend.includes('pix_updated_at'));
@@ -73,7 +73,7 @@ test('um repasse manual é bloqueado sem chave cadastrada ou se ela mudou no mei
  assert.ok(backend.includes('INSERT INTO supplier_manual_payouts'));
  assert.ok(backend.includes("fulfillment_status='paid'"));
  assert.ok(ui.includes('COPIAR CHAVE PIX'));
- assert.ok(ui.includes('!g.pix_key||!g.pix_updated_at'));
+ assert.ok(ui.includes('!g.pix_ready||!g.pix_updated_at'));
  assert.ok(ui.includes('pix_updated_at:g.pix_updated_at'));
  assert.ok(ui.includes('confirm('));
  assert.ok(!ui.includes("fetch('/api/payments/pix-transfer'"));

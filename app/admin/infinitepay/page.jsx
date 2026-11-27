@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';import Frame from '@/components/Frame';
 const brl=x=>(Number(x||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 export default function InfinitepayAdmin(){
- const [u,setU]=useState(null),[data,setData]=useState(null),[err,setErr]=useState(''),[busy,setBusy]=useState(''),[reference,setReference]=useState({}),[notes,setNotes]=useState({});
+ const [u,setU]=useState(null),[data,setData]=useState(null),[err,setErr]=useState(''),[busy,setBusy]=useState('');
  const [lookup,setLookup]=useState({checkout_id:'',transaction_nsu:'',slug:''});
  const [returnUrl,setReturnUrl]=useState('');const [result,setResult]=useState(null);
  async function refresh(){try{
@@ -12,13 +12,6 @@ export default function InfinitepayAdmin(){
   setU(a.user);setData(j);setErr('');
  }catch(e){setErr(e.message)}}
  useEffect(()=>{refresh()},[]);
- async function record(g){if(!g.pix_key||!g.pix_updated_at){setErr('Aguarde o fornecedor cadastrar uma chave Pix válida.');return;}
-  if(!confirm('Confirma que já enviou '+brl(g.supplier_amount_cents)+' ao titular '+g.pix_holder_name+' usando a chave Pix informada abaixo, e conferiu o comprovante? Esta ação NÃO transfere dinheiro.'))return;
-  setBusy(g.id);setErr('');
-  try{const r=await fetch('/api/admin/infinitepay',{method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({action:'record_payout',group_id:g.id,transfer_reference:reference[g.id]||'',notes:notes[g.id]||'',pix_updated_at:g.pix_updated_at})});
-   const x=await r.json();if(!r.ok)throw Error(x.error||'Falha ao registrar Pix');await refresh();
-  }catch(e){setErr(e.message)}finally{setBusy('')}}
  async function reconcile(e){e.preventDefault();setBusy('reconcile');setErr('');setResult(null);
   try{const r=await fetch('/api/admin/infinitepay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reconcile_payment',...lookup})});
    const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Erro ao conferir pagamento');
@@ -31,10 +24,10 @@ export default function InfinitepayAdmin(){
   }catch{}
  }
  return <Frame user={u}><main className="page checkoutbox"><p><Link href="/admin">Voltar à administração</Link></p>
-  <h1>InfinitePay · Repasses manuais</h1>
+  <h1>InfinitePay · Conciliação</h1>
   <section className="card"><p>Checkout: <b>{data?.checkout_enabled?'Habilitado':'Indisponível'}</b></p>
   <p>Credenciais: <b>{data?.configured?'Configuradas':'Aguardando InfiniteTag ou chave'}</b>.</p>
-  <p className="help">O cadastro abaixo NÃO transfere dinheiro. Envie o Pix diretamente pelo seu banco ou aplicativo InfinitePay, confira os dados do beneficiário e só depois registre a referência do comprovante.</p>
+  
   <button className="btn ghost" onClick={refresh}>ATUALIZAR</button></section>
   {err&&<p className="notice error" role="alert">{err}</p>}
   <section className="card"><h2>Conciliar compra já realizada</h2>
@@ -57,18 +50,8 @@ export default function InfinitepayAdmin(){
     <p><b>{g.business_name}</b> · Pedido #{g.order_number}</p>
     <p>Venda: {brl(g.amount_cents)} · Repasse ao fornecedor: <b>{brl(g.supplier_amount_cents)}</b></p>
     <p>Pagamento: {g.payment_status} · Preparação: {g.fulfillment_status}</p>
-    {g.transfer_reference?<p className="notice ok">Pix registrado: {g.transfer_reference}{g.payout_holder_name?' · '+g.payout_holder_name:''}{g.payout_pix_suffix?' · chave final '+g.payout_pix_suffix:''}</p>:
-    g.fulfillment_status==='awaiting_payout'?<>
-     {g.pix_key?<div className="notice ok" role="group" aria-label="Destinatário do repasse Pix">
-      <p><b>Destinatário Pix:</b> {g.pix_holder_name}</p>
-      <p>Tipo: <b>{g.pix_type?.toUpperCase()}</b> · Chave: <code style={{overflowWrap:'anywhere'}}>{g.pix_key}</code></p>
-      <button className="tiny" type="button" onClick={()=>navigator.clipboard.writeText(g.pix_key).catch(()=>setErr('Não foi possível copiar. Selecione a chave acima.'))}>COPIAR CHAVE PIX</button>
-      <p className="small">No aplicativo do banco, confira o nome e os dados retornados para o beneficiário antes de enviar. A VELLOR registra o repasse somente após o pagamento real.</p>
-     </div>:<div className="notice error" role="status">Chave Pix pendente: o fornecedor deve cadastrá-la em seu portal antes do repasse. Não registre pagamentos sem os dados do destinatário.</div>}
-     <div className="field"><label>Referência do Pix enviado (obrigatória)</label><input value={reference[g.id]||''} onChange={e=>setReference(x=>({...x,[g.id]:e.target.value}))}/></div>
-     <div className="field"><label>Data, destinatário e comprovante conferido</label><textarea value={notes[g.id]||''} onChange={e=>setNotes(x=>({...x,[g.id]:e.target.value}))}/></div>
-     <button className="btn gold" disabled={!!busy||!g.pix_key||!g.pix_updated_at} onClick={()=>record(g)}>REGISTRAR PIX JÁ REALIZADO</button>
-    </>:<p>Acompanhamento financeiro indisponível para este status.</p>}
+    {g.transfer_reference&&<p className="notice ok">Pix registrado: {g.transfer_reference}{g.payout_holder_name?' · '+g.payout_holder_name:''}{g.payout_pix_suffix?' · chave final '+g.payout_pix_suffix:''}</p>}
+    {g.order_id&&<Link className="tiny" href={'/admin?pedido='+encodeURIComponent(g.order_id)}>Abrir pedido</Link>}
    </div>)}</section>}
  </main></Frame>
 }
