@@ -26,7 +26,7 @@ export async function GET(req){try{
   handle_set:!!process.env.INFINITEPAY_HANDLE,groups:groups.rows});
  }catch(e){return fail(e)}}
 export async function POST(req){try{
- originGuard(req);const u=await requireRole(req,['super_admin']);const x=await body(req,3000);
+ originGuard(req);const x=await body(req,3000);const u=await requireRole(req,x.action==='record_payout'?['admin','super_admin']:['super_admin']);
  if(x.action==='reconcile_payment'){
   ensure(uuid(x.checkout_id)&&safeInfiniteRef(x.transaction_nsu)&&safeInfiniteRef(x.slug),'Identificadores invalidos.',400);
   const entry=await sql('SELECT 1 FROM infinitepay_checkout_batches WHERE checkout_batch_id=$1',[x.checkout_id]);
