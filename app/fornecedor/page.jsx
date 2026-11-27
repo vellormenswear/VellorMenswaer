@@ -1,40 +1,64 @@
 'use client';
-import {useEffect,useState} from 'react';import Frame from '@/components/Frame';
+import {useEffect,useState,useRef} from 'react';import Frame from '@/components/Frame';
 import {customerPaymentLabel} from '@/lib/customer-order-status.mjs';
 import SupplierListings from '@/components/SupplierListings';
 const brl=n=>(Number(n||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const req=async(method,path,data)=>{const r=await fetch('/api/'+path,{method,headers:{'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined,cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Falha na operação');return j};
+const req=async(method,path,data)=>{const r=await fetch('/api/'+path,{method,headers:{'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined,cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok){const e=Error(j.error||'Falha na operação');e.status=r.status;throw e;}return j};
+function InventoryForm({v,busy,post}){
+ const current=()=>({mode:v.stock_mode,stock:String(v.stock??0),available:!!v.supplier_available});
+ const [draft,setDraft]=useState(current),dirty=useRef(false);
+ useEffect(()=>{if(!dirty.current)setDraft(current())},[v.stock_mode,v.stock,v.supplier_available]);
+ const change=(key,value)=>{dirty.current=true;setDraft(old=>({...old,[key]:value}));};
+ return <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);if(await post('inventory',{variant_id:v.variant_id,stock_mode:f.get('mode'),stock:f.get('stock'),available:f.get('available')==='on'}))dirty.current=false;}} className="flexrow"><label>Modalidade <select name="mode" value={draft.mode} onChange={e=>change('mode',e.target.value)}><option value="quantity">Quantidade</option><option value="availability">Disponibilidade</option></select></label><label>Unidades <input className="form" name="stock" type="number" min="0" value={draft.stock} onChange={e=>change('stock',e.target.value)} required step="1" style={{maxWidth:110}}/></label><label><input type="checkbox" name="available" checked={draft.available} onChange={e=>change('available',e.target.checked)}/> Disponível</label><button className="tiny" disabled={busy}>ATUALIZAR ESTOQUE</button></form>;
+}
 export default function Supplier(){const [user,setUser]=useState(null),[data,setData]=useState(null),[msg,setMsg]=useState(''),[tab,setTab]=useState('products'),[selectedOrder,setSelectedOrder]=useState(null),[busy,setBusy]=useState(false),[categories,setCategories]=useState([]),[loading,setLoading]=useState(true),[pixForm,setPixForm]=useState({pix_type:'',pix_key:'',pix_holder_name:''});
- async function load(){setLoading(true);setMsg('');try{const [me,source,cats]=await Promise.all([req('GET','auth/me'),req('GET','suppliers/dashboard'),req('GET','catalog/categories').catch(()=>({categories:[]}))]);setUser(me.user);setData(source);setCategories(cats.categories||[]);setPixForm(v=>({pix_type:source.pix_account?.pix_type||v.pix_type||'',pix_key:'',pix_holder_name:source.pix_account?.pix_holder_name||v.pix_holder_name||''}))}catch(e){setData(null);setMsg(e.message)}finally{setLoading(false)}}
- useEffect(()=>{load()},[]);
- useEffect(()=>{const refreshId=setInterval(()=>{
-  req('GET','suppliers/notifications')
-   .then(x=>setData(old=>old?{...old,notifications:x.notifications,orders:x.orders}:old))
-   .catch(()=>{});
- },30000);return()=>clearInterval(refreshId)},[]);
+ const revision=useRef(''),loaded=useRef(false),inFlight=useRef(null),pixDirty=useRef(false);
+ async function load({force=false,resetPix=false}={}){
+  if(inFlight.current){if(!force)return inFlight.current;await inFlight.current;if(inFlight.current)return load({force,resetPix});}
+  const work=(async()=>{try{
+   const source=await req('GET','suppliers/dashboard'+(!force&&revision.current?'?revision='+encodeURIComponent(revision.current):''));
+   if(source.unchanged)return true;
+   revision.current=source.revision;
+   if(!loaded.current)setMsg('');
+   setUser(source.user);setData(source);setCategories(source.categories||[]);
+   if(!loaded.current||resetPix||!pixDirty.current){setPixForm({pix_type:source.pix_account?.pix_type||'',pix_key:'',pix_holder_name:source.pix_account?.pix_holder_name||''});pixDirty.current=false;}
+   loaded.current=true;return true;
+  }catch(e){
+   if(e.status===401||e.status===403||!loaded.current){setData(null);setUser(null);loaded.current=false;revision.current='';setMsg(e.message);}
+   else if(force)setMsg(e.message);
+   return false;
+  }finally{setLoading(false)}})();
+  inFlight.current=work;
+  try{return await work;}finally{if(inFlight.current===work)inFlight.current=null;}
+ }
+ useEffect(()=>{
+  let stopped=false,timer,generation=0;
+  const tick=async()=>{clearTimeout(timer);const current=++generation;if(stopped)return;if(document.visibilityState!=='hidden')await load();if(!stopped&&generation===current)timer=setTimeout(tick,3000);};
+  const resume=()=>{if(document.visibilityState!=='hidden')tick();};
+  tick();document.addEventListener('visibilitychange',resume);window.addEventListener('focus',resume);
+  return()=>{stopped=true;clearTimeout(timer);document.removeEventListener('visibilitychange',resume);window.removeEventListener('focus',resume)};
+ },[]);
  async function markNoticeRead(id){try{setBusy(true);setMsg('');
-   await req('POST','suppliers/notification-read',{notification_id:id});
-   const j=await req('GET','suppliers/notifications');
-   setData(old=>old?{...old,notifications:j.notifications}:old);await load();
+   await req('POST','suppliers/notification-read',{notification_id:id});await load({force:true});
   }catch(e){setMsg(e.message)}finally{setBusy(false)}
  }
- async function post(action,payload){try{setBusy(true);setMsg('');await req('POST','suppliers/'+action,payload);await load();setMsg('Operação registrada.');return true}catch(e){setMsg(e.message);return false}finally{setBusy(false)}}
+ async function post(action,payload){try{setBusy(true);setMsg('');await req('POST','suppliers/'+action,payload);if(await load({force:true}))setMsg('Operação registrada.');return true}catch(e){setMsg(e.message);return false}finally{setBusy(false)}}
  async function savePix(e){
   e.preventDefault();
   if(data?.pix_account?.registered&&pixForm.pix_key.trim()&&!window.confirm('Deseja substituir a chave Pix utilizada para seus próximos repasses?'))return;
   try{setBusy(true);setMsg('');
    await req('POST','suppliers/pix-account',pixForm);
-   await load();setMsg('Dados Pix atualizados com sucesso.');
+   if(await load({force:true,resetPix:true}))setMsg('Dados Pix atualizados com sucesso.');
   }catch(err){setMsg(err.message)}finally{setBusy(false)}
  }
- useEffect(()=>{if(tab==='orders'&&selectedOrder)document.getElementById('supplier-order-'+selectedOrder)?.scrollIntoView({block:'start',behavior:'smooth'})},[tab,selectedOrder,data]);
+ useEffect(()=>{if(tab==='orders'&&selectedOrder)document.getElementById('supplier-order-'+selectedOrder)?.scrollIntoView({block:'start',behavior:'smooth'})},[tab,selectedOrder]);
  const paymentRows=(data?.orders||[]).filter(x=>x.payment_status==='approved');
  const notices=data?.notifications||[];
  const unreadNotices=notices.filter(n=>!n.read_at);
  const noticeSummary=n=>n.kind==='supplier_size_changed'?'A VELLOR alterou o tamanho do item '+n.payload?.sku+' de '+(n.payload?.old_size||'padrão')+' para '+n.payload?.new_size+'. Confira a disponibilidade e a nova numeração antes de postar.':n.kind==='supplier_paid'
   ?'A VELLOR registrou seu repasse de '+brl(n.supplier_amount_cents)+'. Você está autorizado a preparar e enviar este pedido.'
   :'O cliente confirmou o pagamento. Seu valor de fornecimento é '+brl(n.supplier_amount_cents)+'. Aguarde a VELLOR realizar e confirmar seu repasse antes de preparar ou enviar.';
- return <Frame user={user}><main className="page vll-supplier-app"><h1>Portal do fornecedor</h1><p>Seus produtos, pedidos e entregas na VELLOR WEAR</p>{msg&&<p className="notice" role="status">{msg}</p>}{!data?<section className="card"><p>{loading?'Carregando dados...':msg?'Não foi possível carregar os dados. Confira sua autorização e a configuração do banco Neon.':'Entre com a conta criada pelo convite para acessar o painel.'}</p><p><a href="/conta">Fazer login</a></p><button type="button" className="btn ghost" onClick={load}>TENTAR NOVAMENTE</button></section>:<><div className="cols3"><div className="metric"><strong>{data.products.length}</strong><small>Variações aprovadas</small></div><div className="metric"><strong>{paymentRows.length}</strong><small>Pedidos pagos</small></div><div className="metric"><strong>{brl(paymentRows.reduce((s,g)=>s+g.supplier_amount_cents,0))}</strong><small>Valores brutos de fornecimento</small></div></div><section className="card"><h2>{data.supplier.business_name}</h2>
+ return <Frame user={user}><main className="page vll-supplier-app"><h1>Portal do fornecedor</h1><p>Seus produtos, pedidos e entregas na VELLOR WEAR</p>{msg&&<p className="notice" role="status">{msg}</p>}{!data?<section className="card"><p>{loading?'Carregando dados...':msg?'Não foi possível carregar os dados. Confira sua autorização e a configuração do banco Neon.':'Entre com a conta criada pelo convite para acessar o painel.'}</p><p><a href="/conta">Fazer login</a></p><button type="button" className="btn ghost" onClick={()=>load({force:true})}>TENTAR NOVAMENTE</button></section>:<><div className="cols3"><div className="metric"><strong>{data.products.length}</strong><small>Variações aprovadas</small></div><div className="metric"><strong>{paymentRows.length}</strong><small>Pedidos pagos</small></div><div className="metric"><strong>{brl(paymentRows.reduce((s,g)=>s+g.supplier_amount_cents,0))}</strong><small>Valores brutos de fornecimento</small></div></div><section className="card"><h2>{data.supplier.business_name}</h2>
   <form className="formgrid" key={data.supplier.address_text||''} onSubmit={e=>{e.preventDefault();const address=new FormData(e.currentTarget).get('address');post('address',{address})}}><div className="field"><label htmlFor="supplier-address">Endereço comercial</label><input id="supplier-address" name="address" required maxLength={600} defaultValue={data.supplier.address_text||''} placeholder="Rua, número, bairro, Cidade/UF"/></div><button type="submit" className="tiny" disabled={busy}>SALVAR ENDEREÇO</button></form>
   <p className="help">Pagamentos recebidos pela VELLOR via InfinitePay. O Pix de cada pedido é transferido manualmente ao fornecedor, e a preparação só é liberada quando o administrador confirma o repasse.</p>
  </section>
@@ -44,7 +68,7 @@ export default function Supplier(){const [user,setUser]=useState(null),[data,set
    <b>Chave cadastrada</b> · {data.pix_account.pix_type.toUpperCase()} · {data.pix_account.pix_key_mask}<br/>
    <small>Titular: {data.pix_account.pix_holder_name}. A chave completa fica restrita ao setor de pagamentos da VELLOR.</small>
   </p>:<p className="notice error" role="status">Cadastre sua chave Pix para receber os pagamentos da VELLOR. Você poderá atualizar os dados neste painel.</p>}
-  <form onSubmit={savePix} className="formgrid">
+  <form onSubmit={savePix} onChange={()=>{pixDirty.current=true}} className="formgrid">
    <div className="field"><label htmlFor="supplier-pix-type">Tipo de chave Pix</label><select id="supplier-pix-type" required value={pixForm.pix_type} onChange={e=>setPixForm(v=>({...v,pix_type:e.target.value,pix_key:''}))}>
     <option value="">Selecione o tipo</option><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Celular</option><option value="random">Chave aleatória</option>
    </select></div>
@@ -60,10 +84,10 @@ export default function Supplier(){const [user,setUser]=useState(null),[data,set
   <p>Confira os pagamentos e os repasses dos seus produtos.</p></div>
   <button type="button" className="btn ghost" onClick={()=>setTab('notifications')}>VER AVISOS</button>
  </section>}<nav className="navtabs">{[['products','Meus anúncios'],['notifications',`Avisos${unreadNotices.length?' ('+unreadNotices.length+')':''}`],['orders','Pedidos'],['finance','Recebimentos']].map(([key,label])=><button className={tab===key?'active':''} onClick={()=>setTab(key)} key={key}>{label}</button>)}</nav>
- {tab==='products'&&<><SupplierListings categories={categories} onChanged={load} refreshToken={data.products}/><section className="card"><h2>Estoque dos produtos aprovados</h2>{data.products.map(v=><div className="card" key={v.variant_id}><b>{v.name} — {v.label} · {(v.sizes||[]).join(', ')}</b><p className="small">{v.product_code?v.product_code+' · ':''}SKU {v.sku} · Fornecimento: {brl(v.supplier_cost_cents)}</p><form onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);post('inventory',{variant_id:v.variant_id,stock_mode:f.get('mode'),stock:f.get('stock'),available:f.get('available')==='on'})}} className="flexrow"><label>Modalidade <select name="mode" defaultValue={v.stock_mode}><option value="quantity">Quantidade</option><option value="availability">Disponibilidade</option></select></label><label>Unidades <input className="form" name="stock" type="number" min="0" defaultValue={v.stock??0} required step="1" style={{maxWidth:110}}/></label><label><input type="checkbox" name="available" defaultChecked={v.supplier_available}/> Disponível</label><button className="tiny" disabled={busy}>ATUALIZAR ESTOQUE</button></form></div>)}</section></>}
+ {tab==='products'&&<><SupplierListings categories={categories} listings={data.listings} onChanged={()=>load({force:true})}/><section className="card"><h2>Estoque dos produtos aprovados</h2>{data.products.map(v=><div className="card" key={v.variant_id}><b>{v.name} — {v.label} · {(v.sizes||[]).join(', ')}</b><p className="small">{v.product_code?v.product_code+' · ':''}SKU {v.sku} · Fornecimento: {brl(v.supplier_cost_cents)}</p><InventoryForm v={v} busy={busy} post={post}/></div>)}</section></>}
  {tab==='notifications'&&<section className="card supplier-notice-list">
   <div className="flexrow"><h2>Avisos de pedidos</h2><span className="spacer"/>
-   <button type="button" className="btn ghost" onClick={load}>ATUALIZAR</button></div>
+   <button type="button" className="btn ghost" onClick={()=>load({force:true})}>ATUALIZAR</button></div>
   <p className="help">Você recebe um aviso quando o cliente paga e outro quando a VELLOR registra o Pix do repasse. A conta do fornecedor só mostra avisos dos próprios produtos.</p>
   {notices.length===0?<p>Nenhum aviso de pagamento ainda.</p>:notices.map(n=><article className={'supplier-notice '+(!n.read_at?'is-unread':'')} key={n.id}>
     <div className="flexrow"><span className="supplier-notice-kind">{n.kind==='supplier_size_changed'?'TAMANHO ALTERADO':n.kind==='supplier_paid'?'REPASSE CONFIRMADO':'PAGAMENTO CONFIRMADO'}</span>
