@@ -145,7 +145,7 @@ test('URLs públicas usam raiz e slugs únicos sem extensão ou prefixo',()=>{
 });
 
 test('domínio oficial não redireciona APIs nem retornos antigos de pagamento',()=>{
- const source=read('middleware.js');assert.ok(source.includes("target.hostname='vellormenswear.com.br'"));assert.ok(source.includes("path.startsWith('/api/')")&&source.includes("path.startsWith('/pagamento/')"));
+ const source=read('middleware.js');assert.ok(source.includes("target.hostname='www.vellorwear.com.br'"));assert.ok(source.includes("path.startsWith('/api/')")&&source.includes("path.startsWith('/pagamento/')"));
  const a=js.indexOf('function resolveCategoryRoute()'),b=js.indexOf('\nresolveCategoryRoute();',a);
  const route=new Function('routeSlug','fullCatalog','categoryTree','let pageParent=null,pageLeaf=null;'+js.slice(a,b)+';resolveCategoryRoute();return {pageParent,pageLeaf}');
  const tree=[{slug:'vestuario',parent_slug:null},{slug:'camisas',parent_slug:'vestuario'},{slug:'nova',parent_slug:'vestuario'}];
@@ -153,3 +153,5 @@ test('domínio oficial não redireciona APIs nem retornos antigos de pagamento',
 });
 
 test('logo móvel reduzida sem mover os controles originais',()=>{const header=html.slice(html.indexOf('<header class="site-header">'),html.indexOf('</header>'));const right=header.slice(header.indexOf('class="hd-right"'));assert.ok(right.includes('Ir para busca')&&right.indexOf('Ir para busca')<right.indexOf('Minha conta')&&right.indexOf('Minha conta')<right.indexOf('Abrir carrinho'));assert.equal((header.match(/aria-label="Ir para busca"/g)||[]).length,1);assert.ok(css.includes('width:min(185px,calc(100% - 284px))'));for(const width of [320,360,375,390,414,430,760]){const logo=Math.min(185,width-284);assert.ok(logo>0);assert.ok((width+logo)/2<=width-17-120-5);}});
+
+test('vitrine usa eventos externos compatíveis com CSP',()=>{assert.doesNotMatch(html+js,/\bon(?:click|change|load|error)="/);assert.match(js,/data-vellor-action/);assert.match(js,/document.addEventListener\('click'/);assert.match(read('middleware.js'),/response.headers.set\('Content-Security-Policy'/);assert.match(read('lib/browser-policy.mjs'),/script-src-attr 'none'/);});
