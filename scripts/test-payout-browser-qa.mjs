@@ -24,7 +24,7 @@ try{
  const marker=(await sql("SELECT p.id,p.supplier_id,s.user_id AS supplier_user,u.id AS admin,pix.updated_at FROM products p JOIN suppliers s ON s.id=p.supplier_id JOIN supplier_pix_accounts pix ON pix.supplier_id=s.id CROSS JOIN users u WHERE p.slug='qa-vellor-homologacao-20261125' AND u.email='qa-vellor-20261125-admin@example.invalid'")).rows;
  assert.equal(marker.length,1,'QA marker absent: no writes allowed');const qa=marker[0];
  const qaSupplier=randomUUID(),qaOtherSupplier=randomUUID();
- const ids={admin:qa.admin,supplier:randomUUID(),other:randomUUID(),customer:randomUUID(),otherCustomer:randomUUID()};
+ const ids={admin:qa.admin,superadmin:randomUUID(),supplier:randomUUID(),other:randomUUID(),customer:randomUUID(),otherCustomer:randomUUID()};
  const order=randomUUID(),group=randomUUID(),item=randomUUID(),img='/product-images/sem-foto.svg',reference='QA-'+randomUUID();
  const recipient={recipient:'Destinatário fictício QA',street:'Rua Exemplo',number:'100',complement:'Apto 2',neighborhood:'Centro',city:'Rio de Janeiro',state:'RJ',cep:'00000000'};
  await transaction(async c=>{
@@ -34,6 +34,7 @@ try{
   }
   const pix=(await c.query("INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name) VALUES($1,'random',$2,'Fornecedor fictício QA') RETURNING updated_at",[qaSupplier,randomUUID()])).rows[0];qa.updated_at=pix.updated_at;
   for(const role of ['customer','otherCustomer'])await c.query("INSERT INTO users(id,full_name,email,password_hash,role) VALUES($1,'Cliente fictício QA',$2,$3,'customer')",[ids[role],role+'-'+fake+'@example.invalid',randomUUID()]);
+  await c.query("INSERT INTO users(id,full_name,email,password_hash,role) VALUES($1,'Super ADM fictício QA',$2,$3,'super_admin')",[ids.superadmin,'super-'+fake+'@example.invalid',randomUUID()]);
   for(const [role,id] of Object.entries(ids)){const token=randomBytes(32).toString('hex');tokens[role]=token;await c.query("INSERT INTO sessions(user_id,token_hash,expires_at,user_agent) VALUES($1,$2,now()+interval '10 minutes',$3)",[id,createHash('sha256').update(token).digest('hex'),fake]);}
   await c.query("INSERT INTO orders(id,order_number,customer_id,recipient_snapshot,subtotal_cents,total_cents,status,payment_status,paid_at) VALUES($1,(SELECT COALESCE(max(order_number),0)+1 FROM orders),$2,$3,250,250,'paid','approved',now())",[order,ids.customer,JSON.stringify(recipient)]);
   await c.query("INSERT INTO payments(order_id,amount_cents,provider,status,environment,payment_method) VALUES($1,250,'infinitepay','approved','sandbox','pix')",[order]);
@@ -50,6 +51,20 @@ try{
  const desktop={width:1440,height:900},mobile={width:390,height:844};
  const expectedGradient='linear-gradient(90deg, rgb(16, 54, 44), rgb(36, 35, 38) 50%, rgb(64, 19, 40))';
  const gradient=async locator=>{await visible(locator);assert.equal(await locator.evaluate(el=>getComputedStyle(el).backgroundImage),expectedGradient);};
+ for(const role of ['admin','superadmin','supplier','customer']){
+ const account=await accountPage(role,desktop,'/conta');
+ for(const viewport of [desktop,mobile]){
+  await account.page.setViewportSize(viewport);
+  await gradient(account.page.locator('.app-profile'));
+  await gradient(account.page.getByRole('button',{name:'SALVAR DADOS',exact:true}));
+  await gradient(account.page.getByRole('button',{name:'ALTERAR SENHA',exact:true}));
+  if(role!=='customer')await gradient(account.page.locator('.vll-account-app .navtabs').getByRole('link',{name:role==='supplier'?'Portal do fornecedor':'Painel administrativo',exact:true}));
+  assert.equal(await account.page.locator('.vll-account-app .navtabs button.active').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
+  assert.equal(await account.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Account page overflow');
+ }
+ await account.context.close();
+ }
+ console.log('[account-brand.browser] PASS: actual authenticated account profile, buttons and shortcuts for ADM, Super ADM, supplier and customer at 1440px and 390px');
  const seller=await accountPage('supplier',desktop,'/fornecedor');
  try{await visible(seller.page.getByRole('button',{name:'Pedidos',exact:true}));}catch(e){console.log('[browser.body]',(await seller.page.locator('body').innerText()).slice(0,1800));throw e;}
  await gradient(seller.page.locator('.vll-supplier-app .navtabs button.active'));await seller.page.setViewportSize(mobile);await gradient(seller.page.locator('.vll-supplier-app .navtabs button.active'));await seller.page.setViewportSize(desktop);
