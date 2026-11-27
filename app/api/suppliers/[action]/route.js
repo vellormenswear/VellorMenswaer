@@ -33,6 +33,9 @@ async function supplierNotices(supplierId){
  return result.rows;
 }
 
+async function supplierOrders(supplierId){return sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.supplier_amount_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,(SELECT n.id FROM notifications n WHERE n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text AND n.kind='supplier_size_changed' ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS size_revision,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
+   COALESCE(json_agg(json_build_object('id',i.id,'sku',i.sku_snapshot,'product_code',p.product_code,'name',oi.product_name_snapshot,'variant',oi.variant_snapshot,'image_url',oi.image_url_snapshot,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id LEFT JOIN order_items oi ON oi.id=i.order_item_id AND oi.order_id=g.order_id LEFT JOIN product_variants v ON v.id=i.variant_id LEFT JOIN products p ON p.id=v.product_id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplierId]);}
+
 async function currentSupplier(req){const u=await requireUser(req);ensure(u.role==='supplier','Somente fornecedores podem acessar esta operação.',403);const r=await sql('SELECT * FROM suppliers WHERE user_id=$1 AND launch_archived_at IS NULL',[u.id]);ensure(r.rowCount&&r.rows[0].status==='active','Fornecedor não habilitado.',403);return {user:u,supplier:r.rows[0]}}
 const activeSupplier=async(id)=>{const r=await sql("SELECT id FROM suppliers WHERE id=$1 AND status='active'",[id]);ensure(r.rowCount,'Fornecedor indisponível.',409)};
 export async function GET(req,{params}){try{const {action}=await params;const q=new URL(req.url).searchParams;
@@ -67,14 +70,13 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
   throw new HttpError(404,'Ação desconhecida.');
  }
  const {supplier}=await currentSupplier(req);
- if(action==='notifications')return ok({notifications:await supplierNotices(supplier.id)});
+ if(action==='notifications'){const [notifications,orders]=await Promise.all([supplierNotices(supplier.id),supplierOrders(supplier.id)]);return ok({notifications,orders:orders.rows});}
  if(action==='listings')return ok({listings:await supplierListings(supplier.id)});
  if(action==='dashboard'){
   const [subs,products,orders,changes,notices,pixAccount]=await Promise.all([
    sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 AND status<>\'deleted\' ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    sql(`SELECT p.id,p.name,p.slug,p.product_code,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.sizes,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
-   sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.supplier_amount_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,(SELECT n.id FROM notifications n WHERE n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text AND n.kind='supplier_size_changed' ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS size_revision,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
-   COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'product_code',p.product_code,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id LEFT JOIN product_variants v ON v.id=i.variant_id LEFT JOIN products p ON p.id=v.product_id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
+   supplierOrders(supplier.id),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    supplierNotices(supplier.id),
    sql('SELECT pix_type,pix_key,holder_name,updated_at FROM supplier_pix_accounts WHERE supplier_id=$1',[supplier.id])]);

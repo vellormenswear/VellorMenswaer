@@ -77,3 +77,21 @@ test('logo oficial, bandeiras aceitas e textura VELLOR em ambas as interfaces',(
  assert.ok(homeStyle.includes('.site-footer{')&&homeStyle.includes('.vellor-payment-mark img'));
  assert.ok(innerStyle.includes('.vll-app-footer{')&&innerStyle.includes('.vll-payment-mark img'));
 });
+
+test('painel atualiza pedidos e recebimentos junto dos avisos de repasse',()=>{
+ const api=read('app/api/suppliers/[action]/route.js'),ui=read('app/fornecedor/page.jsx');
+ assert.match(api,/supplierOrders\(supplier.id\)/);
+ assert.match(api,/return ok\(\{notifications,orders:orders.rows\}\)/);
+ assert.match(ui,/notifications:x.notifications,orders:x.orders/);
+ assert.match(ui,/\['paid','preparing','shipped','delivered'\].includes\(o.fulfillment_status\)&&o.payment_status==='approved'\?'Repasse confirmado'/);
+});
+test('pedido do fornecedor exibe nome, variação, tamanho, miniatura e etiqueta do próprio grupo',()=>{
+ const api=read('app/api/suppliers/[action]/route.js'),ui=read('app/fornecedor/page.jsx');
+ const query=api.slice(api.indexOf('async function supplierOrders'),api.indexOf('async function currentSupplier'));
+ assert.match(query,/oi.id=i.order_item_id AND oi.order_id=g.order_id/);
+ assert.match(query,/g.supplier_id=\$1/);
+ for(const field of ["'name',oi.product_name_snapshot","'variant',oi.variant_snapshot","'image_url',oi.image_url_snapshot","'size',i.size_snapshot","'qty',i.quantity"])assert.ok(query.includes(field));
+ assert.doesNotMatch(query,/oi.unit_price_cents|oi.line_total_cents|g.amount_cents/);
+ assert.match(ui,/src=\{i.image_url\}/);assert.match(ui,/Variação \/ cor: \{i.variant/);assert.match(ui,/Tamanho: \{i.size/);
+ assert.match(ui,/Etiqueta 100 × 150 mm/);assert.match(ui,/Etiqueta A4/);
+});
