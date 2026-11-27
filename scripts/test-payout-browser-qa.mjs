@@ -48,8 +48,11 @@ try{
  for(let i=0;i<60;i++){try{if((await fetch(base)).ok)break;}catch{}if(i===59)throw Error('QA Next server unavailable');await new Promise(r=>setTimeout(r,500));}
  browser=await playwright.launch({executablePath:await chromium.executablePath(),args:chromium.args.filter(x=>x!=='--single-process'),headless:true});
  const desktop={width:1440,height:900},mobile={width:390,height:844};
+ const expectedGradient='linear-gradient(90deg, rgb(16, 54, 44) 0%, rgb(36, 35, 38) 50%, rgb(64, 19, 40) 100%)';
+ const gradient=async locator=>{await visible(locator);assert.equal(await locator.evaluate(el=>getComputedStyle(el).backgroundImage),expectedGradient);};
  const seller=await accountPage('supplier',desktop,'/fornecedor');
  try{await visible(seller.page.getByRole('button',{name:'Pedidos',exact:true}));}catch(e){console.log('[browser.body]',(await seller.page.locator('body').innerText()).slice(0,1800));throw e;}
+ await gradient(seller.page.locator('.vll-supplier-app .navtabs button.active'));await seller.page.setViewportSize(mobile);await gradient(seller.page.locator('.vll-supplier-app .navtabs button.active'));await seller.page.setViewportSize(desktop);
  await seller.page.getByRole('button',{name:'+ Novo anúncio',exact:true}).click();
  await visible(seller.page.getByLabel('Disponibilidade',{exact:true}));assert.deepEqual(await seller.page.getByLabel('Disponibilidade',{exact:true}).locator('option').allTextContents(),['Disponível','Indisponível']);
  const shoeCategory=(await sql("SELECT id FROM categories WHERE slug='calcados' AND parent_id IS NULL")).rows[0].id;
@@ -83,6 +86,7 @@ try{
  console.log('[address.browser] PASS: autofill, complement and number preserved, actual recipient and third-party save in isolated QA');
  
  const admin=await accountPage('admin',desktop,'/admin?pedido='+order);
+ await gradient(admin.page.locator('.vll-admin-app .sidebar'));await admin.page.setViewportSize(mobile);await gradient(admin.page.locator('.vll-admin-app .sidebar'));await admin.page.setViewportSize(desktop);
  const payout=admin.page.locator('section').filter({has:admin.page.getByRole('heading',{name:'Repasse ao fornecedor',exact:true})}).last();
  await visible(payout.getByRole('button',{name:'REGISTRAR PIX JÁ REALIZADO'}));
  await payout.locator('input').first().fill(reference);
@@ -116,7 +120,7 @@ try{
  await visible(phone.page.getByRole('button',{name:'Pedidos',exact:true}));await phone.page.getByRole('button',{name:'Pedidos',exact:true}).click();
  await visible(phone.page.getByText('Produto fictício QA',{exact:true}));await verifyLayout(phone.page);
  await phone.page.getByText('Produto fictício QA',{exact:true}).scrollIntoViewIfNeeded(); await phone.page.getByRole('button',{name:'Avisos',exact:false}).first().click();await visible(phone.page.getByText('REPASSE CONFIRMADO',{exact:true}));
- const finance=await accountPage('admin',desktop,'/admin?tab=reports');await finance.page.waitForURL('**/admin/financeiro?tab=reports');await visible(finance.page.getByRole('heading',{name:'Relatório comercial — 90 dias'}));const [reportResponse]=await Promise.all([finance.page.waitForResponse(r=>r.url().endsWith('/api/admin/reports')&&r.request().method()==='GET'),finance.page.getByRole('button',{name:'Atualizar dados'}).click()]);assert.equal(reportResponse.status(),200);await finance.page.setViewportSize(mobile);assert.equal(await finance.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);await finance.context.close();console.log('[finance.browser] PASS: canonical report navigation and refresh request, mobile overflow check');
+ const finance=await accountPage('admin',desktop,'/admin?tab=reports');await finance.page.waitForURL('**/admin/financeiro?tab=reports');await visible(finance.page.getByRole('heading',{name:'Relatório comercial — 90 dias'}));const [reportResponse]=await Promise.all([finance.page.waitForResponse(r=>r.url().endsWith('/api/admin/reports')&&r.request().method()==='GET'),finance.page.getByRole('button',{name:'Atualizar dados'}).click()]);assert.equal(reportResponse.status(),200);await gradient(finance.page.locator('nav[aria-label="Seções financeiras"] button[aria-current="page"]'));await finance.page.setViewportSize(mobile);await gradient(finance.page.locator('nav[aria-label="Seções financeiras"] button[aria-current="page"]'));console.log('[brand.browser] PASS: exact storefront gradient computed in administrator, supplier and finance tabs at 1440px and 390px');assert.equal(await finance.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);await finance.context.close();console.log('[finance.browser] PASS: canonical report navigation and refresh request, mobile overflow check');
  await phone.context.close();await admin.context.close();await buyer.context.close();await seller.context.close();
  console.log('[payout.browser] PASS: actual ADM confirmation, supplier live update without reload, product photo, details, labels and notice at 1440px and 390px, no horizontal overflow');
 }finally{if(browser)await browser.close().catch(()=>{});if(server)server.kill();await db().end();}
