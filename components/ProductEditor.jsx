@@ -23,7 +23,7 @@ export default function ProductEditor({initial,source,onClose,onSaved}){
  const addVariation=()=>{const v=blank();if(vars.length>=30)return;setVars(old=>[...old,{...v,cost:old[0].cost,sale:old[0].sale}]);setExpanded(v.key)};
  async function upload(files,key){
   if(lock.current||!files.length)return;lock.current=true;setUploading(true);setError('');
-  try{const list=Array.from(files);if(!key&&photos.length+list.length>30)throw Error('Limite de 30 fotos.');for(const f of list){if(!['image/png','image/webp','image/jpeg'].includes(f.type)||f.size>=4*1024*1024)throw Error('Envie JPG, PNG ou WebP de até 4 MB.');const form=new FormData();form.set('file',f);const r=await fetch('/api/admin/upload',{method:'POST',body:form});const j=await r.json();if(!r.ok||!j.url)throw Error(j.error||'Falha ao enviar foto.');if(key)change(key,{image_url:j.url});else setPhotos(old=>[...new Set([...old,j.url])]);}}
+  try{const list=Array.from(files);if(!key&&photos.length+list.length>30)throw Error('Limite de 30 fotos.');for(const f of list){if(!['image/png','image/webp','image/jpeg'].includes(f.type)||f.size>=4*1024*1024)throw Error('Envie JPG, PNG ou WebP de até 4 MB.');const form=new FormData();form.set('file',f);const r=await fetch('/api/admin/upload',{method:'POST',body:form});const j=await r.json();if(!r.ok||!j.url)throw Error(j.error||'Falha ao enviar foto.');if(key)setVars(old=>{const row=old.find(v=>v.key===key);return old.map(v=>v.key===key||row?.label&&combinationKey(v.label,'')===combinationKey(row.label,'')&&(!v.image_url||v.image_url===row.image_url)?{...v,image_url:j.url}:v)});else setPhotos(old=>[...new Set([...old,j.url])]);}}
   catch(e){setError(e.message)}finally{lock.current=false;setUploading(false)}
  }
  async function save(e){
