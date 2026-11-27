@@ -3,8 +3,8 @@ import {useEffect,useState} from 'react';import Frame from '@/components/Frame';
 import SupplierListings from '@/components/SupplierListings';
 const brl=n=>(Number(n||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const req=async(method,path,data)=>{const r=await fetch('/api/'+path,{method,headers:{'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined,cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Falha na operação');return j};
-export default function Supplier(){const [user,setUser]=useState(null),[data,setData]=useState(null),[msg,setMsg]=useState(''),[tab,setTab]=useState('products'),[busy,setBusy]=useState(false),[categories,setCategories]=useState([]),[loading,setLoading]=useState(true),[pixForm,setPixForm]=useState({pix_type:'',pix_key:'',pix_holder_name:''});
- async function load(){setLoading(true);setMsg('');try{const [me,source,cats]=await Promise.all([req('GET','auth/me'),req('GET','suppliers/dashboard'),req('GET','catalog/categories').catch(()=>({categories:[]}))]);setUser(me.user);setData(source);setCategories(cats.categories||[]);setPixForm(v=>({pix_type:source.pix_account?.pix_type||v.pix_type||'',pix_key:'',pix_holder_name:source.pix_account?.pix_holder_name||v.pix_holder_name||''}))}catch(e){setData(null);setMsg(e.message)}finally{setLoading(false)}}
+export default function Supplier(){const [user,setUser]=useState(null),[data,setData]=useState(null),[msg,setMsg]=useState(''),[tab,setTab]=useState('products'),[busy,setBusy]=useState(false),[categories,setCategories]=useState([]),[loading,setLoading]=useState(true),[pixForm,setPixForm]=useState({pix_type:'',pix_key:'',pix_holder_name:'',pix_city:''});
+ async function load(){setLoading(true);setMsg('');try{const [me,source,cats]=await Promise.all([req('GET','auth/me'),req('GET','suppliers/dashboard'),req('GET','catalog/categories').catch(()=>({categories:[]}))]);setUser(me.user);setData(source);setCategories(cats.categories||[]);setPixForm(v=>({pix_type:source.pix_account?.pix_type||v.pix_type||'',pix_key:'',pix_holder_name:source.pix_account?.pix_holder_name||v.pix_holder_name||'',pix_city:source.pix_account?.pix_city||''}))}catch(e){setData(null);setMsg(e.message)}finally{setLoading(false)}}
  useEffect(()=>{load()},[]);
  useEffect(()=>{const refreshId=setInterval(()=>{
   req('GET','suppliers/notifications')
@@ -20,10 +20,10 @@ export default function Supplier(){const [user,setUser]=useState(null),[data,set
  async function post(action,payload){try{setBusy(true);setMsg('');await req('POST','suppliers/'+action,payload);await load();setMsg('Operação registrada.');return true}catch(e){setMsg(e.message);return false}finally{setBusy(false)}}
  async function savePix(e){
   e.preventDefault();
-  if(data?.pix_account?.registered&&!window.confirm('Deseja substituir a chave Pix utilizada para seus próximos repasses?'))return;
+  if(data?.pix_account?.registered&&pixForm.pix_key.trim()&&!window.confirm('Deseja substituir a chave Pix utilizada para seus próximos repasses?'))return;
   try{setBusy(true);setMsg('');
    await req('POST','suppliers/pix-account',pixForm);
-   await load();setMsg('Chave Pix cadastrada com sucesso. A VELLOR utilizará essa chave nos próximos repasses manuais.');
+   await load();setMsg('Dados Pix atualizados com sucesso.');
   }catch(err){setMsg(err.message)}finally{setBusy(false)}
  }
  const paymentRows=(data?.orders||[]).filter(x=>x.payment_status==='approved');
@@ -45,8 +45,9 @@ export default function Supplier(){const [user,setUser]=useState(null),[data,set
    <div className="field"><label htmlFor="supplier-pix-type">Tipo de chave Pix</label><select id="supplier-pix-type" required value={pixForm.pix_type} onChange={e=>setPixForm(v=>({...v,pix_type:e.target.value,pix_key:''}))}>
     <option value="">Selecione o tipo</option><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Celular</option><option value="random">Chave aleatória</option>
    </select></div>
-   <div className="field"><label htmlFor="supplier-pix-key">{data.pix_account?.registered?'Nova chave Pix':'Sua chave Pix'}</label><input id="supplier-pix-key" required maxLength={255} autoComplete="off" spellCheck={false} value={pixForm.pix_key} placeholder="Informe a chave registrada no banco" onChange={e=>setPixForm(v=>({...v,pix_key:e.target.value}))}/></div>
+   <div className="field"><label htmlFor="supplier-pix-key">{data.pix_account?.registered?'Nova chave Pix':'Sua chave Pix'}</label><input id="supplier-pix-key" required={!data.pix_account?.registered||pixForm.pix_type!==data.pix_account?.pix_type} maxLength={255} autoComplete="off" spellCheck={false} value={pixForm.pix_key} placeholder="Informe a chave registrada no banco" onChange={e=>setPixForm(v=>({...v,pix_key:e.target.value}))}/></div>
    <div className="field"><label htmlFor="supplier-pix-holder">Nome ou razão social do titular da chave</label><input id="supplier-pix-holder" required minLength={3} maxLength={120} value={pixForm.pix_holder_name} onChange={e=>setPixForm(v=>({...v,pix_holder_name:e.target.value}))}/></div>
+   <div className="field"><label htmlFor="supplier-pix-city">Cidade do titular da conta Pix</label><input id="supplier-pix-city" maxLength={120} autoComplete="address-level2" value={pixForm.pix_city} onChange={e=>setPixForm(v=>({...v,pix_city:e.target.value}))}/></div>
    <div className="field"><label>Confirmação</label><p className="help">Antes de realizar o pagamento, a VELLOR confere o destinatário no banco. Não envie informações de cartão aqui.</p></div>
    <button className="btn gold" disabled={busy}>{busy?'SALVANDO...':data.pix_account?.registered?'ATUALIZAR CHAVE PIX':'CADASTRAR CHAVE PIX'}</button>
   </form>

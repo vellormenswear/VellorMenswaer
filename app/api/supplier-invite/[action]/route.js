@@ -10,8 +10,8 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   const exists=await c.query('SELECT id FROM users WHERE email=$1',[mail]);ensure(!exists.rowCount,'Já existe uma conta com esse e-mail. Use outro convite.',409);
   const u=await c.query("INSERT INTO users(full_name,email,password_hash,phone,role) VALUES($1,$2,$3,$4,'supplier') RETURNING id",[name,mail,hashed,txt(x.phone,30)]);
   const s=await c.query('INSERT INTO suppliers(user_id,business_name,document_number,address_text) VALUES($1,$2,$3,$4) RETURNING id',[u.rows[0].id,business,document,txt(x.address,600)]);
-   await c.query('INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name) VALUES($1,$2,$3,$4)',
-    [s.rows[0].id,pix.pix_type,pix.pix_key,pix.holder_name]);
+   await c.query('INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name,pix_city) VALUES($1,$2,$3,$4,$5)',
+    [s.rows[0].id,pix.pix_type,pix.pix_key,pix.holder_name,pix.pix_city||null]);
   await c.query('UPDATE supplier_invites SET used_at=now(),used_by=$1 WHERE id=$2',[u.rows[0].id,inv.id]);return {user_id:u.rows[0].id,supplier_id:s.rows[0].id};
  });const res=ok({created:true,redirect:'/fornecedor'},201);return issueSession(result.user_id,res,req.headers.get('user-agent')||'');
  }catch(e){return fail(e)}}

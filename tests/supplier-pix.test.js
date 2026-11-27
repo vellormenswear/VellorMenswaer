@@ -118,3 +118,5 @@ test('cadastro manual administrativo cria somente fornecedor, Pix e auditoria na
  assert.ok(page.includes('setManual(emptyManual)'));
  assert.ok(page.includes("post('admin-invite',{})"));
 });
+
+test('cidade fornecida é preservada individualmente e chave existente não precisa ser redigitada',()=>{const p=parseSupplierPix({pix_type:'email',pix_key:'vendedor@example.com',pix_holder_name:'Nome de Teste',pix_city:'São Paulo'});assert.equal(p.pix_city,'São Paulo');assert.equal(supplierPixSummary(p).pix_city,'São Paulo');assert.equal(parseSupplierPix({...p,pix_holder_name:p.holder_name,pix_city:'123'}),null);const api=read('app/api/suppliers/[action]/route.js');assert.match(api,/rawKey\|\|current\?\.pix_key/);assert.match(api,/pix_city=\$5/);const migration=read('db/022_supplier_pix_city.sql');assert.match(migration,/ADD COLUMN IF NOT EXISTS pix_city/);assert.doesNotMatch(migration,/DELETE|DROP TABLE|NOT NULL/);});

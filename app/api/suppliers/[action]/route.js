@@ -77,7 +77,7 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
    COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'product_code',p.product_code,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id LEFT JOIN product_variants v ON v.id=i.variant_id LEFT JOIN products p ON p.id=v.product_id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    supplierNotices(supplier.id),
-   sql('SELECT pix_type,pix_key,holder_name,updated_at FROM supplier_pix_accounts WHERE supplier_id=$1',[supplier.id])]);
+   sql('SELECT pix_type,pix_key,holder_name,pix_city,updated_at FROM supplier_pix_accounts WHERE supplier_id=$1',[supplier.id])]);
   return ok({supplier,submissions:subs.rows.map(supplierSubmissionView),products:products.rows,orders:orders.rows,pix_account:supplierPixSummary(pixAccount.rows[0]),price_requests:changes.rows,notifications:notices})
  }
  throw new HttpError(404,'Recurso desconhecido.');
@@ -98,7 +98,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
      const account=await c.query("INSERT INTO users(full_name,email,password_hash,phone,role) VALUES($1,$2,$3,$4,'supplier') RETURNING id",[name,mail,hashed,txt(x.phone,30)]);
      const supplier=await c.query('INSERT INTO suppliers(user_id,business_name,document_number,address_text) VALUES($1,$2,$3,$4) RETURNING id',[account.rows[0].id,business,document,txt(x.address,600)]);
      const id=supplier.rows[0].id;
-     await c.query('INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name) VALUES($1,$2,$3,$4)',[id,pix.pix_type,pix.pix_key,pix.holder_name]);
+     await c.query('INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name,pix_city) VALUES($1,$2,$3,$4,$5)',[id,pix.pix_type,pix.pix_key,pix.holder_name,pix.pix_city||null]);
      await c.query('INSERT INTO audit_logs(actor_id,action,resource_type,resource_id,after_data) VALUES($1,$2,$3,$4,$5)',[u.id,'supplier.admin_created','supplier',id,JSON.stringify({registration:'manual',pix_type:pix.pix_type})]);
      return {supplier_id:id};
     });
@@ -146,14 +146,20 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  const {user,supplier}=await currentSupplier(req);
  if(action==='pix-account'){
-  const pix=parseSupplierPix(x);
-  ensure(pix,'Informe um tipo de chave Pix válido, a chave e o nome do titular.',400);
-  await sql(`INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name)
-   VALUES($1,$2,$3,$4) ON CONFLICT(supplier_id)
-   DO UPDATE SET pix_type=$2,pix_key=$3,holder_name=$4,updated_at=now()`,
-   [supplier.id,pix.pix_type,pix.pix_key,pix.holder_name]);
+  const pix=await transaction(async c=>{
+   const current=(await c.query('SELECT pix_type,pix_key,holder_name,pix_city FROM supplier_pix_accounts WHERE supplier_id=$1 FOR UPDATE',[supplier.id])).rows[0];
+   const rawKey=String(x.pix_key||'').trim();
+   if(!rawKey)ensure(current&&x.pix_type===current.pix_type,'Informe a nova chave Pix.',400);
+   const next=parseSupplierPix({...x,pix_key:rawKey||current?.pix_key,pix_city:x.pix_city===undefined?current?.pix_city:x.pix_city});
+   ensure(next,'Informe dados Pix válidos, incluindo a cidade quando preenchida.',400);
+   const result=await c.query(`INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name,pix_city)
+    VALUES($1,$2,$3,$4,$5) ON CONFLICT(supplier_id)
+    DO UPDATE SET pix_type=$2,pix_key=$3,holder_name=$4,pix_city=$5,updated_at=now()
+    RETURNING pix_type,pix_key,holder_name,pix_city,updated_at`,[supplier.id,next.pix_type,next.pix_key,next.holder_name,next.pix_city||null]);
+   return result.rows[0];
+  });
   await audit(user.id,'supplier.pix_updated','supplier',supplier.id,null,{pix_type:pix.pix_type});
-  return ok({updated:true,pix_account:supplierPixSummary({...pix,updated_at:new Date()})});
+  return ok({updated:true,pix_account:supplierPixSummary(pix)});
  }
  if(action==='notification-read'){
   ensure(uuid(x.notification_id),'Aviso inválido.',400);
