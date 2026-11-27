@@ -32,7 +32,7 @@ export default function InfinitepayAdmin(){
  }
  return <Frame user={u}><main className="page checkoutbox"><p><Link href="/admin">Voltar à administração</Link></p>
   <h1>InfinitePay · Repasses manuais</h1>
-  <section className="card"><p>Checkout: <b>{data?.checkout_enabled?'Habilitado para cliente autorizado':'Bloqueado até homologação'}</b></p>
+  <section className="card"><p>Checkout: <b>{data?.checkout_enabled?'Habilitado':'Indisponível'}</b></p>
   <p>Credenciais: <b>{data?.configured?'Configuradas':'Aguardando InfiniteTag ou chave'}</b>.</p>
   <p className="help">O cadastro abaixo NÃO transfere dinheiro. Envie o Pix diretamente pelo seu banco ou aplicativo InfinitePay, confira os dados do beneficiário e só depois registre a referência do comprovante.</p>
   <button className="btn ghost" onClick={refresh}>ATUALIZAR</button></section>
