@@ -48,7 +48,7 @@ try{
  for(let i=0;i<60;i++){try{if((await fetch(base)).ok)break;}catch{}if(i===59)throw Error('QA Next server unavailable');await new Promise(r=>setTimeout(r,500));}
  browser=await playwright.launch({executablePath:await chromium.executablePath(),args:chromium.args.filter(x=>x!=='--single-process'),headless:true});
  const desktop={width:1440,height:900},mobile={width:390,height:844};
- const expectedGradient='linear-gradient(90deg, rgb(16, 54, 44) 0%, rgb(36, 35, 38) 50%, rgb(64, 19, 40) 100%)';
+ const expectedGradient='linear-gradient(90deg, rgb(16, 54, 44), rgb(36, 35, 38) 50%, rgb(64, 19, 40))';
  const gradient=async locator=>{await visible(locator);assert.equal(await locator.evaluate(el=>getComputedStyle(el).backgroundImage),expectedGradient);};
  const seller=await accountPage('supplier',desktop,'/fornecedor');
  try{await visible(seller.page.getByRole('button',{name:'Pedidos',exact:true}));}catch(e){console.log('[browser.body]',(await seller.page.locator('body').innerText()).slice(0,1800));throw e;}
