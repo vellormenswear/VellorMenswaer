@@ -1,0 +1,27 @@
+name: Atualização do rastreamento VELLOR
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: vellor-shipment-tracking
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Atualizar remessas elegíveis
+        shell: bash
+        run: |
+          set -eu
+          if [ -z "$CRON_SECRET" ]; then
+            echo 'CRON_SECRET não configurado no repositório.'
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 40 --output /dev/null \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            'https://www.vellorwear.com.br/api/cron/shipment-tracking'
