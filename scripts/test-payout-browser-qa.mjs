@@ -96,6 +96,12 @@ try{
   await label.scrollIntoViewIfNeeded();const box=await label.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=page.viewportSize().width+2);
  };
  await verifyLayout(seller.page);
+ await admin.page.getByRole('button',{name:'Produtos',exact:true}).click();await visible(admin.page.getByRole('button',{name:'Novo produto',exact:true}));await admin.page.getByRole('button',{name:'Novo produto',exact:true}).click();
+ await visible(admin.page.getByLabel('Disponibilidade',{exact:true}));assert.deepEqual(await admin.page.getByLabel('Disponibilidade',{exact:true}).locator('option').allTextContents(),['Disponível','Indisponível']);
+ assert.equal(await admin.page.getByText('Quantidade em estoque',{exact:true}).count(),0);
+ await visible(admin.page.getByText('Foto da variação (opcional)',{exact:true}));
+ console.log('[availability.browser] PASS: admin editor retains individual photo and only availability');
+
  await seller.page.getByText('Produto fictício QA',{exact:true}).scrollIntoViewIfNeeded();
  await seller.page.screenshot({path:'public/qa-payout-desktop.png'});
  const phone=await accountPage('supplier',mobile,'/fornecedor');
