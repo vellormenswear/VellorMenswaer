@@ -1,5 +1,5 @@
 import {createSupplierAccount} from '@/lib/supplier-registration';
-import {sql,transaction} from '@/lib/db';import {ok,fail,body,originGuard,email,txt,ensure,HttpError} from '@/lib/http';
+import {transaction} from '@/lib/db';import {ok,fail,body,originGuard,email,txt,ensure} from '@/lib/http';
 import {sha256,passwordHash} from '@/lib/security';import {issueSession} from '@/lib/auth';import {parseSupplierPix} from '@/lib/supplier-pix.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 export async function POST(req,{params}){try{originGuard(req);const {action}=await params;ensure(action==='accept','Recurso não encontrado.',404);const x=await body(req);

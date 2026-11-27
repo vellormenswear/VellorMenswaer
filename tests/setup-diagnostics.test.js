@@ -20,5 +20,5 @@ test('telas diferenciam erro de carregamento de carregamento em progresso',()=>{
 test('correção anterior da vitrine está preservada',()=>{
   const html=readFileSync('public/vitrine.html','utf8');
   assert.doesNotMatch(html,/COLEÇÃO NACIONAL|ENVIO NACIONAL|FRETE NACIONAL/i);
-  assert.match(html,/ELEGÂNCIA MASCULINA/);
+  assert.match(html,/WEAR · MODA MASCULINA E FEMININA/);
 });
