@@ -17,7 +17,7 @@ export default function InfinitepayAdmin(){
   setBusy(g.id);setErr('');
   try{const r=await fetch('/api/admin/infinitepay',{method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({action:'record_payout',group_id:g.id,transfer_reference:reference[g.id]||'',notes:notes[g.id]||'',pix_updated_at:g.pix_updated_at})});
-   const x=await r.json();if(!r.ok)throw Error(x.error||'Falha ao registrar Pix');await refresh();
+   const x=await r.json();if(!r.ok||x.recorded!==true)throw Error(x.error||'Falha ao registrar Pix');await refresh();
   }catch(e){setErr(e.message)}finally{setBusy('')}}
  async function reconcile(e){e.preventDefault();setBusy('reconcile');setErr('');setResult(null);
   try{const r=await fetch('/api/admin/infinitepay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reconcile_payment',...lookup})});

@@ -82,7 +82,7 @@ test('painel atualiza pedidos e recebimentos junto dos avisos de repasse',()=>{
  const api=read('app/api/suppliers/[action]/route.js'),ui=read('app/fornecedor/page.jsx');
  assert.match(api,/supplierOrders\(supplier.id\)/);
  assert.match(api,/return ok\(\{notifications,orders:orders.rows\}\)/);
- assert.match(ui,/notifications:x.notifications,orders:x.orders/);
+ assert.match(ui,/setData\(source\)/);assert.match(api,/if\(q.get\('revision'\)===revision\)return ok\(\{unchanged:true,revision\}\)/);
  assert.match(ui,/\['paid','preparing','shipped','delivered'\].includes\(o.fulfillment_status\)&&o.payment_status==='approved'\?'Repasse confirmado'/);
 });
 test('pedido do fornecedor exibe nome, variação, tamanho, miniatura e etiqueta do próprio grupo',()=>{

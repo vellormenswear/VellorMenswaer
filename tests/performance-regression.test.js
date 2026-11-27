@@ -28,3 +28,15 @@ test('telemetria não bloqueia cotação e descrição é escapada',()=>{
  assert.match(read('app/api/catalog/route.js'),/p\.description/);assert.match(read('public/vellor-approved.js'),/htmlEsc\(p.description\)/);
 });
 
+
+test('portal consolida carregamento, consulta somente mudanças e não sobrepõe requisições',()=>{
+ const ui=read('app/fornecedor/page.jsx'),api=read('app/api/suppliers/[action]/route.js'),list=read('components/SupplierListings.jsx');
+ assert.match(ui,/setTimeout\(tick,3000\)/);assert.match(ui,/if\(inFlight.current\)/);assert.match(ui,/if\(source.unchanged\)return true/);assert.match(ui,/visibilitychange/);
+ assert.match(ui,/listings=\{data.listings\}/);assert.doesNotMatch(ui,/req\('GET','auth\/me'\)/);
+ assert.match(api,/supplierDashboardRevision\(supplier.id\)/);assert.match(api,/if\(q.get\('revision'\)===revision\)return ok\(\{unchanged:true,revision\}\)/);assert.match(api,/supplierListings\(supplier.id\)/);assert.match(list,/if\(!Array.isArray\(listings\)\)load\(\)/);
+ assert.match(ui,/pixDirty.current=true/);
+});
+test('listagens consultam variações em lote, sem N+1',()=>{
+ const s=read('lib/supplier-listings.js'),fn=s.slice(s.indexOf('export async function supplierListings'),s.indexOf('export async function mutateSupplierListing'));
+ assert.match(fn,/v.product_id=ANY\(\$1::uuid\[\]\)/);assert.doesNotMatch(fn,/await sql\(liveVariants,\[p.id\]\)/);assert.match(fn,/variantMap.get\(p.id\)/);
+});

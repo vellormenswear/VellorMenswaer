@@ -19,11 +19,12 @@ async function api(action,payload){
 function Field({name,label,error,children}){
  return <div className={'field '+(error?styles.invalid:'')} data-field={name}><label htmlFor={'listing-'+name}>{label}</label>{children}{error&&<span className={styles.error} id={'listing-error-'+name} role="alert">{error}</span>}</div>;
 }
-export default function SupplierListings({categories,onChanged,refreshToken}){
- const [list,setList]=useState([]),[loading,setLoading]=useState(true),[editor,setEditor]=useState(null),[filter,setFilter]=useState('all'),[query,setQuery]=useState(''),[notice,setNotice]=useState(null),[errors,setErrors]=useState({}),[busy,setBusy]=useState(false),[uploading,setUploading]=useState({}),[expanded,setExpanded]=useState({});
+export default function SupplierListings({categories,onChanged,refreshToken,listings}){
+ const [localList,setList]=useState([]),[localLoading,setLoading]=useState(true),[editor,setEditor]=useState(null),[filter,setFilter]=useState('all'),[query,setQuery]=useState(''),[notice,setNotice]=useState(null),[errors,setErrors]=useState({}),[busy,setBusy]=useState(false),[uploading,setUploading]=useState({}),[expanded,setExpanded]=useState({});
  const lock=useRef(false),uploads=useRef(new Set()),request=useRef(null),formRef=useRef(null);
  async function load(){try{const j=await api('listings');setList(j.listings||[]);return true;}catch(e){setNotice({error:true,text:e.message});return false;}finally{setLoading(false);}}
- useEffect(()=>{load()},[refreshToken]);
+ const list=Array.isArray(listings)?listings:localList,loading=!Array.isArray(listings)&&localLoading;
+ useEffect(()=>{if(!Array.isArray(listings))load()},[refreshToken,listings]);
  function open(a){if(lock.current||uploads.current.size)return;setEditor(a?editing(a):fresh());request.current=key();setErrors({});setNotice(null);}
  function close(){if(lock.current||uploads.current.size)return;setEditor(null);setErrors({});setNotice(null);}
  function change(k,v){setEditor(p=>p?{...p,[k]:v}:p);setErrors(old=>{const next={...old};delete next[k];return next;});}
@@ -44,7 +45,7 @@ export default function SupplierListings({categories,onChanged,refreshToken}){
   lock.current=true;setBusy(true);setErrors({});setNotice(null);
   try{const result=await api(editor.id?'edit':'submit',payload);
    setEditor(null);setNotice({error:false,text:result.status==='inactive'?'Alterações salvas. O anúncio continua inativo.':'Anúncio enviado com sucesso! Aguardando aprovação da equipe VELLOR.'});
-   await load();await onChanged?.();
+   if(onChanged)await onChanged();else await load();
   }catch(e){focusFields(e.fields);setNotice({error:true,text:e.fields?'Revise os campos destacados.':e.message});}finally{lock.current=false;setBusy(false);}
  }
  async function action(a,kind){
@@ -52,7 +53,7 @@ export default function SupplierListings({categories,onChanged,refreshToken}){
   const confirmText=kind==='delete'?'Excluir este anúncio? Ele sairá da loja e das listagens. Os pedidos anteriores serão preservados.':kind==='deactivate'?'Inativar este anúncio? Ele ficará indisponível para novas compras.':'Enviar este anúncio novamente para aprovação?';
   if(!window.confirm(confirmText))return;
   lock.current=true;setBusy(true);setNotice(null);
-  try{await api(kind,{id:a.id,kind:a.kind,revision:a.revision});setNotice({error:false,text:kind==='delete'?'Anúncio excluído.':kind==='deactivate'?'Anúncio inativado.':'Anúncio encaminhado para aprovação.'});await load();await onChanged?.();}
+  try{await api(kind,{id:a.id,kind:a.kind,revision:a.revision});setNotice({error:false,text:kind==='delete'?'Anúncio excluído.':kind==='deactivate'?'Anúncio inativado.':'Anúncio encaminhado para aprovação.'});if(onChanged)await onChanged();else await load();}
   catch(e){setNotice({error:true,text:e.fields?'Edite e regularize as variações antes de reativar.':e.message});}finally{lock.current=false;setBusy(false);}
  }
  const root=editor?categoryRootSlug(categories,editor.category_id):'';
