@@ -8,7 +8,7 @@ export default function OrderPayouts({groups,onRecorded}){
   if(lock.current||!g.pix_ready||!g.pix_updated_at)return;
   if(!confirm('Confirma que já enviou '+brl(g.supplier_amount_cents)+' ao titular '+g.pix_holder_name+' e conferiu o comprovante?'))return;
   lock.current=true;setBusy(g.group_id);setError('');
-  try{const r=await fetch('/api/admin/infinitepay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'record_payout',group_id:g.group_id,transfer_reference:reference[g.group_id]||'',notes:notes[g.group_id]||'',pix_updated_at:g.pix_updated_at})});const j=await r.json();if(!r.ok)throw Error(j.error||'Falha ao registrar Pix');await onRecorded?.();}
+  try{const r=await fetch('/api/admin/infinitepay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'record_payout',group_id:g.group_id,transfer_reference:reference[g.group_id]||'',notes:notes[g.group_id]||'',pix_updated_at:g.pix_updated_at})});const j=await r.json();if(!r.ok||j.recorded!==true)throw Error(j.error||'Falha ao registrar Pix');await onRecorded?.();}
   catch(e){setError(e.message)}finally{lock.current=false;setBusy('')}
  }
  if(!groups?.length)return null;

@@ -1,4 +1,4 @@
-import {sql,db,transaction,audit} from '@/lib/db';
+import {sql,db,transaction,audit,auditTx} from '@/lib/db';
 import {applyMarketplaceMigrations} from '@/lib/marketplace-auto-schema.mjs';
 import {requireRole} from '@/lib/auth';
 import {ok,fail,ensure,body,originGuard,uuid,txt} from '@/lib/http';
@@ -55,11 +55,12 @@ export async function POST(req){try{
   ensure(Number.isSafeInteger(amount)&&amount>0,'Valor do repasse invalido.',409);
   await c.query('INSERT INTO supplier_manual_payouts(group_id,supplier_id,amount_cents,transfer_reference,notes,recorded_by,pix_key_type,pix_key_suffix,pix_holder_name) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
    [group.id,group.supplier_id,amount,reference,note,u.id,recipient.pix_type,recipient.pix_key.slice(-4),recipient.holder_name]);
-  await c.query("UPDATE supplier_order_groups SET fulfillment_status='paid',updated_at=now() WHERE id=$1 AND fulfillment_status='awaiting_payout'",[group.id]);
+  const updated=await c.query("UPDATE supplier_order_groups SET fulfillment_status='paid',updated_at=now() WHERE id=$1 AND fulfillment_status='awaiting_payout' RETURNING id",[group.id]);
+  ensure(updated.rowCount===1,'Não foi possível confirmar o repasse.',409);
   await c.query('INSERT INTO notifications(order_id,kind,title,payload) VALUES($1,$2,$3,$4)',
    [group.order_id,'supplier_paid','Repasse confirmado — pedido liberado para preparação',JSON.stringify({group_id:group.id,supplier_id:group.supplier_id})]);
+  await auditTx(c,u.id,'supplier.pix_manual_recorded','supplier_group',group.id,null,{amount_cents:amount,transfer_reference:reference});
   return {id:group.id,amount_cents:amount,pix_key_mask:maskPixKey(recipient.pix_type,recipient.pix_key)};
  });
- await audit(u.id,'supplier.pix_manual_recorded','supplier_group',x.group_id,null,{amount_cents:result.amount_cents,transfer_reference:reference});
  return ok({recorded:true,...result});
  }catch(e){return fail(e)}}

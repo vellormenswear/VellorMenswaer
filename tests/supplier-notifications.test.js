@@ -95,3 +95,5 @@ test('pedido do fornecedor exibe nome, variação, tamanho, miniatura e etiqueta
  assert.match(ui,/src=\{i.image_url\}/);assert.match(ui,/Variação \/ cor: \{i.variant/);assert.match(ui,/Tamanho: \{i.size/);
  assert.match(ui,/Etiqueta 100 × 150 mm/);assert.match(ui,/Etiqueta A4/);
 });
+
+test('registro de repasse, liberação, aviso e auditoria são atômicos',()=>{const route=read('app/api/admin/infinitepay/route.js'),ui=read('components/OrderPayouts.jsx');const tx=route.slice(route.indexOf('const result=await transaction'),route.indexOf('return ok({recorded:true'));assert.match(tx,/INSERT INTO supplier_manual_payouts/);assert.match(tx,/fulfillment_status='paid'.*RETURNING id/);assert.match(tx,/ensure\(updated.rowCount===1/);assert.match(tx,/INSERT INTO notifications/);assert.match(tx,/await auditTx\(c,u.id,'supplier.pix_manual_recorded'/);assert.match(ui,/j.recorded!==true/);});
