@@ -9,19 +9,13 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
 export async function GET(req){try{
  await requireRole(req,['super_admin']);
  await applyMarketplaceMigrations(()=>db().connect());
- const groups=await sql(`SELECT g.id,g.supplier_id,g.order_id,g.amount_cents,g.supplier_amount_cents,g.payment_status,g.fulfillment_status,
+ const [groups,checkouts]=await Promise.all([sql(`SELECT g.id,g.supplier_id,g.order_id,g.amount_cents,g.supplier_amount_cents,g.payment_status,g.fulfillment_status,
  s.business_name,o.order_number,g.paid_at,p.transfer_reference,p.recorded_by,p.paid_at AS transferred_at,
- CASE WHEN g.fulfillment_status='awaiting_payout' THEN pix.pix_key ELSE NULL END AS pix_key,
- CASE WHEN g.fulfillment_status='awaiting_payout' THEN pix.pix_type ELSE NULL END AS pix_type,
- CASE WHEN g.fulfillment_status='awaiting_payout' THEN pix.holder_name ELSE NULL END AS pix_holder_name,
- pix.updated_at AS pix_updated_at,p.pix_key_suffix AS payout_pix_suffix,p.pix_holder_name AS payout_holder_name
+ p.pix_key_suffix AS payout_pix_suffix,p.pix_holder_name AS payout_holder_name
  FROM supplier_order_groups g JOIN suppliers s ON s.id=g.supplier_id
  JOIN orders o ON o.id=g.order_id
  LEFT JOIN supplier_manual_payouts p ON p.group_id=g.id
- LEFT JOIN supplier_pix_accounts pix ON pix.supplier_id=g.supplier_id
- JOIN payments pay ON pay.order_id=o.id AND pay.provider='infinitepay' AND pay.status='approved'
- WHERE g.payment_status='approved' ORDER BY g.paid_at DESC LIMIT 200`);
- const checkouts=await sql("SELECT checkout_batch_id,order_nsu,total_cents,supplier_cents,status,created_at,paid_at FROM infinitepay_checkout_batches ORDER BY created_at DESC LIMIT 40");
+ WHERE g.payment_status='approved' AND EXISTS(SELECT 1 FROM payments pay WHERE pay.order_id=o.id AND pay.provider='infinitepay' AND pay.status='approved') ORDER BY g.paid_at DESC LIMIT 200`),sql("SELECT checkout_batch_id,order_nsu,total_cents,supplier_cents,status,created_at,paid_at FROM infinitepay_checkout_batches ORDER BY created_at DESC LIMIT 40")]);
  return ok({checkouts:checkouts.rows,configured:infinitepayConfigured(process.env),checkout_enabled:process.env.INFINITEPAY_CHECKOUT_ENABLED==='true',
   handle_set:!!process.env.INFINITEPAY_HANDLE,groups:groups.rows});
  }catch(e){return fail(e)}}

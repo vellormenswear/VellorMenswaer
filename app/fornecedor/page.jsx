@@ -11,17 +11,18 @@ function InventoryForm({v,busy,post}){
  useEffect(()=>{if(!dirty.current){setDraft(current());setReported(v.reported_stock??'')}},[v.stock_mode,v.stock,v.supplier_available,v.reported_stock]);
  return <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);if(await post('inventory',{variant_id:v.variant_id,stock_mode:'availability',available:f.get('available')==='true',reported_stock:f.get('reported_stock')}))dirty.current=false;}} className="flexrow"><label>Disponibilidade <select name="available" value={String(draft)} onChange={e=>{dirty.current=true;setDraft(e.target.value==='true')}}><option value="true">Disponível</option><option value="false">Indisponível</option></select></label><label>Estoque <input className="form" name="reported_stock" type="number" min="0" max="2147483647" step="1" value={reported} onChange={e=>{dirty.current=true;setReported(e.target.value)}} style={{maxWidth:110}}/></label><button className="tiny" disabled={busy}>ATUALIZAR DISPONIBILIDADE</button></form>;
 }
-export default function Supplier(){const [user,setUser]=useState(null),[data,setData]=useState(null),[msg,setMsg]=useState(''),[tab,setTab]=useState('products'),[selectedOrder,setSelectedOrder]=useState(null),[busy,setBusy]=useState(false),[categories,setCategories]=useState([]),[loading,setLoading]=useState(true),[pixForm,setPixForm]=useState({pix_type:'',pix_key:'',pix_holder_name:''});
- const revision=useRef(''),loaded=useRef(false),inFlight=useRef(null),pixDirty=useRef(false);
+export default function Supplier(){const [user,setUser]=useState(null),[data,setData]=useState(null),[msg,setMsg]=useState(''),[tab,setTab]=useState('products'),[selectedOrder,setSelectedOrder]=useState(null),[busy,setBusy]=useState(false),[categories,setCategories]=useState([]),[loading,setLoading]=useState(true),[pixForm,setPixForm]=useState({pix_type:'',pix_key:'',pix_holder_name:''}),[addressDraft,setAddressDraft]=useState('');
+ const revision=useRef(''),loaded=useRef(false),inFlight=useRef(null),pixDirty=useRef(false),addressDirty=useRef(false);
  async function load({force=false,resetPix=false}={}){
   if(inFlight.current){if(!force)return inFlight.current;await inFlight.current;if(inFlight.current)return load({force,resetPix});}
   const work=(async()=>{try{
-   const source=await req('GET','suppliers/dashboard'+(!force&&revision.current?'?revision='+encodeURIComponent(revision.current):''));
+   const source=await req('GET','suppliers/dashboard?view=portal'+(!force&&revision.current?'&revision='+encodeURIComponent(revision.current):''));
    if(source.unchanged)return true;
    revision.current=source.revision;
    if(!loaded.current)setMsg('');
    setUser(source.user);setData(source);setCategories(source.categories||[]);
    if(!loaded.current||resetPix||!pixDirty.current){setPixForm({pix_type:source.pix_account?.pix_type||'',pix_key:'',pix_holder_name:source.pix_account?.pix_holder_name||''});pixDirty.current=false;}
+   if(!loaded.current||!addressDirty.current)setAddressDraft(source.supplier.address_text||'');
    loaded.current=true;return true;
   }catch(e){
    if(e.status===401||e.status===403||!loaded.current){setData(null);setUser(null);loaded.current=false;revision.current='';setMsg(e.message);}
@@ -59,7 +60,7 @@ export default function Supplier(){const [user,setUser]=useState(null),[data,set
   ?'A VELLOR registrou seu repasse de '+brl(n.supplier_amount_cents)+'. Você está autorizado a preparar e enviar este pedido.'
   :'O cliente confirmou o pagamento. Seu valor de fornecimento é '+brl(n.supplier_amount_cents)+'. Aguarde a VELLOR realizar e confirmar seu repasse antes de preparar ou enviar.';
  return <Frame user={user}><main className="page vll-supplier-app"><h1>Portal do fornecedor</h1><p>Seus produtos, pedidos e entregas na VELLOR WEAR</p>{msg&&<p className="notice" role="status">{msg}</p>}{!data?<section className="card"><p>{loading?'Carregando dados...':msg?'Não foi possível carregar os dados. Confira sua autorização e a configuração do banco Neon.':'Entre com a conta criada pelo convite para acessar o painel.'}</p><p><a href="/conta">Fazer login</a></p><button type="button" className="btn ghost" onClick={()=>load({force:true})}>TENTAR NOVAMENTE</button></section>:<><div className="cols3"><div className="metric"><strong>{data.products.length}</strong><small>Variações aprovadas</small></div><div className="metric"><strong>{paymentRows.length}</strong><small>Pedidos pagos</small></div><div className="metric"><strong>{brl(paymentRows.reduce((s,g)=>s+g.supplier_amount_cents,0))}</strong><small>Valores brutos de fornecimento</small></div></div><section className="card"><h2>{data.supplier.business_name}</h2>
-  <form className="formgrid" key={data.supplier.address_text||''} onSubmit={e=>{e.preventDefault();const address=new FormData(e.currentTarget).get('address');post('address',{address})}}><div className="field"><label htmlFor="supplier-address">Endereço comercial</label><input id="supplier-address" name="address" required maxLength={600} defaultValue={data.supplier.address_text||''} placeholder="Rua, número, bairro, Cidade/UF"/></div><button type="submit" className="tiny" disabled={busy}>SALVAR ENDEREÇO</button></form>
+  <form className="formgrid" onSubmit={async e=>{e.preventDefault();if(await post('address',{address:addressDraft}))addressDirty.current=false;}}><div className="field"><label htmlFor="supplier-address">Endereço comercial</label><input id="supplier-address" name="address" required maxLength={600} value={addressDraft} onChange={e=>{addressDirty.current=true;setAddressDraft(e.target.value)}} placeholder="Rua, número, bairro, Cidade/UF"/></div><button type="submit" className="tiny" disabled={busy}>SALVAR ENDEREÇO</button></form>
   <p className="help">Pagamentos recebidos pela VELLOR via InfinitePay. O Pix de cada pedido é transferido manualmente ao fornecedor, e a preparação só é liberada quando o administrador confirma o repasse.</p>
  </section>
  <section className="card" aria-label="Conta Pix para receber os repasses">

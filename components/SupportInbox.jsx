@@ -3,12 +3,12 @@ import {useEffect,useRef,useState} from 'react';
 const fmt=t=>t?new Date(t).toLocaleString('pt-BR'):'';
 const labels={waiting:'Aguardando',active:'Em atendimento',closed:'Encerrado'};
 async function call(path='',method='GET',data){const r=await fetch('/api/admin/support'+path,{method,headers:{'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined,cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Falha ao consultar atendimento');return j;}
-export default function SupportInbox({initialId=null}){
+export default function SupportInbox({initialId=null,refreshToken=0}){
  const [threads,setThreads]=useState([]),[selected,setSelected]=useState(initialId),[detail,setDetail]=useState(null),[draft,setDraft]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(true),[filter,setFilter]=useState('all'),[search,setSearch]=useState('');
  const seq=useRef(0),current=useRef(initialId),posting=useRef(false),end=useRef(null);
  async function refresh(id=current.current){const ticket=++seq.current;try{const [list,info]=await Promise.all([call(),id?call('?id='+encodeURIComponent(id)):Promise.resolve(null)]);if(ticket!==seq.current)return;setReady(list.ready);setThreads(list.threads||[]);if(id===current.current)setDetail(info);}catch(e){if(ticket===seq.current)setNotice(e.message)}}
  function choose(id){current.current=id;setSelected(id);setDetail(null);setDraft('');setNotice('');refresh(id)}
- useEffect(()=>{refresh();const timer=setInterval(()=>{if(!document.hidden&&!posting.current)refresh()},5000);return()=>{clearInterval(timer);seq.current++}},[]);
+ useEffect(()=>{if(!posting.current)refresh();const timer=setInterval(()=>{if(!document.hidden&&!posting.current)refresh()},5000);return()=>{clearInterval(timer);seq.current++}},[refreshToken]);
  useEffect(()=>{if(initialId&&initialId!==current.current)choose(initialId)},[initialId]);
  const lastId=detail?.messages?.at(-1)?.id;useEffect(()=>{end.current?.scrollIntoView({block:'nearest'})},[selected,lastId]);
  async function action(type){if(posting.current||!selected)return;if(type==='reply'&&!draft.trim())return;posting.current=true;setBusy(true);setNotice('');const id=selected;try{await call('','POST',{action:type,thread_id:id,message:draft.trim()});if(type==='reply'&&id===current.current)setDraft('');await refresh()}catch(e){setNotice(e.message)}finally{posting.current=false;setBusy(false)}}

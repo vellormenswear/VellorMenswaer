@@ -12,7 +12,7 @@ function fakeDb({known=[],broken='',missingBase=[]}={}) {
    if(query.includes('to_regclass(')){
     return {rows:[{users:missingBase.includes('users')?null:'users',products:missingBase.includes('products')?null:'products',variants:missingBase.includes('variants')?null:'product_variants',orders:missingBase.includes('orders')?null:'orders',versions:missingBase.includes('versions')?null:'schema_migrations'}]};
    }
-   if(query.startsWith('SELECT 1 FROM schema_migrations'))return {rowCount:applied.has(args[0])?1:0};
+   if(query.startsWith('SELECT version FROM schema_migrations'))return {rows:args[0].filter(name=>applied.has(name)).map(version=>({version}))};
    if(query.startsWith('INSERT INTO schema_migrations')){applied.add(args[0]);return {rowCount:1}}
    if(query==='COMMIT'){committed=true;return {rowCount:0}}
    if(query==='ROLLBACK'){rolledBack=true;return {rowCount:0}}
@@ -45,6 +45,7 @@ test('reexecução não repete DDL',async()=>{
  const r=await applyMarketplaceMigrations(f.connect);
  assert.deepEqual(r.applied,[]);
  assert.equal(f.calls.some(x=>x.startsWith('-- Migração')),false);
+ assert.equal(f.calls.filter(x=>x.startsWith('SELECT version FROM schema_migrations')).length,1);
  assert.equal(f.committed,true);
 });
 

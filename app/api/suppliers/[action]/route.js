@@ -1,19 +1,14 @@
+import {createSupplierAccount} from '@/lib/supplier-registration';
 import {parseReportedStock} from '@/lib/variant-grid.mjs';
 import {supplierListings,mutateSupplierListing,reviewSupplierListing} from '@/lib/supplier-listings';
-import {validDepartment} from '@/lib/departments.mjs';
 import {sql,db,transaction,audit} from '@/lib/db';
 import {applyMarketplaceMigrations} from '@/lib/marketplace-auto-schema.mjs';
-import {resolveProductSlug} from '@/lib/product-slug';
-import {normalizeVariantSizes,validFootwearSizes} from '@/lib/variant-options.mjs';
 import {requireUser,requireRole,publicUser} from '@/lib/auth';
 import {ok,fail,body,originGuard,ensure,uuid,txt,email,HttpError} from '@/lib/http';
 import {randomToken,sha256,passwordHash} from '@/lib/security';
 import {isBrazilianDocument} from '@/lib/store-identity.mjs';
-import {randomUUID} from 'node:crypto';
 import {parseSupplierPix,supplierPixSummary} from '@/lib/supplier-pix.mjs';
 import {supplierSubmissionView} from '@/lib/supplier-private-view.mjs';
-import {supplierSubmissionValid,generatedSupplierSku,resolveApprovedProductImage} from '@/lib/marketplace-rules.mjs';
-import {supplierVariantValid,supplierCommission as feeOf} from '@/lib/marketplace-rules.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const adminRoles=['admin','super_admin'];
 // Somente o fornecedor dono do grupo visualiza os avisos. O marcador de leitura
@@ -63,13 +58,16 @@ const activeSupplier=async(id)=>{const r=await sql("SELECT id FROM suppliers WHE
 export async function GET(req,{params}){try{const {action}=await params;const q=new URL(req.url).searchParams;
  if(action==='invite-check'){const token=txt(q.get('token'),200);const r=await sql('SELECT email,expires_at FROM supplier_invites WHERE token_hash=$1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at>now()',[sha256(token)]);ensure(r.rowCount,'Convite inválido, vencido ou utilizado.',404);return ok({invite:r.rows[0]})}
  if(action.startsWith('admin-')){await requireRole(req,adminRoles);
-  if(action==='admin-list'){const [suppliers,invites,queue,categories,unlinked]=await Promise.all([
-   sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_pix_accounts pix WHERE pix.supplier_id=s.id) AS pix_registered FROM suppliers s JOIN users u ON u.id=s.user_id WHERE s.launch_archived_at IS NULL AND u.launch_archived_at IS NULL ORDER BY s.created_at DESC`),
-   sql('SELECT id,email,expires_at,used_at,revoked_at,created_at FROM supplier_invites ORDER BY created_at DESC LIMIT 70'),
-   sql(`SELECT sub.*,s.business_name FROM supplier_submissions sub JOIN suppliers s ON s.id=sub.supplier_id WHERE sub.status<>'deleted' ORDER BY (sub.status='pending') DESC,sub.created_at DESC LIMIT 100`),
-   sql('SELECT id,name FROM categories WHERE active ORDER BY name'),
-   sql(`SELECT COUNT(*)::int AS total FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.supplier_id IS NULL AND p.launch_archived_at IS NULL`)
-  ]);return ok({suppliers:suppliers.rows,invites:invites.rows,queue:queue.rows,categories:categories.rows,unlinked_variants:unlinked.rows[0].total})}
+  if(action==='admin-list'){
+   const view=q.get('view'),registryOnly=view==='registry',pendingOnly=view==='pending';
+   const [suppliers,invites,queue,categories,unlinked]=await Promise.all([
+    pendingOnly?sql("SELECT s.id,s.business_name FROM suppliers s JOIN users u ON u.id=s.user_id WHERE s.launch_archived_at IS NULL AND u.launch_archived_at IS NULL ORDER BY s.created_at DESC"):sql(`SELECT s.*,u.full_name,u.email,EXISTS(SELECT 1 FROM supplier_pix_accounts pix WHERE pix.supplier_id=s.id) AS pix_registered FROM suppliers s JOIN users u ON u.id=s.user_id WHERE s.launch_archived_at IS NULL AND u.launch_archived_at IS NULL ORDER BY s.created_at DESC`),
+    pendingOnly?null:sql('SELECT id,email,expires_at,used_at,revoked_at,created_at FROM supplier_invites ORDER BY created_at DESC LIMIT 70'),
+    registryOnly?null:sql(`SELECT sub.*,s.business_name FROM supplier_submissions sub JOIN suppliers s ON s.id=sub.supplier_id WHERE sub.status<>'deleted' ORDER BY (sub.status='pending') DESC,sub.created_at DESC LIMIT 100`),
+    registryOnly||pendingOnly?null:sql('SELECT id,name FROM categories WHERE active ORDER BY name'),
+    registryOnly?null:sql(`SELECT COUNT(*)::int AS total FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.supplier_id IS NULL AND p.launch_archived_at IS NULL`)
+   ]);return ok({suppliers:suppliers.rows,...(invites?{invites:invites.rows}:{}),...(queue?{queue:queue.rows}:{}),...(categories?{categories:categories.rows}:{}),...(unlinked?{unlinked_variants:unlinked.rows[0].total}:{})})
+  }
   if(action==='admin-cancellations'){
    const r=await sql(`SELECT g.id,g.supplier_id,g.order_id,g.provider_payment_id,g.payment_status,g.fulfillment_status,g.canceled_reason,s.business_name,ce.error_message FROM supplier_order_groups g JOIN suppliers s ON s.id=g.supplier_id LEFT JOIN supplier_cancel_events ce ON ce.group_id=g.id WHERE g.fulfillment_status='cancel_requested' OR g.payment_status IN ('refund_failed','refund_pending') ORDER BY g.updated_at DESC LIMIT 100`);return ok({groups:r.rows})
   }
@@ -97,16 +95,17 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  if(action==='dashboard'){
   const revision=await supplierDashboardRevision(supplier.id);
   if(q.get('revision')===revision)return ok({unchanged:true,revision});
+  const portalOnly=q.get('view')==='portal';
   const [subs,products,orders,changes,notices,pixAccount,listings,categories]=await Promise.all([
-   sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 AND status<>\'deleted\' ORDER BY created_at DESC LIMIT 100',[supplier.id]),
+   portalOnly?null:sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 AND status<>\'deleted\' ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    sql(`SELECT p.id,p.name,p.slug,p.product_code,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.sizes,v.stock,v.stock_mode,v.supplier_available,v.reported_stock,v.supplier_cost_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
    supplierOrders(supplier.id),
-   sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
+   portalOnly?null:sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    supplierNotices(supplier.id),
    sql('SELECT pix_type,pix_key,holder_name,updated_at FROM supplier_pix_accounts WHERE supplier_id=$1',[supplier.id]),
    supplierListings(supplier.id),
    sql(`SELECT c.id,c.name,c.slug,c.sort_order,to_jsonb(c)->>'parent_id' AS parent_id,to_jsonb(c)->>'image_url' AS image_url,p.slug AS parent_slug FROM categories c LEFT JOIN categories p ON p.id=(to_jsonb(c)->>'parent_id')::uuid WHERE c.active AND (p.id IS NULL OR p.active) ORDER BY c.sort_order,c.name`)]);
-  return ok({revision,user:publicUser(user),listings,categories:categories.rows,supplier,submissions:subs.rows.map(supplierSubmissionView),products:products.rows,orders:orders.rows,pix_account:supplierPixSummary(pixAccount.rows[0]),price_requests:changes.rows,notifications:notices})
+  return ok({revision,user:publicUser(user),listings,categories:categories.rows,supplier,...(subs?{submissions:subs.rows.map(supplierSubmissionView)}:{}),products:products.rows,orders:orders.rows,pix_account:supplierPixSummary(pixAccount.rows[0]),...(changes?{price_requests:changes.rows}:{}),notifications:notices})
  }
  throw new HttpError(404,'Recurso desconhecido.');
  }catch(e){return fail(e)}}
@@ -123,10 +122,8 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
     const result=await transaction(async c=>{
      const exists=await c.query('SELECT id FROM users WHERE lower(email)=$1',[mail]);
      ensure(!exists.rowCount,'Já existe uma conta com este e-mail. Nenhuma conta existente será alterada.',409);
-     const account=await c.query("INSERT INTO users(full_name,email,password_hash,phone,role) VALUES($1,$2,$3,$4,'supplier') RETURNING id",[name,mail,hashed,txt(x.phone,30)]);
-     const supplier=await c.query('INSERT INTO suppliers(user_id,business_name,document_number,address_text) VALUES($1,$2,$3,$4) RETURNING id',[account.rows[0].id,business,document,txt(x.address,600)]);
-     const id=supplier.rows[0].id;
-     await c.query('INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name) VALUES($1,$2,$3,$4)',[id,pix.pix_type,pix.pix_key,pix.holder_name]);
+     const account=await createSupplierAccount(c,{name,mail,hashed,phone:txt(x.phone,30),business,document,address:txt(x.address,600),pix});
+     const id=account.supplier_id;
      await c.query('INSERT INTO audit_logs(actor_id,action,resource_type,resource_id,after_data) VALUES($1,$2,$3,$4,$5)',[u.id,'supplier.admin_created','supplier',id,JSON.stringify({registration:'manual',pix_type:pix.pix_type})]);
      return {supplier_id:id};
     });
@@ -209,19 +206,10 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
   return ok({read:true});
  }
  if(action==='request-price'||action==='leadtime')throw new HttpError(409,'Edite o anúncio para solicitar a alteração.');
- if(action==='request-price'){
-  ensure(uuid(x.variant_id),'Variação inválida.');const cost=Number(x.cost_cents);ensure(Number.isInteger(cost)&&cost>0&&cost<=100000000,'Valor inválido.');
-  const owns=await sql('SELECT 1 FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=$1 AND p.supplier_id=$2',[x.variant_id,supplier.id]);ensure(owns.rowCount,'Variação não pertence ao fornecedor.',403);
-  const r=await sql("INSERT INTO supplier_price_requests(supplier_id,variant_id,requested_cost_cents) VALUES($1,$2,$3) RETURNING id",[supplier.id,x.variant_id,cost]);await audit(user.id,'supplier.price_request','variant',x.variant_id);return ok({id:r.rows[0].id},201)
- }
  if(['submit','edit','deactivate','reactivate','delete'].includes(action))return ok(await mutateSupplierListing(user,supplier,action,x),action==='submit'?201:200);
  if(action==='inventory'){
   ensure(uuid(x.variant_id),'Variação inválida.');ensure(typeof x.available==='boolean','Informe a disponibilidade.');const mode='availability';const qty=null;let reported=null;try{reported=parseReportedStock(x.reported_stock)}catch(e){ensure(false,e.message)}
   const r=await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock_shared(8033340)');return c.query(`UPDATE product_variants v SET stock_mode=$1::text,stock=CASE WHEN $1::text='availability' THEN NULL ELSE $2::integer END,supplier_available=$3::boolean,reported_stock=CASE WHEN $6::boolean THEN $7::integer ELSE v.reported_stock END,updated_at=now() FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL AND ($1::text='availability' OR cardinality(v.sizes)=1) RETURNING v.id`,[mode,qty,x.available&&(x.stock_mode!=='quantity'||Number.isSafeInteger(Number(x.stock))&&Number(x.stock)>0),supplier.id,x.variant_id,Object.hasOwn(x,'reported_stock'),reported])});ensure(r.rowCount,'Variação não encontrada.',404);await audit(user.id,'supplier.inventory','variant',x.variant_id);return ok({updated:true})
- }
- if(action==='leadtime'){
-  ensure(uuid(x.variant_id),'Variação inválida.');const prep=Number(x.preparation_days),min=Number(x.delivery_days_min),max=Number(x.delivery_days_max);ensure([prep,min,max].every(Number.isInteger)&&prep>=0&&prep<=90&&min>=1&&max>=min&&max<=180,'Prazo inválido.');
-  const r=await sql(`UPDATE product_variants v SET preparation_days=$1,delivery_days_min=$2,delivery_days_max=$3 FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL RETURNING v.id`,[prep,min,max,supplier.id,x.variant_id]);ensure(r.rowCount,'Variação inválida.',404);await audit(user.id,'supplier.leadtime','variant',x.variant_id);return ok({updated:true})
  }
  if(action==='ship'){
   ensure(uuid(x.group_id),'Pedido inválido.');const carrier=txt(x.carrier,120),tracking=txt(x.tracking,150);ensure(carrier.length>=2&&tracking.length>=4,'Transportadora e rastreamento são obrigatórios.');

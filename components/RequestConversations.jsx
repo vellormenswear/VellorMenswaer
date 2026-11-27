@@ -4,7 +4,7 @@ import {customerRequestLabel,customerRequestType} from '@/lib/customer-order-sta
 const fmt=v=>v?new Date(v).toLocaleString('pt-BR'):'';
 const closed=t=>['resolved','rejected'].includes(t?.status);
 const combine=(a,b)=>[...new Map([...a,...b].map(m=>[String(m.id),m])).values()].sort((x,y)=>BigInt(x.id)<BigInt(y.id)?-1:BigInt(x.id)>BigInt(y.id)?1:0);
-export default function RequestConversations({admin=false,initialId=null,orderId=null,orderStatus=null,onSelect}){
+export default function RequestConversations({admin=false,initialId=null,orderId=null,orderStatus=null,onSelect,refreshToken=0}){
  const [threads,setThreads]=useState([]),[selected,setSelected]=useState(initialId),[detail,setDetail]=useState(null),[draft,setDraft]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[filter,setFilter]=useState('all'),[loaded,setLoaded]=useState(false),[olderBusy,setOlderBusy]=useState(false),[kind,setKind]=useState(['shipped','delivered','canceled','refunded'].includes(orderStatus)?'return':'cancel'),[reason,setReason]=useState('');
  const seq=useRef(0),end=useRef(null),log=useRef(null),posting=useRef(false),latest=useRef(initialId),older=useRef({id:initialId,messages:[],hasMore:null}),stick=useRef(true),newest=useRef({id:initialId,cursor:null});
  const call=async(id=null,payload=null,before=null,after=null)=>{const q=new URLSearchParams();if(admin)q.set('view','admin');if(orderId)q.set('order_id',orderId);if(id)q.set('id',id);if(before)q.set('before',before);if(after)q.set('after',after);const r=await fetch('/api/requests/chat?'+q,{cache:'no-store',...(payload?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}:{})});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Não foi possível consultar as solicitações.');return j;};
@@ -15,7 +15,7 @@ export default function RequestConversations({admin=false,initialId=null,orderId
  newest.current={id,cursor:incoming.at(-1)?.id||cursor};
  const cached=older.current.id===id?older.current:{messages:[],hasMore:null};setDetail(prev=>({...info,messages:combine(cached.messages,combine(prev?.thread?.id===id?prev.messages:[],incoming)),has_more:cached.hasMore??false}));}catch(e){if(ticket===seq.current)setNotice(e.message)}}
  function choose(id){if(latest.current===id)return;select(id);setDetail(null);setDraft('');setNotice('');refresh(id)}
- useEffect(()=>{refresh();const t=setInterval(()=>{if(!document.hidden&&!posting.current)refresh()},5000);return()=>{clearInterval(t);seq.current++}},[admin,orderId]);
+ useEffect(()=>{if(!posting.current)refresh();const t=setInterval(()=>{if(!document.hidden&&!posting.current)refresh()},5000);return()=>{clearInterval(t);seq.current++}},[admin,orderId,refreshToken]);
  useEffect(()=>{if(initialId&&initialId!==latest.current)choose(initialId)},[initialId]);
  const lastId=detail?.messages?.at(-1)?.id;
  useEffect(()=>{if(stick.current)end.current?.scrollIntoView({block:'nearest'})},[selected,lastId]);

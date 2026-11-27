@@ -37,8 +37,10 @@ test('a chave é mascarada no portal, mas o admin habilitado pode copiá-la para
  assert.ok(supplier.includes("AS pix_registered"));
  const admin=read('app/api/admin/infinitepay/route.js');
  assert.ok(admin.includes("requireRole(req,['super_admin'])"));
- assert.ok(admin.includes("CASE WHEN g.fulfillment_status='awaiting_payout' THEN pix.pix_key ELSE NULL END"));
- assert.ok(admin.includes('LEFT JOIN supplier_pix_accounts pix'));
+ const detail=read('lib/admin-order-payouts.js');
+ assert.ok(detail.includes("THEN pix.pix_key END AS pix_key"));
+ assert.ok(detail.includes('LEFT JOIN supplier_pix_accounts pix'));
+ assert.ok(!admin.slice(0,admin.indexOf('export async function POST')).includes('pix.pix_key'));
 });
 test('a criação por convite grava conta e Pix na mesma transação',()=>{
  const page=read('app/fornecedor/cadastro/page.jsx');
@@ -48,7 +50,8 @@ test('a criação por convite grava conta e Pix na mesma transação',()=>{
  assert.ok(backend.includes('parseSupplierPix(x)'));
  assert.ok(backend.includes("ensure(pix,'Informe uma chave Pix válida"));
  assert.ok(backend.includes('await transaction(async c=>'));
- assert.ok(backend.includes('INSERT INTO supplier_pix_accounts'));
+ assert.ok(backend.includes('await createSupplierAccount(c,'));
+ assert.ok(read('lib/supplier-registration.js').includes('INSERT INTO supplier_pix_accounts'));
  assert.ok(backend.includes('UPDATE supplier_invites SET used_at=now()'));
 });
 test('fornecedor antigo pode cadastrar e atualizar sua própria chave Pix com auditoria sem dados sensíveis',()=>{
@@ -108,7 +111,9 @@ test('cadastro manual administrativo cria somente fornecedor, Pix e auditoria na
  assert.ok(start>route.indexOf("if(action.startsWith('admin-')){const u=await requireRole(req,adminRoles);")&&end>start);
  assert.ok(route.includes("const adminRoles=['admin','super_admin']"));
  const code=route.slice(start,end);
- for(const part of ['parseSupplierPix(x)','ensure(pix','isBrazilianDocument(document)','passwordHash(x.password)','await transaction(async c=>','WHERE lower(email)=$1',"VALUES($1,$2,$3,$4,\'supplier\')",'INSERT INTO suppliers','INSERT INTO supplier_pix_accounts','INSERT INTO audit_logs','supplier.admin_created'])assert.ok(code.includes(part),part);
+ for(const part of ['parseSupplierPix(x)','ensure(pix','isBrazilianDocument(document)','passwordHash(x.password)','await transaction(async c=>','WHERE lower(email)=$1','await createSupplierAccount(c,','INSERT INTO audit_logs','supplier.admin_created'])assert.ok(code.includes(part),part);
+ const registration=read('lib/supplier-registration.js');
+ for(const part of ["VALUES($1,$2,$3,$4,'supplier')",'INSERT INTO suppliers','INSERT INTO supplier_pix_accounts'])assert.ok(registration.includes(part));
  assert.ok(code.includes("e.code==='23505'"));
  assert.ok(!code.includes('issueSession')&&!code.includes('UPDATE users'));
  assert.ok(code.includes("JSON.stringify({registration:'manual',pix_type:pix.pix_type})"));

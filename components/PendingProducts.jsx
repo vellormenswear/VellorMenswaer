@@ -12,7 +12,7 @@ export default function PendingProducts({onChanged,refreshToken}){
   try{
    const diag=await call('POST','admin/marketplace-status',{});
    if(!diag.ready)throw Error('Banco de dados ainda não preparado para o marketplace. Falta aplicar: '+diag.missing_migrations.join(', '));
-   const [s,l,c]=await Promise.all([call('GET','suppliers/admin-list'),call('GET','suppliers/admin-legacy'),call('GET','suppliers/admin-price-requests')]);
+   const [s,l,c]=await Promise.all([call('GET','suppliers/admin-list?view=pending'),call('GET','suppliers/admin-legacy'),call('GET','suppliers/admin-price-requests')]);
    if(current!==request.current)return false;
    setData(s);setLegacy(l);setChanges(c.requests||[]);setSupplierId(old=>s.suppliers.some(supplier=>supplier.id===old)?old:(s.suppliers[0]?.id||''));return true;
   }catch(e){if(current===request.current){setData(null);setMsg(e.message)}return false}
