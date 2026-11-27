@@ -1,7 +1,7 @@
 import {sql,transaction,audit} from '@/lib/db';import {ok,fail,body,originGuard,ensure,HttpError,email,txt} from '@/lib/http';
 import {sha256,passwordHash,passwordVerify,randomToken} from '@/lib/security';
 import {limitRequest} from '@/lib/rate-limit';
-import {getUser,requireUser,publicUser,issueSession,revoke} from '@/lib/auth';import {sendMail} from '@/lib/email';
+import {getUser,requireUser,publicUser,issueSession,revoke} from '@/lib/auth';import {sendMail,emailConfigured} from '@/lib/email';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 export async function GET(req,{params}){try{const {action}=await params;if(action!=='me')throw new HttpError(404,'Não encontrado.');return ok({user:publicUser(await getUser(req))})}catch(e){return fail(e)}}
 export async function POST(req,{params}){try{originGuard(req);const {action}=await params;const x=await body(req);if(action==='register'){
@@ -19,7 +19,7 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  if(action==='logout'){const res=ok({ok:true});await revoke(req,res);return res}
  if(action==='forgot'){
  const mail=email(x.email);await limitRequest(req,'forgot',{identity:mail});const token=randomToken();
- const issued=process.env.RESEND_API_KEY&&process.env.EMAIL_FROM?await transaction(async c=>{const result=await c.query('SELECT id FROM users WHERE email=$1 AND suspended_at IS NULL AND launch_archived_at IS NULL FOR UPDATE',[mail]);if(!result.rowCount)return false;await c.query("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval'30 minutes')",[result.rows[0].id,sha256(token)]);return true}):false;
+ const issued=emailConfigured()?await transaction(async c=>{const result=await c.query('SELECT id FROM users WHERE email=$1 AND suspended_at IS NULL AND launch_archived_at IS NULL FOR UPDATE',[mail]);if(!result.rowCount)return false;await c.query("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval'30 minutes')",[result.rows[0].id,sha256(token)]);return true}):false;
  if(issued){const url=new URL('/conta?reset='+encodeURIComponent(token),process.env.SITE_URL||new URL(req.url).origin);await sendMail(mail,'VellorWear — redefinição de senha',`<p>Você solicitou a redefinição da senha.</p><p><a href="${url}">Redefinir senha (30 minutos)</a></p><p>Se não foi você, ignore esta mensagem.</p>`)}
  return ok({message:'Se o e-mail existir e o envio estiver configurado, enviaremos as instruções.'});
  }
