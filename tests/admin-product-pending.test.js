@@ -17,3 +17,14 @@ test('revisão, preços e vínculos transferidos integralmente; operações admi
  assert.ok(pending.includes('Histórico de análises concluídas'));
  assert.ok(pending.includes('revision:s.revision'));
 });
+
+test('produtos em nova revisão e rejeitados não retornam à lista de aprovados pelo filtro de inativos',()=>{
+ const line=page.split('\n').find(l=>l.includes('const approvedProducts='));
+ assert.ok(line);
+ const source={products:[{id:1,supplier_listing_status:'approved',active:true},{id:2,supplier_listing_status:'pending',active:false,hidden:true},{id:3,supplier_listing_status:'rejected',active:false,hidden:true},{id:4,supplier_listing_status:'inactive',active:false,hidden:true},{id:5,active:true},{id:6,supplier_listing_status:'deleted'}]};
+ const approvedProducts=source.products.filter(p=>!['pending','rejected','deleted'].includes(p.supplier_listing_status));
+ assert.deepEqual(approvedProducts.map(p=>p.id),[1,4,5]);
+ assert.ok(line.includes("!['pending','rejected','deleted'].includes(p.supplier_listing_status)"));
+ assert.ok(page.includes('visibleApprovedProducts=approvedProducts.filter'));
+ assert.ok(page.includes('visibleApprovedProducts.map'));
+});
