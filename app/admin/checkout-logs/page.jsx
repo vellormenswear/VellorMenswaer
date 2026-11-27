@@ -29,7 +29,7 @@ export default function CheckoutLogs(){
   }).catch(()=>setError('Sessao nao identificada.')).finally(()=>setLoaded(true));
  },[]);
  const authorized=['admin','super_admin'].includes(user?.role);
- return <Frame user={user}><main className="page" style={{maxWidth:1120,margin:'0 auto'}}>
+ return <Frame user={user}><main className="page vll-admin-page" style={{maxWidth:1120,margin:'0 auto'}}>
   <h1>Registro de compra · Diagnostico</h1>
   <p><Link href="/admin">Voltar ao administrativo</Link></p>
   <p className="small">Etapas de produto, carrinho, checkout, Mercado Pago e confirmacao. Dados tecnicos no Neon e nos logs de execucao da Vercel. Nenhum numero de cartao, senha ou token e armazenado.</p>

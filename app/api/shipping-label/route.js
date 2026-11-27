@@ -2,7 +2,7 @@ import {requireRole} from '@/lib/auth';
 import {sql} from '@/lib/db';
 import {fail,ensure,uuid} from '@/lib/http';
 import {identityFromRows,IDENTITY_FIELDS} from '@/lib/store-identity.mjs';
-import {createShippingLabel} from '@/lib/shipping-label.mjs';import {validRecipient} from '@/lib/address-recipient.mjs';
+import {createShippingLabel} from '@/lib/shipping-label.mjs';import {validRecipient,residentialComplement} from '@/lib/address-recipient.mjs';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export async function GET(req){try{
@@ -17,6 +17,6 @@ export async function GET(req){try{
  AND ($2::boolean OR (s.user_id=$3 AND s.status='active' AND s.launch_archived_at IS NULL AND g.fulfillment_status IN ('paid','preparing','shipped','delivered')))`,[groupId,u.role!=='supplier',u.id]);
  ensure(r.rowCount,'Etiqueta não encontrada.',404);
  const [items,settings]=await Promise.all([sql('SELECT si.quantity,si.size_snapshot,si.sku_snapshot,i.product_name_snapshot,i.variant_snapshot FROM supplier_order_items si JOIN order_items i ON i.id=si.order_item_id WHERE si.group_id=$1 ORDER BY i.id',[groupId]),sql('SELECT key,value FROM store_settings WHERE key=ANY($1::text[]) AND sensitive=false',[IDENTITY_FIELDS])]);
- const group=r.rows[0];const snapshot=group.recipient_snapshot||{};if(!validRecipient(snapshot.recipient)&&validRecipient(group.customer_name))group.recipient_snapshot={...snapshot,recipient:group.customer_name};const data=await createShippingLabel({group,items:items.rows,identity:identityFromRows(settings.rows),format});
+ const group=r.rows[0];const snapshot=group.recipient_snapshot||{};group.recipient_snapshot={...snapshot,complement:residentialComplement(snapshot),recipient:!validRecipient(snapshot.recipient)&&validRecipient(group.customer_name)?group.customer_name:snapshot.recipient};const data=await createShippingLabel({group,items:items.rows,identity:identityFromRows(settings.rows),format});
  return new Response(data,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline; filename="vellor-etiqueta-'+groupId+'.pdf"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
  }catch(e){return fail(e)}}
