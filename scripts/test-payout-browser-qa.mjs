@@ -7,11 +7,17 @@ if(process.env.VERCEL_ENV!=='preview'||process.env.VERCEL_GIT_COMMIT_REF!=='qa/p
 process.env.DATABASE_URL=process.env.QA_PAYOUT_DATABASE_URL;
 const {db,sql,transaction}=await import('../lib/db.js');
 const fake='qa-payout-browser-'+randomUUID(),tokens={};
-const base='http://localhost:4179';let server,browser;
+const base='http://127.0.0.1:4179';let server,browser;
 async function accountPage(role,viewport,path){
  const context=await browser.newContext({viewport,deviceScaleFactor:1});
  await context.addCookies([{name:'pg_goston_sid',value:tokens[role],url:base,httpOnly:true,sameSite:'Lax'}]);
- const page=await context.newPage();await page.goto(base+path,{waitUntil:'domcontentloaded'});return {context,page};
+ const page=await context.newPage();
+ page.on('pageerror',e=>console.log('[browser.pageerror]',e.message.slice(0,200)));
+ page.on('requestfailed',r=>console.log('[browser.failed]',new URL(r.url()).pathname,r.failure()?.errorText));
+ page.on('response',r=>{if(r.url().includes('/api/'))console.log('[browser.api]',new URL(r.url()).pathname,r.status());});
+ page.on('console',m=>{if(m.type()==='error')console.log('[browser.console]',m.text().slice(0,200));});
+ const r=await page.goto(base+path,{waitUntil:'domcontentloaded'});console.log('[browser.page]',path.split('?')[0],r?.status(),page.url());
+ return {context,page};
 }
 async function visible(locator,timeout=20000){await locator.waitFor({state:'visible',timeout});}
 try{
@@ -43,7 +49,7 @@ try{
  browser=await playwright.launch({executablePath:await chromium.executablePath(),args:chromium.args.filter(x=>x!=='--single-process'),headless:true});
  const desktop={width:1440,height:900},mobile={width:390,height:844};
  const seller=await accountPage('supplier',desktop,'/fornecedor');
- await visible(seller.page.getByRole('button',{name:'Pedidos',exact:true}));
+ try{await visible(seller.page.getByRole('button',{name:'Pedidos',exact:true}));}catch(e){console.log('[browser.body]',(await seller.page.locator('body').innerText()).slice(0,1800));throw e;}
  await seller.page.getByRole('button',{name:'Pedidos',exact:true}).click();
  await visible(seller.page.getByText('Produto fictício QA',{exact:true}));
  await visible(seller.page.getByText(/Aguardando Pix da VELLOR/));
