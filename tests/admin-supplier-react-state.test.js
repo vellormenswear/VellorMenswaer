@@ -11,14 +11,7 @@ test('painel do fornecedor declara todas as funções setState utilizadas', () =
   assert.deepEqual([...called].filter(name => !declared.has(name)), [], 'Hooks ausentes: erro de referência no painel');
 });
 
-test('três listas do painel começam com valores seguros e não indefinidos', () => {
-  for (const [key, setter] of [
-    ['overdue', 'setOverdue'],
-    ['cancellations', 'setCancellations'], ['shipped', 'setShipped'],
-  ]) {
-    assert.ok(source.includes(`[${key},${setter}]=useState([])`), `${key} deve inicializar como array`);
-  }
-});
+test('operações de pedidos não duplicadas e remessas carregadas com fallback seguro',()=>{const orders=readFileSync(new URL('../app/admin/page.jsx',import.meta.url),'utf8');const route=readFileSync(new URL('../app/api/admin/[resource]/route.js',import.meta.url),'utf8');for(const state of ['setOverdue','setCancellations','setShipped'])assert.ok(!source.includes(state));assert.ok(orders.includes('(order.supplier_groups||[]).length'));assert.ok(orders.includes('order.supplier_groups.map'));assert.ok(route.includes("supplier_groups:['admin','super_admin'].includes(u.role)?"));assert.ok(orders.includes("supplierOrderAction('admin-delivered'"));assert.ok(orders.includes("supplierOrderAction('admin-refund-retry'"));});
 
 const pendingSource=readFileSync(new URL('../components/PendingProducts.jsx',import.meta.url),'utf8');
 test('pendências declaram todos os setters e inicializam solicitações como array',()=>{

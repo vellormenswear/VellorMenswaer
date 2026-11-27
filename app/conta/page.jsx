@@ -14,7 +14,7 @@ export default function Conta(){const [user,setUser]=useState(null),[loaded,setL
  const returnToCheckout=()=>new URLSearchParams(window.location.search).get('next')==='/finalizar';
  const editingDelivery=()=>new URLSearchParams(window.location.search).get('tab')==='enderecos';
  const newAddress=(u=user)=>({...initial,recipient:u?.name||'',phone:u?.phone||''});
- function openAddress(a){setCepState('');setAddress(a?{...a,deliver_to_third_party:a.deliver_to_third_party===true}:newAddress());setAddressOpen(true)}
+ function openAddress(a){setCepState('');setAddress(a?{...a,deliver_to_third_party:a.deliver_to_third_party===true||(a.deliver_to_third_party==null&&a.recipient!==user.name)}:newAddress());setAddressOpen(true)}
  async function load(){try{const r=await api('auth/me');setUser(r.user);if(r.user){if(returnToCheckout()&&canPurchase(r.user)&&!editingDelivery()){window.location.replace('/finalizar');return;}if(editingDelivery()){setTab('enderecos');setAddress(newAddress(r.user));setAddressOpen(true);}setProfile({name:r.user.name,phone:r.user.phone||''});await Promise.all([loadAddresses(),loadOrders()])}}catch(e){message(e.message)}finally{setLoaded(true)}}
  async function loadAddresses(){const r=await api('account/addresses');setAddresses(r.addresses)}
  async function loadOrders(){const r=await api('account/orders');setOrders(r.orders);setNotifications(r.notifications||[])}

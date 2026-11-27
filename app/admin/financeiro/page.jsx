@@ -22,7 +22,7 @@ export default function Fin(){
  const parts=[{label:'Custo dos produtos',value:cost,color:'#a6afa9'},{label:'Despesas e perdas líquidas',value:expenses+lossNet,color:'#b46c55'},{label:'Reserva atual',value:reserveBalance,color:'#c4a66e'},{label:'Disponível após reserva',value:available,color:'#25684d'}];
  const canChart=revenue>0&&parts.every(p=>p.value>=0);
  const card=(title,value,detail,icon)=> <article className={styles.metric}><span className={styles.icon}><Icon name={icon}/></span><p>{title}</p><strong>{display(value)}</strong><small>{detail}</small></article>;
- return <Frame user={user}><main className={'page '+styles.finance}>
+ return <Frame user={user}><main className={'page vll-admin-page '+styles.finance}>
  <a className={styles.back} href="/admin"><Icon name="left" size={16}/> Administração</a>
  <header className={styles.heading}><div><p className={styles.eyebrow}>VELLOR MENSWEAR · ADMINISTRAÇÃO</p><h1>Gestão financeira</h1><p className={styles.muted}>Visão consolidada de vendas, custos e provisões.</p></div><div className={styles.actions}><button type="button" aria-label={hidden?'Mostrar valores':'Ocultar valores'} aria-pressed={hidden} onClick={()=>setHidden(x=>!x)}><Icon name={hidden?'hide':'eye'}/></button><button type="button" aria-label="Atualizar dados" disabled={loading} onClick={()=>{setMsg('');load()}}><Icon name="refresh"/></button></div></header>
  {msg&&<p className="notice" role="status">{msg}</p>}

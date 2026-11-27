@@ -23,7 +23,7 @@ export default function InfinitepayAdmin(){
     const q=url.searchParams;setLookup(x=>({...x,checkout_id:q.get('order_nsu')||q.get('checkout_id')||x.checkout_id,transaction_nsu:q.get('transaction_nsu')||x.transaction_nsu,slug:q.get('slug')||x.slug}));
   }catch{}
  }
- return <Frame user={u}><main className="page checkoutbox"><p><Link href="/admin">Voltar à administração</Link></p>
+ return <Frame user={u}><main className="page checkoutbox vll-admin-page"><p><Link href="/admin">Voltar à administração</Link></p>
   <h1>InfinitePay · Conciliação</h1>
   <section className="card"><p>Checkout: <b>{data?.checkout_enabled?'Habilitado':'Indisponível'}</b></p>
   <p>Credenciais: <b>{data?.configured?'Configuradas':'Aguardando InfiniteTag ou chave'}</b>.</p>
