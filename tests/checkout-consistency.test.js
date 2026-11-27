@@ -8,14 +8,14 @@ const item={variant_id:'v1',sku:'SKU',name:'Camisa',variant:'Preta',size:'M',qty
 const groups=[{supplier_id:'s1',items:[item]}];
 test('reserva aceita somente cotação compatível com versão bloqueada no banco',()=>{
  assert.equal(validateReservedQuote(groups,[row]),true);
- for(const change of [{price_cents:11000},{supplier_cost_cents:7000},{stock_mode:'availability'},{supplier_available:false},{active:false},{supplier_id:'s2'},{sizes:['G']},{stock:1},{sku:'OTHER'},{delivery_days_max:20}]){
+ for(const change of [{price_cents:11000},{supplier_cost_cents:7000},{supplier_available:false},{active:false},{supplier_id:'s2'},{sizes:['G']},{stock:0},{sku:'OTHER'},{delivery_days_max:20}]){
   assert.equal(validateReservedQuote(groups,[{...row,...change}]),false,JSON.stringify(change));
  }
  assert.equal(validateReservedQuote(groups,[]),false);
 });
-test('reserva agrega quantidades de tamanhos diferentes do mesmo SKU',()=>{
+test('quantidade comprada não é limitada pelo saldo legado do SKU',()=>{
  assert.equal(validateReservedQuote([{supplier_id:'s1',items:[item,{...item,size:'G',qty:3}]}],[row]),true);
- assert.equal(validateReservedQuote([{supplier_id:'s1',items:[item,{...item,size:'G',qty:4}]}],[row]),false);
+ assert.equal(validateReservedQuote([{supplier_id:'s1',items:[item,{...item,size:'G',qty:4}]}],[row]),true);
 });
 test('valor aceito pelo cliente integra a identificação da tentativa',()=>{
  const x={address_id:'a',items:[{sku:'A',qty:1}],expected_total_cents:10000};
@@ -28,8 +28,8 @@ test('reserva usa bloqueio e validação antes de criar grupos ou contatar prove
  assert.match(s,/quote.total_cents===x.expected_total_cents/);
  assert.match(readFileSync('app/finalizar/page.jsx','utf8'),/expected_total_cents:quote.total_cents/);
 });
-test('conciliação trata mudança de modo de estoque como pendência em vez de tentar débito impossível',()=>{
+test('conciliação preserva pagamento confirmado sem débito de estoque legado',()=>{
  const s=readFileSync('lib/infinitepay-reconcile.js','utf8');
- assert.match(s,/v.stock_mode==='quantity'&&Number.isSafeInteger\(v.stock\)\?v.stock:-1/);
+ assert.doesNotMatch(s,/SET stock=stock-/);assert.match(s,/saleable.rowCount===allVariantIds.length/);
  assert.match(s,/REFUND_REVIEW_REQUIRED/);
 });
