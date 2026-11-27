@@ -477,3 +477,5 @@ html[data-department-theme="feminino"] .site-header .brand .vellor-woman-logo{op
 html[data-department-initializing] .site-header::before,html[data-department-initializing] .site-header::after,html[data-department-initializing] .site-footer::before,html[data-department-initializing] .site-footer::after,html[data-department-initializing] .site-header .brand img{transition:none!important;}
 /* Reduced-motion mode retains a short color-only transition; no element is translated or moved. */
 @media(prefers-reduced-motion:reduce){html:not([data-department-initializing]) .site-header::before,html:not([data-department-initializing]) .site-header::after,html:not([data-department-initializing]) .site-footer::before,html:not([data-department-initializing]) .site-footer::after{transition:background-position 400ms ease-out!important;}html:not([data-department-initializing]) .site-header .brand img{transition:opacity 160ms linear!important;}}
+
+.vellor-trust-grid>div.vellor-trust-item{cursor:default}

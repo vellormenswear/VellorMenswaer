@@ -55,7 +55,23 @@ try{
  await visible(seller.page.getByText(/Aguardando Pix da VELLOR/));
  assert.equal(await seller.page.getByRole('link',{name:'Etiqueta A4'}).count(),0);
  const buyer=await accountPage('customer',desktop,'/conta');
- // Account listing is verified through its own API in the integrated test; the browser verifies the supplier live update.
+ // Verify the actual authenticated address form without creating any checkout.
+ await visible(buyer.page.getByRole('button',{name:'Meus endereços',exact:true}));
+ await buyer.page.getByRole('button',{name:'Meus endereços',exact:true}).click();
+ await buyer.page.getByRole('button',{name:'Adicionar endereço',exact:true}).click();
+ await visible(buyer.page.getByLabel('CEP',{exact:true}));
+ const address=buyer.page;
+ assert.equal(await address.getByLabel('Destinatário',{exact:true}).inputValue(),'Cliente fictício QA');
+ assert.equal(await address.getByLabel('Destinatário',{exact:true}).getAttribute('readonly'),'');
+ await address.route('**/api/cep/01001000',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({cep:'01001000',street:'Praça da Sé',neighborhood:'Sé',city:'São Paulo',state:'SP'})}));
+ await address.getByLabel('Complemento',{exact:true}).fill('Apto 304');await address.getByLabel('Número',{exact:true}).fill('123');await address.getByLabel('CEP',{exact:true}).fill('01001000');
+ await address.waitForFunction(()=>document.querySelector('#street')?.value==='Praça da Sé');
+ assert.equal(await address.getByLabel('Complemento',{exact:true}).inputValue(),'Apto 304');assert.equal(await address.getByLabel('Número',{exact:true}).inputValue(),'123');assert.equal(await address.getByLabel('Bairro',{exact:true}).inputValue(),'Sé');assert.equal(await address.getByLabel('Cidade',{exact:true}).inputValue(),'São Paulo');assert.equal(await address.getByLabel('UF',{exact:true}).inputValue(),'SP');
+ await address.getByLabel('Entregar a terceiros').check();await address.getByLabel('Destinatário',{exact:true}).fill('Recebedor fictício QA');
+ const [savedAddress]=await Promise.all([address.waitForResponse(r=>r.url().endsWith('/api/account/addresses')&&r.request().method()==='POST'),address.getByRole('button',{name:'SALVAR ENDEREÇO',exact:true}).click()]);assert.equal(savedAddress.status(),200,await savedAddress.text());
+ await visible(address.getByText('Recebedor fictício QA',{exact:false}).first());
+ console.log('[address.browser] PASS: autofill, complement and number preserved, actual recipient and third-party save in isolated QA');
+ 
  const admin=await accountPage('admin',desktop,'/admin?pedido='+order);
  const payout=admin.page.locator('section').filter({has:admin.page.getByRole('heading',{name:'Repasse ao fornecedor',exact:true})}).last();
  await visible(payout.getByRole('button',{name:'REGISTRAR PIX JÁ REALIZADO'}));

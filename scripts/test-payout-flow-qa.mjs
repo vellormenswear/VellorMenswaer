@@ -15,6 +15,9 @@ async function json(response,status=200){assert.equal(response.status,status,awa
 try{
  const marker=(await sql("SELECT p.id,p.supplier_id,s.user_id AS supplier_user,u.id AS admin,pix.updated_at FROM products p JOIN suppliers s ON s.id=p.supplier_id JOIN supplier_pix_accounts pix ON pix.supplier_id=s.id CROSS JOIN users u WHERE p.slug='qa-vellor-homologacao-20261125' AND u.email='qa-vellor-20261125-admin@example.invalid'")).rows;
  assert.equal(marker.length,1,'QA marker absent: no writes allowed');const qa=marker[0];
+ // Only after the isolated preview guard and marker. Test the exact additive migration.
+ await sql(await (await import('node:fs/promises')).readFile(new URL('../db/023_address_recipient.sql',import.meta.url),'utf8'));
+ const {POST:saveAddress,GET:readAddresses}=await import('../app/api/account/[resource]/route.js');
  const qaSupplier=randomUUID(),qaOtherSupplier=randomUUID();
  const ids={admin:qa.admin,supplier:randomUUID(),other:randomUUID(),customer:randomUUID(),otherCustomer:randomUUID()};
  const order=randomUUID(),group=randomUUID(),item=randomUUID(),img='/product-images/sem-foto.svg',reference='QA-'+randomUUID();
@@ -34,6 +37,15 @@ try{
   await c.query("INSERT INTO supplier_order_items(group_id,order_item_id,variant_id,sku_snapshot,size_snapshot,quantity,unit_cost_cents,supplier_line_cents) VALUES($1,$2,$3,'QA-SKU','33',1,200,200)",[group,item,null]);
   await c.query("INSERT INTO notifications(order_id,kind,title,payload) VALUES($1,'supplier_payment_pending','QA pagamento do cliente',$2)",[order,JSON.stringify({group_id:group,supplier_id:qaSupplier})]);
  });
+ const addressFields={label:'Casa QA',recipient:'304',phone:'21900000000',cep:'01001000',street:'Praça da Sé',number:'304',complement:'Apto 2',neighborhood:'Sé',city:'São Paulo',state:'SP',deliver_to_third_party:false};
+ const addressParams={params:Promise.resolve({resource:'addresses'})};
+ const addr=await json(await saveAddress(req('/api/account/addresses','customer',addressFields),addressParams));
+ const third=await json(await saveAddress(req('/api/account/addresses','customer',{...addressFields,label:'Terceiro QA',recipient:'Pessoa Destinatária QA',deliver_to_third_party:true}),addressParams));
+ const saved=(await json(await readAddresses(req('/api/account/addresses','customer'),addressParams))).addresses;
+ assert.equal(saved.find(a=>a.id===addr.id).recipient,'Cliente fictício QA');assert.equal(saved.find(a=>a.id===addr.id).complement,'Apto 2');assert.equal(saved.find(a=>a.id===third.id).recipient,'Pessoa Destinatária QA');assert.equal(saved.find(a=>a.id===third.id).deliver_to_third_party,true);
+ assert.equal((await saveAddress(req('/api/account/addresses','customer',{...addressFields,deliver_to_third_party:true,recipient:'304'}),addressParams)).status,400);
+ assert.equal((await json(await readAddresses(req('/api/account/addresses','otherCustomer'),addressParams))).addresses.length,0);
+ console.log('[address.qa] PASS: additive schema, real account name, third-party address, valid complement and ownership');
  const supplierState=async role=>json(await dashboard(req('/api/suppliers/notifications',role),{params:Promise.resolve({action:'notifications'})}));
  const customerState=async role=>json(await tracking(req('/api/account/tracking?orderId='+order,role)));
  const labelRequest=(role,format)=>label(req('/api/shipping-label?group_id='+group+'&format='+format,role));
