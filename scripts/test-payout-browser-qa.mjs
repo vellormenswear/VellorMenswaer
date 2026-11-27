@@ -50,6 +50,10 @@ try{
  const desktop={width:1440,height:900},mobile={width:390,height:844};
  const seller=await accountPage('supplier',desktop,'/fornecedor');
  try{await visible(seller.page.getByRole('button',{name:'Pedidos',exact:true}));}catch(e){console.log('[browser.body]',(await seller.page.locator('body').innerText()).slice(0,1800));throw e;}
+ await seller.page.getByRole('button',{name:'+ Novo anúncio',exact:true}).click();
+ await visible(seller.page.getByLabel('Disponibilidade',{exact:true}));assert.deepEqual(await seller.page.getByLabel('Disponibilidade',{exact:true}).locator('option').allTextContents(),['Disponível','Indisponível']);
+ assert.equal(await seller.page.getByText('Quantidade em estoque',{exact:true}).count(),0);assert.equal(await seller.page.getByRole('button',{name:'Preto',exact:true}).count(),1);
+ console.log('[availability.browser] PASS: supplier form with color chips and binary selector');
  await seller.page.getByRole('button',{name:'Pedidos',exact:true}).click();
  await visible(seller.page.getByText('Produto fictício QA',{exact:true}));
  await visible(seller.page.getByText(/Aguardando Pix da VELLOR/));

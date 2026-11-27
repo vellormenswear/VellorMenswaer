@@ -23,7 +23,7 @@ export default function VariantOptions({categories=[],categoryId,label='',sizes=
   setCustomSize('');setSizeError('');
  };
  return <>
- {root==='vestuario'?<fieldset className="vll-variant-options field"><legend>Cor da variação{optionalLabel?' (opcional)':''}</legend>
+ {['vestuario','calcados'].includes(root)?<fieldset className="vll-variant-options field"><legend>Cor da variação{optionalLabel?' (opcional)':''}</legend>
   <p className="small">Marque uma cor para esta variação. Cadastre outra variação para associar outra cor e sua própria foto.</p>
   <div className="vll-option-grid" role="group" aria-label="Cores disponíveis">{CLOTHING_COLORS.map(([name,hex])=><button key={name} type="button" className="vll-option-chip" aria-pressed={label===name} onClick={()=>{setCustomColor(false);onLabel(name)}}>{hex&&<span className="vll-color-swatch" style={{backgroundColor:hex}} aria-hidden="true"/>}{name}</button>)}
   <button type="button" className="vll-option-chip" aria-pressed={showCustom} onClick={()=>{setCustomColor(true);if(chosenColor)onLabel('')}}>Outra cor / combinação</button></div>
@@ -31,11 +31,11 @@ export default function VariantOptions({categories=[],categoryId,label='',sizes=
   {label&&<p className="small">Cor selecionada: <b>{label}</b></p>}
  </fieldset>:<Field label={(root==='calcados'?'Cor / modelo do calçado':'Cor / modelo da variação')+(optionalLabel?' (opcional)':'')} name="variant-label" value={label} onChange={onLabel}/>}
  {root==='calcados'?<fieldset className="vll-variant-options field"><legend>Numeração (BR)</legend>
-  <p className="small">{singleSize?'Selecione um número por variação para controlar o estoque exato. Use outra variação para cada numeração, ou escolha estoque por disponibilidade para marcar várias.':'Marque todos os números disponíveis nesta variação. O estoque informado pertence à variação, não a cada número separadamente.'}</p>
+  <p className="small">{singleSize?'Selecione um número por variação.':'Marque os números disponíveis nesta variação.'}</p>
   <div className="vll-option-grid" role="group" aria-label="Numerações de calçados">{[...new Set([...SHOE_SIZES,...selected])].sort((a,b)=>Number(a)-Number(b)).map(size=><button key={size} type="button" className="vll-option-chip vll-size-chip" aria-pressed={selected.includes(size)} onClick={()=>toggleSize(size)}>{size}</button>)}</div>
   <div className="flexrow"><input className="form" aria-label="Outra numeração" inputMode="numeric" maxLength={2} placeholder="Outro número" value={customSize} onChange={e=>setCustomSize(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addCustom()}}} style={{maxWidth:145}}/><button type="button" className="tiny" onClick={addCustom}>Adicionar número</button></div>
-  {sizeError&&<p role="alert" className="small">{sizeError}</p>}{singleSize&&selected.length>1&&<p role="alert" className="small">Marque apenas uma numeração para o estoque exato.</p>}
+  {sizeError&&<p role="alert" className="small">{sizeError}</p>}{singleSize&&selected.length>1&&<p role="alert" className="small">Marque apenas uma numeração.</p>}
   <p className="small">Selecionados: {selected.length?selected.join(', '):'nenhum'}</p>
- </fieldset>:<Field label={optionalLabel?'Tamanhos (opcional)':'Tamanhos separados por vírgula'} name="sizes" value={Array.isArray(sizes)?sizes.join(', '):sizes} onChange={onSizes}/>}
+ </fieldset>:root==='vestuario'?<fieldset className="vll-variant-options field"><legend>Tamanhos{optionalLabel?' (opcional)':''}</legend><div className="vll-option-grid" role="group" aria-label="Tamanhos disponíveis">{[...new Set(['PP','P','M','G','GG','XG','XXG','Único',...selected])].map(size=><button type="button" className="vll-option-chip vll-size-chip" key={size} aria-pressed={selected.includes(size)} onClick={()=>toggleSize(size)}>{size}</button>)}</div></fieldset>:<Field label={optionalLabel?'Tamanhos (opcional)':'Tamanhos'} name="sizes" value={Array.isArray(sizes)?sizes.join(', '):sizes} onChange={onSizes}/>}
  </>;
 }

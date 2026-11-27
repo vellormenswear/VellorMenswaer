@@ -1,20 +1,5 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-
-const backend=readFileSync('app/api/suppliers/[action]/route.js','utf8');
-const frontend=readFileSync('app/fornecedor/page.jsx','utf8');
-const catalog=readFileSync('lib/catalog-query.mjs','utf8');
-
-test('atualização de estoque do fornecedor converte quantidade para INTEGER no PostgreSQL',()=>{
- assert.match(backend,/stock=CASE WHEN \$1::text='availability' THEN NULL ELSE \$2::integer END/);
- assert.match(backend,/supplier_available=\$3::boolean/);
- assert.match(backend,/p\.supplier_id=\$4 AND v\.id=\$5/);
- assert.match(backend,/action==='inventory'/);
-});
-
-test('estoque 0 não aparece no catálogo; depois de atualizar para 1 aparece',()=>{
- assert.match(catalog,/v\.stock_mode='availability' OR \(v\.stock_mode='quantity' AND v\.stock>0\)/);
- assert.match(frontend,/post\('inventory',\{variant_id:v\.variant_id/);
- assert.match(frontend,/available:f\.get\('available'\)==='on'/);
-});
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {variantAvailable,availabilityFields,stockAllowsQuantity} from '../lib/stock-availability.mjs';
+const read=p=>readFileSync(p,'utf8');
+test('alteração de disponibilidade é booleana, mantém titularidade e elimina saldo numérico',()=>{const backend=read('app/api/suppliers/[action]/route.js'),frontend=read('app/fornecedor/page.jsx');assert.match(backend,/const mode='availability';const qty=null/);assert.match(backend,/supplier_available=\$3::boolean/);assert.match(backend,/p\.supplier_id=\$4 AND v\.id=\$5/);assert.match(backend,/action==='inventory'/);assert.match(frontend,/post\('inventory',\{variant_id:v\.variant_id,stock_mode:'availability'/);assert.match(frontend,/available:f\.get\('available'\)==='true'/);assert.doesNotMatch(frontend,/name="stock"|name="mode"|ATUALIZAR ESTOQUE/);});
+test('legado com zero não é reativado; quantidade positiva deixa de limitar a venda',()=>{assert.equal(variantAvailable({stock_mode:'quantity',stock:0,supplier_available:true}),false);assert.deepEqual(availabilityFields({stock_mode:'quantity',stock:3,supplier_available:true}),{stock_mode:'availability',stock:null,supplier_available:true});assert.equal(variantAvailable({stock_mode:'availability',supplier_available:false}),false);assert.equal(stockAllowsQuantity('quantity',1,10),true);assert.equal(stockAllowsQuantity('availability',null,10),true);assert.equal(stockAllowsQuantity('quantity',0,1),false);});
+test('checkout não reserva nem desconta ou repõe estoque e preserva validações financeiras',()=>{const checkout=read('app/api/infinitepay/[action]/route.js'),reconcile=read('lib/infinitepay-reconcile.js'),cancel=read('lib/admin-order-cancel.js');assert.doesNotMatch(checkout,/INSERT INTO supplier_stock_reservations|Estoque insuficiente/);assert.doesNotMatch(reconcile,/SET stock=stock-/);assert.doesNotMatch(cancel,/SET stock=stock\+/);assert.match(checkout,/validateReservedQuote/);assert.match(reconcile,/verifiedInfinitepayPayment/);assert.match(reconcile,/REFUND_REVIEW_REQUIRED/);assert.match(cancel,/status='committed' RETURNING variant_id,quantity/);});

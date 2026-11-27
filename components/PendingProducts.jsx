@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useState,useRef} from 'react';
+import {variantAvailable} from '@/lib/stock-availability.mjs';
 import {parseRetailPriceCents} from '@/lib/marketplace-rules.mjs';
 const brl=n=>(Number(n||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const call=async(method,path,data)=>{const r=await fetch('/api/'+path,{method,headers:{'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined,cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Falha na operação');return j};
@@ -35,10 +36,10 @@ export default function PendingProducts({onChanged,refreshToken}){
    }
    await call('POST','suppliers/admin-review',payload);
    const noPhoto=s.variants.some(v=>!String(v.image_url||'').trim());
-   const soldOut=s.variants.every(v=>v.stock_mode==='quantity'&&Number(v.stock)<=0);
+   const soldOut=s.variants.every(v=>!variantAvailable(v));
    const text=decision==='rejected'?'Anúncio rejeitado.':
     'Anúncio aprovado e publicado.'+(noPhoto?' Foi aplicada a imagem provisória.':'')+
-    (soldOut?' Atenção: todas as variações estão sem estoque e não aparecerão na vitrine até a reposição.':'');
+    (soldOut?' Todas as variações estão indisponíveis e não aparecerão na vitrine até a disponibilidade ser confirmada.':'');
    setReviewNotice(prev=>({...prev,[s.id]:{status:'success',text}}));
    const refreshed=await load();if(refreshed)setMsg(text);await onChanged?.();
   }catch(error){

@@ -46,6 +46,26 @@ try{
  assert.equal((await saveAddress(req('/api/account/addresses','customer',{...addressFields,deliver_to_third_party:true,recipient:'304'}),addressParams)).status,400);
  assert.equal((await json(await readAddresses(req('/api/account/addresses','otherCustomer'),addressParams))).addresses.length,0);
  console.log('[address.qa] PASS: additive schema, real account name, third-party address, valid complement and ownership');
+ // Actual availability transitions using only the isolated test database and existing authenticated routes.
+ const {saveAdminListing}=await import('../lib/admin-catalog-service.js');
+ const {quoteCart}=await import('../lib/commerce.js');
+ const {POST:supplierPost}=await import('../app/api/suppliers/[action]/route.js');
+ const category=(await sql("SELECT category_id FROM products WHERE slug='qa-vellor-homologacao-20261125'")).rows[0].category_id;
+ const product={name:'QA disponibilidade '+fake,description:'QA',category_id:category,supplier_id:qaSupplier,department:'masculino',shipping:'nacional',active:true,hidden:false};
+ const variant={label:'Preto',supplier_cost_cents:6000,price_cents:10000,stock:null,stock_mode:'availability',sizes:['40'],active:true,supplier_available:true,image_url:img};
+ const created=await saveAdminListing({id:ids.admin},{product,photos:[img],variants:[variant]});
+ const v=(await sql('SELECT id,sku,stock,stock_mode,supplier_available FROM product_variants WHERE product_id=$1',[created.id])).rows[0];
+ assert.equal(v.stock,null);assert.equal(v.stock_mode,'availability');assert.equal(v.supplier_available,true);
+ const items=[{sku:v.sku,size:'40',qty:10}];assert.equal((await quoteCart(items)).total_cents,100000);
+ await sql("UPDATE product_variants SET stock_mode='quantity',stock=1 WHERE id=$1",[v.id]);assert.equal((await quoteCart(items)).total_cents,100000);
+ await sql("UPDATE product_variants SET stock=0 WHERE id=$1",[v.id]);await assert.rejects(quoteCart(items),/indisponível/);
+ const change=async(role,available)=>supplierPost(req('/api/suppliers/inventory',role,{variant_id:v.id,stock_mode:'availability',available}),{params:Promise.resolve({action:'inventory'})});
+ assert.equal((await change('other',true)).status,404);assert.equal((await change('supplier',true)).status,200);
+ assert.equal((await quoteCart(items)).total_cents,100000);
+ assert.equal((await change('supplier',false)).status,200);await assert.rejects(quoteCart(items),/indisponível/);
+ const changedAvailability=(await sql('SELECT stock,stock_mode,supplier_available FROM product_variants WHERE id=$1',[v.id])).rows[0];
+ assert.deepEqual(changedAvailability,{stock:null,stock_mode:'availability',supplier_available:false});
+ console.log('[availability.qa] PASS: real admin listing, legacy zero and positive, supplier authorization and availability toggle, quantities sold not limited by stock');
  const supplierState=async role=>json(await dashboard(req('/api/suppliers/notifications',role),{params:Promise.resolve({action:'notifications'})}));
  const customerState=async role=>json(await tracking(req('/api/account/tracking?orderId='+order,role)));
  const labelRequest=(role,format)=>label(req('/api/shipping-label?group_id='+group+'&format='+format,role));
