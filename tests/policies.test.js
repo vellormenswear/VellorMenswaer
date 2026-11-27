@@ -68,8 +68,8 @@ test('estilos visuais acessíveis em desktop e celular',()=>{
 });
 
 test('contato comercial oficial está disponível no site e nas respostas de e-mail',()=>{
- const email='contato@vellormenswear.com.br';
+ const email='contato@vellorwear.com.br';
  for(const file of ['public/vitrine.html','components/Frame.jsx','components/PolicyPage.jsx','components/SupportWidget.jsx','app/contato/page.jsx'])assert.ok(read(file).includes('mailto:'+email),file);
  for(const file of ['public/vitrine.html','components/Frame.jsx'])assert.ok(read(file).includes('/contato'),file);
- assert.ok(read('lib/email.js').includes("reply_to:'"+email+"'"));
+ assert.ok(read('lib/email.js').includes("const FROM='"+email+"'"));assert.ok(read('lib/email.js').includes("header:'Reply-To',value:FROM"));
 });
