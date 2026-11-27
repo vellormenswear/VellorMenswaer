@@ -40,7 +40,7 @@ async function supplierDashboardRevision(supplierId){
  const r=await sql(`WITH own_groups AS (SELECT id,order_id,xmin FROM supplier_order_groups WHERE supplier_id=$1 AND order_id IS NOT NULL),
  own_products AS (SELECT id,xmin FROM products WHERE supplier_id=$1 AND launch_archived_at IS NULL)
  SELECT md5(jsonb_build_array(
-  (SELECT s.xmin::text FROM suppliers s WHERE s.id=$1),
+  (SELECT s.xmin::text||':'||u.xmin::text FROM suppliers s JOIN users u ON u.id=s.user_id WHERE s.id=$1),
   (SELECT pix.xmin::text FROM supplier_pix_accounts pix WHERE pix.supplier_id=$1),
   (SELECT string_agg(p.id::text||':'||p.xmin::text,',' ORDER BY p.id) FROM own_products p),
   (SELECT string_agg(v.id::text||':'||v.xmin::text,',' ORDER BY v.id) FROM product_variants v JOIN own_products p ON p.id=v.product_id),

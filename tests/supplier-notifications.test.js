@@ -38,7 +38,7 @@ test('migração preserva notificações antigas, com leitura separada do ADM',(
 test('portal possui avisos novos, marcação independente e evita textos de split automático',()=>{
  const supplier=read('app/fornecedor/page.jsx');
  assert.ok(supplier.includes("supplier-notice-list"));
- assert.ok(supplier.includes("'suppliers/notifications'"));
+ assert.ok(supplier.includes("'suppliers/dashboard'"));assert.match(read('app/api/suppliers/[action]/route.js'),/notifications:notices/);
  assert.ok(supplier.includes("'suppliers/notification-read'"));
  assert.ok(supplier.includes("VER AVISOS"));
  assert.ok(!supplier.includes("Carteira Asaas"));
