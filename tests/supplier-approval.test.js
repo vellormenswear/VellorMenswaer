@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {resolveApprovedProductImage,parseRetailPriceCents,MISSING_PRODUCT_IMAGE} from '../lib/marketplace-rules.mjs';
 
 const backend=readFileSync('lib/supplier-listings.js','utf8');
-const admin=readFileSync('app/admin/fornecedores/page.jsx','utf8');
+const admin=readFileSync('components/PendingProducts.jsx','utf8');
 const catalog=readFileSync('app/api/catalog/route.js','utf8');
 
 test('aprovação aceita anúncio sem foto usando imagem explicitamente provisória',()=>{
