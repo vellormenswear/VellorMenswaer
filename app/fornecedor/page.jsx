@@ -1,15 +1,15 @@
 'use client';
 import {useEffect,useState,useRef} from 'react';import Frame from '@/components/Frame';
 import {customerPaymentLabel} from '@/lib/customer-order-status.mjs';
+import {variantAvailable} from '@/lib/stock-availability.mjs';
 import SupplierListings from '@/components/SupplierListings';
 const brl=n=>(Number(n||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const req=async(method,path,data)=>{const r=await fetch('/api/'+path,{method,headers:{'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined,cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok){const e=Error(j.error||'Falha na operação');e.status=r.status;throw e;}return j};
 function InventoryForm({v,busy,post}){
- const current=()=>({mode:v.stock_mode,stock:String(v.stock??0),available:!!v.supplier_available});
+ const current=()=>variantAvailable(v);
  const [draft,setDraft]=useState(current),dirty=useRef(false);
  useEffect(()=>{if(!dirty.current)setDraft(current())},[v.stock_mode,v.stock,v.supplier_available]);
- const change=(key,value)=>{dirty.current=true;setDraft(old=>({...old,[key]:value}));};
- return <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);if(await post('inventory',{variant_id:v.variant_id,stock_mode:f.get('mode'),stock:f.get('stock'),available:f.get('available')==='on'}))dirty.current=false;}} className="flexrow"><label>Modalidade <select name="mode" value={draft.mode} onChange={e=>change('mode',e.target.value)}><option value="quantity">Quantidade</option><option value="availability">Disponibilidade</option></select></label><label>Unidades <input className="form" name="stock" type="number" min="0" value={draft.stock} onChange={e=>change('stock',e.target.value)} required step="1" style={{maxWidth:110}}/></label><label><input type="checkbox" name="available" checked={draft.available} onChange={e=>change('available',e.target.checked)}/> Disponível</label><button className="tiny" disabled={busy}>ATUALIZAR ESTOQUE</button></form>;
+ return <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);if(await post('inventory',{variant_id:v.variant_id,stock_mode:'availability',available:f.get('available')==='true'}))dirty.current=false;}} className="flexrow"><label>Disponibilidade <select name="available" value={String(draft)} onChange={e=>{dirty.current=true;setDraft(e.target.value==='true')}}><option value="true">Disponível</option><option value="false">Indisponível</option></select></label><button className="tiny" disabled={busy}>ATUALIZAR DISPONIBILIDADE</button></form>;
 }
 export default function Supplier(){const [user,setUser]=useState(null),[data,setData]=useState(null),[msg,setMsg]=useState(''),[tab,setTab]=useState('products'),[selectedOrder,setSelectedOrder]=useState(null),[busy,setBusy]=useState(false),[categories,setCategories]=useState([]),[loading,setLoading]=useState(true),[pixForm,setPixForm]=useState({pix_type:'',pix_key:'',pix_holder_name:''});
  const revision=useRef(''),loaded=useRef(false),inFlight=useRef(null),pixDirty=useRef(false);
@@ -84,7 +84,7 @@ export default function Supplier(){const [user,setUser]=useState(null),[data,set
   <p>Confira os pagamentos e os repasses dos seus produtos.</p></div>
   <button type="button" className="btn ghost" onClick={()=>setTab('notifications')}>VER AVISOS</button>
  </section>}<nav className="navtabs">{[['products','Meus anúncios'],['notifications',`Avisos${unreadNotices.length?' ('+unreadNotices.length+')':''}`],['orders','Pedidos'],['finance','Recebimentos']].map(([key,label])=><button className={tab===key?'active':''} onClick={()=>setTab(key)} key={key}>{label}</button>)}</nav>
- {tab==='products'&&<><SupplierListings categories={categories} listings={data.listings} onChanged={()=>load({force:true})}/><section className="card"><h2>Estoque dos produtos aprovados</h2>{data.products.map(v=><div className="card" key={v.variant_id}><b>{v.name} — {v.label} · {(v.sizes||[]).join(', ')}</b><p className="small">{v.product_code?v.product_code+' · ':''}SKU {v.sku} · Fornecimento: {brl(v.supplier_cost_cents)}</p><InventoryForm v={v} busy={busy} post={post}/></div>)}</section></>}
+ {tab==='products'&&<><SupplierListings categories={categories} listings={data.listings} onChanged={()=>load({force:true})}/><section className="card"><h2>Disponibilidade dos produtos aprovados</h2>{data.products.map(v=><div className="card" key={v.variant_id}><b>{v.name} — {v.label} · {(v.sizes||[]).join(', ')}</b><p className="small">{v.product_code?v.product_code+' · ':''}SKU {v.sku} · Fornecimento: {brl(v.supplier_cost_cents)}</p><InventoryForm v={v} busy={busy} post={post}/></div>)}</section></>}
  {tab==='notifications'&&<section className="card supplier-notice-list">
   <div className="flexrow"><h2>Avisos de pedidos</h2><span className="spacer"/>
    <button type="button" className="btn ghost" onClick={()=>load({force:true})}>ATUALIZAR</button></div>

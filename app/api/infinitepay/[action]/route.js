@@ -92,7 +92,7 @@ export async function POST(req,{params}){try{
   const v=byId.get(item.variant_id);
   ensure(v?.supplier_id&&v.status==='active'&&v.supplier_available&&Number.isSafeInteger(v.supplier_cost_cents)&&v.supplier_cost_cents>0,'Fornecedor sem cadastro ou produto indisponivel.',409);
   const g=grouped.get(v.supplier_id)||{supplier_id:v.supplier_id,items:[],subtotal:0,cost:0};
-  g.items.push({...item,cost_cents:v.supplier_cost_cents,stock_mode:v.stock_mode,preparation_days:v.preparation_days||2,delivery_days_min:v.delivery_days_min||5,delivery_days_max:v.delivery_days_max||15});
+  g.items.push({...item,cost_cents:v.supplier_cost_cents,stock_mode:'availability',preparation_days:v.preparation_days||2,delivery_days_min:v.delivery_days_min||5,delivery_days_max:v.delivery_days_max||15});
   g.subtotal+=item.line_cents;g.cost+=v.supplier_cost_cents*item.qty;grouped.set(v.supplier_id,g);
  }
  const list=distributeDiscount([...grouped.values()],quote.discount_cents);
@@ -109,10 +109,6 @@ export async function POST(req,{params}){try{
   for(const item of quote.items)quantities.set(item.variant_id,(quantities.get(item.variant_id)||0)+item.qty);
   for(const [id,n] of quantities){
    const v=fresh.get(id);ensure(v?.supplier_available&&v.active,'Produto indisponivel.',409);
-   if(v.stock_mode==='quantity'){
-    const r=await c.query("SELECT COALESCE(SUM(res.quantity),0)::int AS qty FROM supplier_stock_reservations res JOIN supplier_order_groups g ON g.id=res.group_id WHERE res.variant_id=$1 AND res.status='held' AND g.order_id IS NULL AND g.checkout_expires_at>now()",[id]);
-    ensure(Number.isSafeInteger(v.stock)&&v.stock>=n+r.rows[0].qty,'Estoque insuficiente.',409);
-   }
   }
   if(quote.coupon){
    const coupon=(await c.query('SELECT id,active,discount_type,amount,max_uses,used_count,min_subtotal_cents,starts_at,expires_at FROM coupons WHERE id=$1 FOR UPDATE',[quote.coupon.id])).rows[0];
@@ -125,8 +121,6 @@ export async function POST(req,{params}){try{
   for(const g of list){
    const r=await c.query("INSERT INTO supplier_order_groups(checkout_batch_id,customer_id,recipient_snapshot,items_snapshot,subtotal_cents,discount_cents,coupon_id,coupon_code_snapshot,checkout_expires_at,supplier_id,amount_cents,supplier_amount_cents,marketplace_fee_cents,preparation_days,delivery_days_min,delivery_days_max) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '2 hours',$9,$10,$11,$12,$13,$14,$15) RETURNING id",
     [batch,u.id,JSON.stringify(recipientSnapshot(addr.rows[0],u.full_name)),JSON.stringify(g.items),g.subtotal,g.discount,quote.coupon?.id||null,quote.coupon?.code||null,g.supplier_id,g.total,g.cost,g.total-g.cost,Math.max(...g.items.map(i=>i.preparation_days)),Math.max(...g.items.map(i=>i.delivery_days_min)),Math.max(...g.items.map(i=>i.delivery_days_max))]);
-   for(const item of g.items)if(item.stock_mode==='quantity')
-    await c.query('INSERT INTO supplier_stock_reservations(group_id,variant_id,quantity) VALUES($1,$2,$3) ON CONFLICT(group_id,variant_id) DO UPDATE SET quantity=supplier_stock_reservations.quantity+excluded.quantity',[r.rows[0].id,item.variant_id,item.qty]);
   }
   return batch;
  });
