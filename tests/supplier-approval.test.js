@@ -6,6 +6,7 @@ import {resolveApprovedProductImage,parseRetailPriceCents,MISSING_PRODUCT_IMAGE}
 const backend=readFileSync('lib/supplier-listings.js','utf8');
 const admin=readFileSync('components/PendingProducts.jsx','utf8');
 const catalog=readFileSync('app/api/catalog/route.js','utf8');
+const catalogQuery=readFileSync('lib/catalog-query.mjs','utf8');
 
 test('aprovação aceita anúncio sem foto usando imagem explicitamente provisória',()=>{
  assert.equal(resolveApprovedProductImage(''),'/product-images/sem-foto.svg');
@@ -37,6 +38,8 @@ test('aprovação exibe andamento, erro e confirmação junto ao produto analisa
 });
 
 test('catálogo continua exigindo imagem — placeholder garante visibilidade',()=>{
- assert.match(catalog,/COALESCE\(NULLIF\(NULLIF\(v.primary_image_url/);
+ assert.ok(catalog.includes('${CATALOG_IMAGE} AS image_url') && catalog.includes('WHERE ${CATALOG_WHERE}'));
+ assert.match(catalogQuery,/COALESCE\(NULLIF\(NULLIF\(v.primary_image_url/);
+ assert.ok(catalogQuery.includes("NULLIF(v.primary_image_url,'')) IS NOT NULL"));
  assert.equal(MISSING_PRODUCT_IMAGE.startsWith('/product-images/'),true);
 });
