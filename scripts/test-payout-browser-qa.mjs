@@ -97,7 +97,7 @@ try{
  };
  await verifyLayout(seller.page);
  await admin.page.getByRole('button',{name:'Produtos',exact:true}).click();await visible(admin.page.getByRole('button',{name:'Novo produto',exact:true}));await admin.page.getByRole('button',{name:'Novo produto',exact:true}).click();
- await visible(admin.page.getByLabel('Disponibilidade',{exact:true}));assert.deepEqual(await admin.page.getByLabel('Disponibilidade',{exact:true}).locator('option').allTextContents(),['Disponível','Indisponível']);
+ const adminAvailability=admin.page.locator('label').filter({hasText:'Disponibilidade'}).locator('select');try{await visible(adminAvailability);}catch(e){console.log('[admin.editor.body]',(await admin.page.locator('body').innerText()).slice(0,3500));throw e;}assert.deepEqual(await adminAvailability.locator('option').allTextContents(),['Disponível','Indisponível']);await adminAvailability.selectOption('unavailable');assert.equal(await adminAvailability.inputValue(),'unavailable');await adminAvailability.selectOption('available');assert.equal(await adminAvailability.inputValue(),'available');
  assert.equal(await admin.page.getByText('Quantidade em estoque',{exact:true}).count(),0);
  await visible(admin.page.getByText('Foto da variação (opcional)',{exact:true}));
  console.log('[availability.browser] PASS: admin editor retains individual photo and only availability');
