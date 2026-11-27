@@ -1,3 +1,4 @@
+import {parseReportedStock} from '@/lib/variant-grid.mjs';
 import {supplierListings,mutateSupplierListing,reviewSupplierListing} from '@/lib/supplier-listings';
 import {validDepartment} from '@/lib/departments.mjs';
 import {sql,db,transaction,audit} from '@/lib/db';
@@ -98,7 +99,7 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
   if(q.get('revision')===revision)return ok({unchanged:true,revision});
   const [subs,products,orders,changes,notices,pixAccount,listings,categories]=await Promise.all([
    sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 AND status<>\'deleted\' ORDER BY created_at DESC LIMIT 100',[supplier.id]),
-   sql(`SELECT p.id,p.name,p.slug,p.product_code,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.sizes,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
+   sql(`SELECT p.id,p.name,p.slug,p.product_code,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.sizes,v.stock,v.stock_mode,v.supplier_available,v.reported_stock,v.supplier_cost_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
    supplierOrders(supplier.id),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    supplierNotices(supplier.id),
@@ -215,8 +216,8 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  if(['submit','edit','deactivate','reactivate','delete'].includes(action))return ok(await mutateSupplierListing(user,supplier,action,x),action==='submit'?201:200);
  if(action==='inventory'){
-  ensure(uuid(x.variant_id),'Variação inválida.');ensure(typeof x.available==='boolean','Informe a disponibilidade.');const mode='availability';const qty=null;
-  const r=await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock_shared(8033340)');return c.query(`UPDATE product_variants v SET stock_mode=$1::text,stock=CASE WHEN $1::text='availability' THEN NULL ELSE $2::integer END,supplier_available=$3::boolean,updated_at=now() FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL AND ($1::text='availability' OR cardinality(v.sizes)=1) RETURNING v.id`,[mode,qty,x.available&&(x.stock_mode!=='quantity'||Number.isSafeInteger(Number(x.stock))&&Number(x.stock)>0),supplier.id,x.variant_id])});ensure(r.rowCount,'Variação não encontrada.',404);await audit(user.id,'supplier.inventory','variant',x.variant_id);return ok({updated:true})
+  ensure(uuid(x.variant_id),'Variação inválida.');ensure(typeof x.available==='boolean','Informe a disponibilidade.');const mode='availability';const qty=null;let reported=null;try{reported=parseReportedStock(x.reported_stock)}catch(e){ensure(false,e.message)}
+  const r=await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock_shared(8033340)');return c.query(`UPDATE product_variants v SET stock_mode=$1::text,stock=CASE WHEN $1::text='availability' THEN NULL ELSE $2::integer END,supplier_available=$3::boolean,reported_stock=CASE WHEN $6::boolean THEN $7::integer ELSE v.reported_stock END,updated_at=now() FROM products p WHERE v.product_id=p.id AND p.supplier_id=$4 AND v.id=$5 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL AND ($1::text='availability' OR cardinality(v.sizes)=1) RETURNING v.id`,[mode,qty,x.available&&(x.stock_mode!=='quantity'||Number.isSafeInteger(Number(x.stock))&&Number(x.stock)>0),supplier.id,x.variant_id,Object.hasOwn(x,'reported_stock'),reported])});ensure(r.rowCount,'Variação não encontrada.',404);await audit(user.id,'supplier.inventory','variant',x.variant_id);return ok({updated:true})
  }
  if(action==='leadtime'){
   ensure(uuid(x.variant_id),'Variação inválida.');const prep=Number(x.preparation_days),min=Number(x.delivery_days_min),max=Number(x.delivery_days_max);ensure([prep,min,max].every(Number.isInteger)&&prep>=0&&prep<=90&&min>=1&&max>=min&&max<=180,'Prazo inválido.');

@@ -17,6 +17,7 @@ try{
  assert.equal(marker.length,1,'QA marker absent: no writes allowed');const qa=marker[0];
  // Only after the isolated preview guard and marker. Test the exact additive migration.
  await sql(await (await import('node:fs/promises')).readFile(new URL('../db/023_address_recipient.sql',import.meta.url),'utf8'));
+ await sql(await (await import('node:fs/promises')).readFile(new URL('../db/024_reported_variant_stock.sql',import.meta.url),'utf8'));
  const {POST:saveAddress,GET:readAddresses}=await import('../app/api/account/[resource]/route.js');
  const qaSupplier=randomUUID(),qaOtherSupplier=randomUUID();
  const ids={admin:qa.admin,supplier:randomUUID(),other:randomUUID(),customer:randomUUID(),otherCustomer:randomUUID()};
@@ -66,6 +67,26 @@ try{
  const changedAvailability=(await sql('SELECT stock,stock_mode,supplier_available FROM product_variants WHERE id=$1',[v.id])).rows[0];
  assert.deepEqual(changedAvailability,{stock:null,stock_mode:'availability',supplier_available:false});
  console.log('[availability.qa] PASS: real admin listing, legacy zero and positive, supplier authorization and availability toggle, quantities sold not limited by stock');
+ const {expandVariantGrid}=await import('../lib/variant-grid.mjs');
+ const gridRows=expandVariantGrid([],['Preto','Branco'],['39','40','41'],{root:'calcados',limit:30,create:()=>({...variant,reported_stock:null})}).map((v,i)=>({...v,reported_stock:i,supplier_available:i!==5}));
+ const gridProduct={...product,name:'QA grade '+fake};
+ const grid=await saveAdminListing({id:ids.admin},{product:gridProduct,photos:[img],variants:gridRows});
+ const persisted=(await sql('SELECT id,sku,label,sizes,stock,stock_mode,supplier_available,reported_stock FROM product_variants WHERE product_id=$1 ORDER BY label,sizes',[grid.id])).rows;
+ assert.equal(persisted.length,6);assert.equal(new Set(persisted.map(v=>v.sku)).size,6);assert.ok(persisted.every(v=>v.sizes.length===1&&v.stock===null&&v.stock_mode==='availability'));
+ const zero=persisted.find(v=>v.reported_stock===0),off=persisted.find(v=>v.reported_stock===5);assert.equal(zero.supplier_available,true);assert.equal(off.supplier_available,false);
+ assert.equal((await quoteCart([{sku:zero.sku,size:zero.sizes[0],qty:10}])).total_cents,100000);await assert.rejects(quoteCart([{sku:off.sku,size:off.sizes[0],qty:1}]),/indisponível/);
+ const edited=gridRows.map(row=>({...row,id:persisted.find(p=>p.label===row.label&&p.sizes[0]===row.sizes[0]).id,reported_stock:row.reported_stock+10}));
+ await saveAdminListing({id:ids.admin},{product:{...gridProduct,id:grid.id},photos:[img],variants:edited});
+ const after=(await sql('SELECT id,sku,reported_stock FROM product_variants WHERE product_id=$1 ORDER BY id',[grid.id])).rows;assert.ok(after.every(v=>v.sku===persisted.find(p=>p.id===v.id).sku&&v.reported_stock===persisted.find(p=>p.id===v.id).reported_stock+10));
+ const supplierVariants=gridRows.map((v,i)=>({key:randomUUID(),label:v.label,sizes:v.sizes,cost_cents:v.supplier_cost_cents,stock_mode:'availability',stock:null,reported_stock:i,supplier_available:i!==5,image_url:img,preparation_days:2,delivery_days_min:5,delivery_days_max:15}));
+ const submitted=await json(await supplierPost(req('/api/suppliers/submit','supplier',{name:'QA grade fornecedor '+fake,category_id:category,department:'masculino',description:'QA',variants:supplierVariants,request_id:randomUUID()}),{params:Promise.resolve({action:'submit'})}));
+ const sub=(await sql('SELECT * FROM supplier_submissions WHERE id=$1',[submitted.id])).rows[0];assert.equal(sub.variants.length,6);assert.equal(new Set(sub.variants.map(v=>v.sku)).size,6);assert.equal(sub.variants[0].reported_stock,0);
+ const approved=await json(await supplierPost(req('/api/suppliers/admin-review','admin',{id:sub.id,decision:'approved',revision:sub.revision,prices:Object.fromEntries(sub.variants.map(v=>[v.sku,10000]))}),{params:Promise.resolve({action:'admin-review'})}));
+ const supplierRows=(await sql('SELECT id,sku,reported_stock,supplier_available,stock FROM product_variants WHERE product_id=$1',[approved.productId])).rows;
+ assert.equal(supplierRows.length,6);assert.ok(supplierRows.every(v=>v.stock===null&&v.reported_stock===sub.variants.find(p=>p.sku===v.sku).reported_stock));
+ const sv=supplierRows[0];const toggleQty=async(role,n)=>supplierPost(req('/api/suppliers/inventory',role,{variant_id:sv.id,stock_mode:'availability',available:true,reported_stock:n}),{params:Promise.resolve({action:'inventory'})});
+ assert.equal((await toggleQty('other',0)).status,404);assert.equal((await toggleQty('supplier',0)).status,200);assert.equal((await sql('SELECT reported_stock FROM product_variants WHERE id=$1',[sv.id])).rows[0].reported_stock,0);assert.equal((await toggleQty('supplier',-1)).status,400);
+ console.log('[variant-grid.qa] PASS: six distinct SKUs, admin editing, supplier approval, independent informational zero, quantity update ownership, checkout unaffected');
  const supplierState=async role=>json(await dashboard(req('/api/suppliers/notifications',role),{params:Promise.resolve({action:'notifications'})}));
  const customerState=async role=>json(await tracking(req('/api/account/tracking?orderId='+order,role)));
  const labelRequest=(role,format)=>label(req('/api/shipping-label?group_id='+group+'&format='+format,role));

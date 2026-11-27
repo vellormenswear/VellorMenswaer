@@ -52,7 +52,13 @@ try{
  try{await visible(seller.page.getByRole('button',{name:'Pedidos',exact:true}));}catch(e){console.log('[browser.body]',(await seller.page.locator('body').innerText()).slice(0,1800));throw e;}
  await seller.page.getByRole('button',{name:'+ Novo anúncio',exact:true}).click();
  await visible(seller.page.getByLabel('Disponibilidade',{exact:true}));assert.deepEqual(await seller.page.getByLabel('Disponibilidade',{exact:true}).locator('option').allTextContents(),['Disponível','Indisponível']);
- assert.equal(await seller.page.getByText('Quantidade em estoque',{exact:true}).count(),0);assert.equal(await seller.page.getByRole('button',{name:'Preto',exact:true}).count(),1);
+ const shoeCategory=(await sql("SELECT id FROM categories WHERE slug='calcados' AND parent_id IS NULL")).rows[0].id;
+ await seller.page.getByLabel('Categoria principal',{exact:true}).selectOption(shoeCategory);
+ async function selectGrid(page){const colors=page.getByRole('group',{name:'Selecionar várias cores'}),sizes=page.getByRole('group',{name:'Selecionar vários tamanhos'});for(const c of ['Preto','Branco'])await colors.getByRole('button',{name:c,exact:true}).click();for(const s of ['39','40','41'])await sizes.getByRole('button',{name:s,exact:true}).click();await page.getByRole('button',{name:'Gerar 6 variações',exact:true}).click();}
+ await selectGrid(seller.page);assert.equal(await seller.page.getByLabel('Estoque',{exact:true}).count(),6);await seller.page.getByLabel('Estoque',{exact:true}).first().fill('0');await seller.page.getByLabel('Estoque',{exact:true}).nth(1).fill('7');assert.equal(await seller.page.getByLabel('Disponibilidade',{exact:true}).first().inputValue(),'available');
+ await seller.page.getByLabel('Disponibilidade',{exact:true}).nth(1).selectOption('unavailable');assert.equal(await seller.page.getByLabel('Estoque',{exact:true}).nth(1).inputValue(),'7');
+ await seller.page.setViewportSize(mobile);assert.equal(await seller.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Supplier product editor overflows mobile');await seller.page.setViewportSize(desktop);
+ console.log('[variant-grid.browser] PASS: supplier selected 2 colors and 3 sizes, six independent quantities, responsive form');
  console.log('[availability.browser] PASS: supplier form with color chips and binary selector');
  await seller.page.getByRole('button',{name:'Pedidos',exact:true}).click();
  await visible(seller.page.getByText('Produto fictício QA',{exact:true}));
@@ -100,7 +106,10 @@ try{
  const adminAvailability=admin.page.locator('label').filter({hasText:'Disponibilidade'}).locator('select');try{await visible(adminAvailability);}catch(e){console.log('[admin.editor.body]',(await admin.page.locator('body').innerText()).slice(0,3500));throw e;}assert.deepEqual(await adminAvailability.locator('option').allTextContents(),['Disponível','Indisponível']);await adminAvailability.selectOption('unavailable');assert.equal(await adminAvailability.inputValue(),'unavailable');await adminAvailability.selectOption('available');assert.equal(await adminAvailability.inputValue(),'available');
  assert.equal(await admin.page.getByText('Quantidade em estoque',{exact:true}).count(),0);
  await visible(admin.page.getByText('Foto da variação (opcional)',{exact:true}));
- console.log('[availability.browser] PASS: admin editor retains individual photo and only availability');
+ await admin.page.getByLabel('Categoria principal',{exact:true}).selectOption(shoeCategory);await selectGrid(admin.page);
+ const variantHeads=admin.page.getByRole('button',{name:/^(Preto|Branco) \/ (39|40|41)/});assert.equal(await variantHeads.count(),6);const stockField=admin.page.locator('label').filter({hasText:/^Estoque$/}).locator('input');await visible(stockField);await stockField.fill('9');assert.equal(await stockField.inputValue(),'9');await variantHeads.nth(1).click();await visible(stockField);assert.equal(await stockField.inputValue(),'');await variantHeads.first().click();await visible(stockField);assert.equal(await stockField.inputValue(),'9');
+ await admin.page.setViewportSize(mobile);assert.equal(await admin.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Admin product editor overflows mobile');await admin.page.setViewportSize(desktop);
+ console.log('[variant-grid.browser] PASS: admin generated six size-color rows, individual stock, photo preserved, responsive form');
 
  await seller.page.getByText('Produto fictício QA',{exact:true}).scrollIntoViewIfNeeded();
  await seller.page.screenshot({path:'public/qa-payout-desktop.png'});
