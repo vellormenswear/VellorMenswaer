@@ -185,8 +185,8 @@ body{background:#faf9f6;color:#15241e;font-size:14px}
 .vll-account-app .navtabs{background:#eef1ec;border:0;padding:6px;border-radius:14px;gap:5px;margin:16px 0}
 .vll-account-app .navtabs button,.vll-account-app .navtabs a{border:0;background:transparent;color:#51675a;letter-spacing:0;text-transform:none;border-radius:10px;padding:11px 15px;font-weight:600;font-size:13px;text-decoration:none}
 .vll-account-app .navtabs button.active{color:#174b36;background:white;box-shadow:0 2px 6px #092f2510}
-.vll-account-app .navtabs a{background:#103c2c;color:white}
-.app-profile{display:flex;align-items:center;gap:14px;padding:20px;border-radius:19px;background:linear-gradient(135deg,#092f25,#174b36);color:white}
+.vll-account-app .navtabs a{background:var(--vll-brand-gradient);color:white}
+.app-profile{display:flex;align-items:center;gap:14px;padding:20px;border-radius:19px;background:var(--vll-brand-gradient);color:white}
 .app-avatar{width:48px;height:48px;display:grid;place-items:center;border-radius:50%;background:#ffffff20;color:#e9d4a4;font-size:22px}
 .app-profile b,.app-profile small{display:block}.app-profile small{color:#d9c8a4;margin-top:5px;font-size:12px}
 .vll-admin-app{max-width:1500px;grid-template-columns:218px minmax(0,1fr);gap:16px;padding:16px;background:#f5f7f3;align-items:start}
@@ -293,3 +293,5 @@ body{background:#faf9f6;color:#15241e;font-size:14px}
 
 /* Cores institucionais das abas internas; sem alterar medidas, estrutura ou estados funcionais. */
 .vll-admin-app .navtabs button.active,.vll-admin-page .navtabs button.active,.vll-supplier-app .navtabs button.active,.vll-admin-app .app-order-filter-chip.active{background:var(--vll-brand-gradient);border-color:#401328;color:#fff}
+
+.vll-account-app .btn:not(.gold):not(.ghost):not(.danger){background:var(--vll-brand-gradient);border-color:#401328;color:#fff}
