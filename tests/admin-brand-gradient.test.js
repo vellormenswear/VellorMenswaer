@@ -11,3 +11,15 @@ test('admin and supplier tabs reuse the exact neutral storefront brand gradient'
  assert.match(finance,/\.tabs button\.active\{background:var\(--vll-brand-gradient\);color:#fff;box-shadow:0 2px 6px #1534260d\}/);
  assert.match(css,/\.vll-account-app \.navtabs button\.active\{color:#174b36;background:white/);
 });
+
+test('account profile and solid actions use approved gradient without changing secondary or active tab styles',()=>{
+ const css=read('app/globals.css'),account=read('app/conta/page.jsx');
+ assert.match(css,/\.app-profile\{[^}]*background:var\(--vll-brand-gradient\);color:white\}/);
+ assert.match(css,/\.vll-account-app \.navtabs a\{background:var\(--vll-brand-gradient\);color:white\}/);
+ assert.match(css,/\.vll-account-app \.btn:not\(\.gold\):not\(\.ghost\):not\(\.danger\)\{background:var\(--vll-brand-gradient\);border-color:#401328;color:#fff\}/);
+ assert.match(css,/\.vll-account-app \.navtabs button\.active\{color:#174b36;background:white/);
+ assert.match(account,/className="btn" disabled=\{profileBusy\}/);
+ assert.match(account,/className="btn" disabled=\{passwordBusy\}/);
+ assert.match(account,/className="btn-small" href="\/admin"/);
+ assert.match(account,/className="btn-small" href="\/fornecedor"/);
+});
