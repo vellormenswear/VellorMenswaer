@@ -10,6 +10,7 @@ import {randomToken,sha256,passwordHash} from '@/lib/security';
 import {isBrazilianDocument} from '@/lib/store-identity.mjs';
 import {randomUUID} from 'node:crypto';
 import {parseSupplierPix,supplierPixSummary} from '@/lib/supplier-pix.mjs';
+import {supplierSubmissionView} from '@/lib/supplier-private-view.mjs';
 import {supplierSubmissionValid,generatedSupplierSku,resolveApprovedProductImage} from '@/lib/marketplace-rules.mjs';
 import {supplierVariantValid,supplierCommission as feeOf} from '@/lib/marketplace-rules.mjs';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -71,13 +72,13 @@ export async function GET(req,{params}){try{const {action}=await params;const q=
  if(action==='dashboard'){
   const [subs,products,orders,changes,notices,pixAccount]=await Promise.all([
    sql('SELECT * FROM supplier_submissions WHERE supplier_id=$1 AND status<>\'deleted\' ORDER BY created_at DESC LIMIT 100',[supplier.id]),
-   sql(`SELECT p.id,p.name,p.slug,p.product_code,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.sizes,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.price_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
-   sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.amount_cents,g.supplier_amount_cents,g.mp_fee_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,(SELECT n.id FROM notifications n WHERE n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text AND n.kind='supplier_size_changed' ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS size_revision,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
+   sql(`SELECT p.id,p.name,p.slug,p.product_code,p.active,p.hidden,v.id AS variant_id,v.sku,v.label,v.sizes,v.stock,v.stock_mode,v.supplier_available,v.supplier_cost_cents,v.primary_image_url,v.preparation_days,v.delivery_days_min,v.delivery_days_max FROM products p JOIN product_variants v ON v.product_id=p.id WHERE p.supplier_id=$1 AND p.launch_archived_at IS NULL AND COALESCE(p.supplier_listing_status,'approved')='approved' AND v.supplier_retired_at IS NULL ORDER BY p.created_at DESC LIMIT 200`,[supplier.id]),
+   sql(`SELECT g.id,g.order_id,g.payment_status,g.fulfillment_status,g.supplier_amount_cents,g.preparation_days,g.delivery_days_min,g.delivery_days_max,g.tracking_code,g.carrier,g.created_at,g.paid_at,o.order_number,(SELECT n.id FROM notifications n WHERE n.order_id=g.order_id AND n.payload->>'group_id'=g.id::text AND n.kind='supplier_size_changed' ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS size_revision,CASE WHEN g.payment_status='approved' AND g.fulfillment_status<>'awaiting_payout' THEN o.recipient_snapshot ELSE NULL END AS recipient_snapshot,
    COALESCE(json_agg(json_build_object('sku',i.sku_snapshot,'product_code',p.product_code,'size',i.size_snapshot,'qty',i.quantity,'cost_cents',i.unit_cost_cents)) FILTER(WHERE i.id IS NOT NULL),'[]') AS items FROM supplier_order_groups g JOIN orders o ON o.id=g.order_id LEFT JOIN supplier_order_items i ON i.group_id=g.id LEFT JOIN product_variants v ON v.id=i.variant_id LEFT JOIN products p ON p.id=v.product_id WHERE g.supplier_id=$1 GROUP BY g.id,o.id ORDER BY g.created_at DESC LIMIT 150`,[supplier.id]),
    sql('SELECT id,variant_id,requested_cost_cents,status,created_at FROM supplier_price_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 100',[supplier.id]),
    supplierNotices(supplier.id),
    sql('SELECT pix_type,pix_key,holder_name,updated_at FROM supplier_pix_accounts WHERE supplier_id=$1',[supplier.id])]);
-  return ok({supplier,submissions:subs.rows,products:products.rows,orders:orders.rows,pix_account:supplierPixSummary(pixAccount.rows[0]),price_requests:changes.rows,notifications:notices})
+  return ok({supplier,submissions:subs.rows.map(supplierSubmissionView),products:products.rows,orders:orders.rows,pix_account:supplierPixSummary(pixAccount.rows[0]),price_requests:changes.rows,notifications:notices})
  }
  throw new HttpError(404,'Recurso desconhecido.');
  }catch(e){return fail(e)}}
