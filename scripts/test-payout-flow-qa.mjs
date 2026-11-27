@@ -16,19 +16,24 @@ try{
  const marker=(await sql("SELECT p.id,p.supplier_id,s.user_id AS supplier_user,u.id AS admin,pix.updated_at FROM products p JOIN suppliers s ON s.id=p.supplier_id JOIN supplier_pix_accounts pix ON pix.supplier_id=s.id CROSS JOIN users u WHERE p.slug='qa-vellor-homologacao-20261125' AND u.email='qa-vellor-20261125-admin@example.invalid'")).rows;
  assert.equal(marker.length,1,'QA marker absent: no writes allowed');const qa=marker[0];
  const customers=(await sql("SELECT id FROM users WHERE role='customer' AND email LIKE '%@example.invalid' ORDER BY id LIMIT 2")).rows;
- const other=(await sql("SELECT s.user_id FROM suppliers s JOIN users u ON u.id=s.user_id WHERE s.id<>$1 AND s.status='active' AND u.email LIKE '%@example.invalid' LIMIT 1",[qa.supplier_id])).rows[0];
- const variant=(await sql('SELECT id FROM product_variants WHERE product_id=$1 LIMIT 1',[qa.id])).rows[0];assert.ok(customers.length===2&&other&&variant);
- const ids={admin:qa.admin,supplier:qa.supplier_user,other:other.user_id,customer:customers[0].id,otherCustomer:customers[1].id};
+ assert.equal(customers.length,2);
+ const qaSupplier=randomUUID(),qaOtherSupplier=randomUUID();
+ const ids={admin:qa.admin,supplier:randomUUID(),other:randomUUID(),customer:customers[0].id,otherCustomer:customers[1].id};
  const order=randomUUID(),group=randomUUID(),item=randomUUID(),img='/product-images/sem-foto.svg',reference='QA-'+randomUUID();
  const recipient={recipient:'Destinatário fictício QA',street:'Rua Exemplo',number:'100',complement:'Apto 2',neighborhood:'Centro',city:'Rio de Janeiro',state:'RJ',cep:'00000000'};
  await transaction(async c=>{
+  for(const [role,id,supplierId] of [['supplier',ids.supplier,qaSupplier],['other',ids.other,qaOtherSupplier]]){
+   await c.query("INSERT INTO users(id,full_name,email,password_hash,role) VALUES($1,'Fornecedor fictício QA',$2,$3,'supplier')",[id,role+'-'+fake+'@example.invalid',randomUUID()]);
+   await c.query("INSERT INTO suppliers(id,user_id,business_name,document_number,status) VALUES($1,$2,'Fornecedor fictício QA',$3,'active')",[supplierId,id,'QA-'+randomUUID()]);
+  }
+  const pix=(await c.query("INSERT INTO supplier_pix_accounts(supplier_id,pix_type,pix_key,holder_name) VALUES($1,'random',$2,'Fornecedor fictício QA') RETURNING updated_at",[qaSupplier,randomUUID()])).rows[0];qa.updated_at=pix.updated_at;
   for(const [role,id] of Object.entries(ids)){const token=randomBytes(32).toString('hex');tokens[role]=token;await c.query("INSERT INTO sessions(user_id,token_hash,expires_at,user_agent) VALUES($1,$2,now()+interval '10 minutes',$3)",[id,createHash('sha256').update(token).digest('hex'),fake]);}
   await c.query("INSERT INTO orders(id,order_number,customer_id,recipient_snapshot,subtotal_cents,total_cents,status,payment_status,paid_at) VALUES($1,(SELECT COALESCE(max(order_number),0)+1 FROM orders),$2,$3,250,250,'paid','approved',now())",[order,ids.customer,JSON.stringify(recipient)]);
   await c.query("INSERT INTO payments(order_id,amount_cents,provider,status,environment,payment_method) VALUES($1,250,'infinitepay','approved','sandbox','pix')",[order]);
-  await c.query("INSERT INTO supplier_order_groups(id,order_id,supplier_id,amount_cents,supplier_amount_cents,marketplace_fee_cents,payment_status,fulfillment_status,paid_at) VALUES($1,$2,$3,250,200,50,'approved','awaiting_payout',now())",[group,order,qa.supplier_id]);
-  await c.query("INSERT INTO order_items(id,order_id,variant_id,sku_snapshot,product_name_snapshot,variant_snapshot,size_snapshot,image_url_snapshot,quantity,unit_price_cents,line_total_cents) VALUES($1,$2,$3,'QA-SKU','Produto fictício QA','Amarelo','33',$4,1,250,250)",[item,order,variant.id,img]);
-  await c.query("INSERT INTO supplier_order_items(group_id,order_item_id,variant_id,sku_snapshot,size_snapshot,quantity,unit_cost_cents,supplier_line_cents) VALUES($1,$2,$3,'QA-SKU','33',1,200,200)",[group,item,variant.id]);
-  await c.query("INSERT INTO notifications(order_id,kind,title,payload) VALUES($1,'supplier_payment_pending','QA pagamento do cliente',$2)",[order,JSON.stringify({group_id:group,supplier_id:qa.supplier_id})]);
+  await c.query("INSERT INTO supplier_order_groups(id,order_id,supplier_id,amount_cents,supplier_amount_cents,marketplace_fee_cents,payment_status,fulfillment_status,paid_at) VALUES($1,$2,$3,250,200,50,'approved','awaiting_payout',now())",[group,order,qaSupplier]);
+  await c.query("INSERT INTO order_items(id,order_id,variant_id,sku_snapshot,product_name_snapshot,variant_snapshot,size_snapshot,image_url_snapshot,quantity,unit_price_cents,line_total_cents) VALUES($1,$2,$3,'QA-SKU','Produto fictício QA','Amarelo','33',$4,1,250,250)",[item,order,null,img]);
+  await c.query("INSERT INTO supplier_order_items(group_id,order_item_id,variant_id,sku_snapshot,size_snapshot,quantity,unit_cost_cents,supplier_line_cents) VALUES($1,$2,$3,'QA-SKU','33',1,200,200)",[group,item,null]);
+  await c.query("INSERT INTO notifications(order_id,kind,title,payload) VALUES($1,'supplier_payment_pending','QA pagamento do cliente',$2)",[order,JSON.stringify({group_id:group,supplier_id:qaSupplier})]);
  });
  const supplierState=async role=>json(await dashboard(req('/api/suppliers/notifications',role),{params:Promise.resolve({action:'notifications'})}));
  const customerState=async role=>json(await tracking(req('/api/account/tracking?orderId='+order,role)));
