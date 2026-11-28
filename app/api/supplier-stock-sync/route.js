@@ -1,6 +1,6 @@
 import {body,originGuard,ok,fail,HttpError} from '@/lib/http';
 import {syncSelectedSupplierStock} from '@/lib/supplier-stock-sync';
-import {GET as catalog} from '../catalog/route';
+import {GET as catalog} from '../catalog/route.js';
 export const runtime='nodejs';export const dynamic='force-dynamic';export const maxDuration=30;
 export async function POST(req){try{
  originGuard(req);const x=await body(req,2048);
