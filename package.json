@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "node --test tests/*.test.js && next build && node scripts/test-support-chat-qa.mjs",
+    "build": "node --test tests/*.test.js && next build && node --experimental-loader ./scripts/qa-listing-loader.mjs scripts/test-support-chat-qa.mjs",
     "start": "next start",
     "db:migrate": "node scripts/migrate.mjs",
     "admin:bootstrap": "node scripts/bootstrap-admin.mjs",
