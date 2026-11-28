@@ -129,7 +129,7 @@ test('conta e administração usam visual de aplicativo, editor de produto fica 
  assert.ok(start>=0&&admin.indexOf('ref={editorRef}',start)<admin.indexOf('className="productgrid"',start));
  assert.ok(admin.includes("scrollIntoView({behavior:'smooth',block:'start'})"));
  assert.ok(admin.includes('AppIcon name="trash"')&&admin.includes("post('product-delete'"));
- assert.ok(read('components/ProductEditor.jsx').includes('Prévia da foto principal')&&read('components/ProductEditor.jsx').includes('Prévia da variação'));
+ assert.ok(read('components/ProductEditor.jsx').includes('Prévia da foto principal')&&read('components/GroupedVariants.jsx').includes("alt={'Foto — '+name}"));
  assert.ok(css.includes('.vll-admin-app .sidebar button.active')&&css.includes('.app-photo-editor'));
 });
 test('exclusão administrativa protege vendas e referências históricas',()=>{
