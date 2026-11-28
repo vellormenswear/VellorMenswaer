@@ -36,7 +36,7 @@ try{
  const orderNo=(await sql("INSERT INTO orders(id,order_number,customer_id,recipient_snapshot,subtotal_cents,total_cents,status,payment_status,paid_at,tracking_code) VALUES($1,(SELECT COALESCE(max(order_number),0)+1 FROM orders),$2,$3,100,100,'shipped','approved',now(),'QA-TRACK-123') RETURNING order_number",[order,ids.a,JSON.stringify({recipient:'Cliente QA',street:'Rua Exemplo',number:'1',city:'Rio de Janeiro',state:'RJ',cep:'00000000'})])).rows[0].order_number;
  const catalog=(await sql("SELECT p.name,v.label,("+CAMPAIGN_PRICE+") AS price_cents "+CATALOG_FROM+" "+CAMPAIGN_JOIN+" WHERE "+CATALOG_WHERE+" AND p.id=$1 AND v.label='Teste válido'",[marker[0].id])).rows;
  assert.equal(catalog.length,1,'public catalogue fixture missing');
- server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','-p','4181','-H','127.0.0.1'],{env:{...process.env,DATABASE_URL:process.env.QA_SUPPORT_DATABASE_URL,CRON_SECRET:cronSecret},stdio:['ignore','ignore','pipe']});
+ server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','-p','4181','-H','127.0.0.1'],{env:{...process.env,DATABASE_URL:process.env.QA_SUPPORT_DATABASE_URL,CRON_SECRET:cronSecret,SITE_URL:base},stdio:['ignore','ignore','pipe']});
  server.stderr.on('data',chunk=>{const s=String(chunk);if(!/postgresql:|postgres:|DATABASE_URL|Bearer /i.test(s))console.log('[support.qa.server]',s.slice(0,350))});
  for(let i=0;i<60;i++){try{if((await fetch(base)).ok)break}catch{}if(i===59)throw Error('QA server unavailable');await new Promise(r=>setTimeout(r,500));}
  let x=await chat('a',{action:'message',message:'tem produto fictício de homologação tamanho M?'});
