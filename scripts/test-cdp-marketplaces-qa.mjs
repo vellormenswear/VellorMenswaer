@@ -1,19 +1,22 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
-import serverChromium from '@sparticuz/chromium';
+import {existsSync} from 'node:fs';
 import {captureRenderedProduct} from '../lib/supplier-rendered-dom.mjs';
 import {safeImportError} from '../lib/supplier-import-errors.mjs';
-if(process.env.VERCEL_ENV!=='preview'||process.env.VERCEL_GIT_COMMIT_REF!=='qa/importacao-cdp-reteste-20261127')throw Error('QA preview only');
+if(process.env.VERCEL_ENV!=='preview'||process.env.VERCEL_GIT_COMMIT_REF!=='qa/cdp-chromium-completo-20261127')throw Error('QA preview only');
 const targets=[
  ['shopee','https://shopee.com.br/Camisa-Masculina-Social-Slim-Fit-Luxo-Pronta-Entrega-Manga-Longa-Anti-Suor-Tecnol%C3%B3gica-i.631628506.58211355781?extraParams=%7B%22display_model_id%22%3A139657020910%2C%22model_selection_logic%22%3A3%7D&image_ids=br-11134207-820mb-msx7wrzbwah240'],
  ['mercado_livre','https://produto.mercadolivre.com.br/MLB-5291857244-calca-jeans-feminina-wide-leg-pantalona-cintura-alta-algodo-_JM?searchVariation=186977075373#polycard_client=recommendations_home_navigation-recommendations&reco_backend=machinalis-homes-univb-equivalent-offer&reco_client=home_navigation-recommendations&reco_item_pos=5&reco_backend_type=function&reco_id=1c846d05-f265-44f4-a9f3-6100e6e44582&sid=recos&c_id=/home/navigation-recommendations/element&c_uid=462e47e1-5759-44aa-aa62-83bc0c3dcb64']
 ];
 const approved=['shopee.com.br','shopee.com','shopeemobile.com','shopeeusercontent.com','susercontent.com','mercadolivre.com.br','mercadolibre.com','mlstatic.com'];
 const allowed=raw=>{try{const u=new URL(raw);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&approved.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false;}};
-const executablePath=await serverChromium.executablePath();
-const launch=()=>chromium.launch({executablePath,args:serverChromium.args.filter(x=>x!=='--single-process'),headless:true,env:{PATH:process.env.PATH,HOME:'/tmp',TMPDIR:'/tmp',LD_LIBRARY_PATH:process.env.LD_LIBRARY_PATH||''}});
+const executablePath=chromium.executablePath();
+if(!existsSync(executablePath))throw Error('Full Chromium not installed');
+console.log('[cdp.engine]',JSON.stringify({engine:'playwright-full-chromium',executable:executablePath.split('/').at(-1)}));
+const launch=()=>chromium.launch({channel:'chromium',executablePath,headless:true,args:['--disable-dev-shm-usage'],env:{PATH:process.env.PATH,HOME:'/tmp',TMPDIR:'/tmp',LD_LIBRARY_PATH:process.env.LD_LIBRARY_PATH||''}});
 async function withBrowser(fn){
  const browser=await launch();let context;
+ console.log('[cdp.engine.version]',browser.version());
  try{context=await browser.newContext({serviceWorkers:'block',acceptDownloads:false});await context.routeWebSocket('**/*',s=>s.close());return await fn(context);}
  finally{await context?.close().catch(()=>{});await browser.close().catch(()=>{});}
 }
@@ -38,7 +41,7 @@ for(const [name,url] of targets){
    await context.route('**/*',r=>{
     requests++;
     // Skip binary resources only: the DOM can expose their URLs without decoding them.
-    if(['image','media','font'].includes(r.request().resourceType())){skipped++;return r.abort();}
+    if(['media'].includes(r.request().resourceType())){skipped++;return r.abort();}
     return allowed(r.request().url())&&['GET','HEAD'].includes(r.request().method())?r.continue():r.abort();
    });
    const page=await context.newPage();
@@ -48,7 +51,7 @@ for(const [name,url] of targets){
    console.log('[cdp.retest.navigation]',JSON.stringify({name,status,host:new URL(page.url()).hostname}));
    if(status!==200){await captureRenderedProduct(page,{status,expectedUrl:url});return;}
    stage='cdp';let x,previousError;
-   const deadline=Date.now()+6500;
+   const deadline=Date.now()+10000;
    do{
     attempts++;
     try{x=await captureRenderedProduct(page,{status,expectedUrl:url});break;}
