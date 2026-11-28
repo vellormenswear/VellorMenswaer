@@ -18,7 +18,7 @@ test('safe redirects resolve and pin each destination, reject private addresses,
  await assert.rejects(fetchSupplierPage(base,{resolve,read:async()=>({redirect:base})}),e=>e.code==='REDIRECT_LOOP');
 });
 test('diagnostics preserve known HTTP and DNS errors without exposing raw messages or URLs',()=>{
- assert.deepEqual(safeImportError(supplierHttpError(403)),{code:'HTTP_403',message:'O fornecedor recusou a consulta automatizada.',status:403});
+ assert.deepEqual(safeImportError(supplierHttpError(403)),{code:'HTTP_403',message:'O servidor retornou HTTP 403 (acesso recusado para esta requisição).',status:403});
  assert.equal(safeImportError(supplierHttpError(404)).code,'HTTP_404');assert.equal(safeImportError(supplierHttpError(429)).code,'HTTP_429');
  assert.equal(safeImportError({code:'ENOTFOUND',message:'secret'}).code,'DNS');assert.ok(!JSON.stringify(safeImportError(Error('https://private.example.com/token'))).includes('private'));
 });
@@ -63,7 +63,7 @@ test('Mercado Livre and Shopee use public structured product data without claimi
  for(const url of ['https://produto.mercadolivre.com.br/MLB-12345','https://shopee.com.br/product/123/456']){
   const r=await readSupplierProduct(url,{fetchPage:async()=>({url,html})});
   assert.equal(r.product.name,'Tênis QA');assert.equal(r.product.variants[0].supplier_available,true);assert.equal(r.product.variants[0].reported_stock,null);
-  await assert.rejects(readSupplierProduct(url,{fetchPage:async()=>{throw supplierHttpError(403)}}),e=>e.code==='MARKETPLACE_ACCESS_REQUIRED'&&e.status===403);
+  await assert.rejects(readSupplierProduct(url,{fetchPage:async()=>{throw supplierHttpError(403)}}),e=>e.code==='HTTP_403'&&e.status===403);
  }
 });
 test('WooCommerce public Store API verifies product permalink and product ID before importing variants',async()=>{
@@ -75,4 +75,30 @@ test('WooCommerce public Store API verifies product permalink and product ID bef
  assert.equal(result.product.name,wc.name);assert.deepEqual(result.product.variants.map(v=>[v.label,v.sizes[0],v.supplier_available,v.reported_stock]),[['preto','39',true,null],['preto','40',false,null]]);assert.ok(!JSON.stringify(result).includes('9876'));
  await assert.rejects(readSupplierProduct(url,{fetchPage:async(u,o)=>({url:u,html:o.kind==='json'?JSON.stringify([{...wc,permalink:'https://store.example.com/produto/outro/'}]):html})}),e=>e.code==='WOO_PRODUCT_MISMATCH');
  const partial=await readSupplierProduct(url,{fetchPage:async(u,o)=>({url:u,html:o.kind==='json'?JSON.stringify([wc]):html.replace('data-product_id="123"','data-product_id="456"')})});assert.equal(partial.product.variants_incomplete,true);assert.deepEqual(partial.product.variants,[]);
+});
+
+test('marketplaces never convert parser or MIME failures into access restrictions',async()=>{
+ for(const url of ['https://produto.mercadolivre.com.br/MLB-12345','https://shopee.com.br/product/123/456']){
+  await assert.rejects(readSupplierProduct(url,{fetchPage:async()=>({url,html:'<html><body>Produto sem dados reconhecíveis</body></html>'})}),e=>e.code==='NO_PRODUCT_DATA'&&!e.status);
+  const mime=Object.assign(new Error('Formato incompatível'),{code:'CONTENT_TYPE'});
+  await assert.rejects(readSupplierProduct(url,{fetchPage:async()=>{throw mime}}),e=>e===mime);
+ }
+});
+test('HTML product gallery imports the largest responsive and lazy images, not header or related items',()=>{
+ const url='https://store.example.com/item';
+ const html='<html><body><header><img src="/logo.jpg"></header><h1>Tênis &amp; Cia</h1><div class="product-gallery"><picture><source srcset="/photo-small.webp 300w, /photo-big.webp 1200w"><img src="/placeholder.gif" data-src="/photo-real.jpg"></picture><img data-zoom-image="/zoom.jpg" src="/tiny.jpg"><a href="/full.png">Foto</a><div style="background-image:url(/side.webp)"></div><img width="20" src="/icon.png"><img src="https://127.0.0.1/private.png"><div class="related"><img src="/related.jpg"></div></div><footer><img src="/footer.jpg"></footer></body></html>';
+ const p=parseSupplierProduct(html,url);
+ assert.equal(p.name,'Tênis & Cia');assert.equal(p.variants_incomplete,true);assert.deepEqual(p.variants,[]);
+ assert.deepEqual(p.photos,['https://store.example.com/photo-big.webp','https://store.example.com/photo-real.jpg','https://store.example.com/zoom.jpg','https://store.example.com/full.png','https://store.example.com/side.webp']);
+});
+test('scoped microdata can provide a product name and image without JSON-LD; ambiguous galleries fail safely',()=>{
+ const url='https://store.example.com/item';
+ const html='<div itemscope itemtype="https://schema.org/Product"><span itemprop="name">Camisa azul</span><meta itemprop="description" content="Algodão"><link itemprop="image" href="/camisa.jpg"></div>';
+ const p=parseSupplierProduct(html,url);assert.equal(p.name,'Camisa azul');assert.equal(p.description,'Algodão');assert.deepEqual(p.photos,['https://store.example.com/camisa.jpg']);
+ assert.throws(()=>parseSupplierProduct('<h1>Catálogo</h1><div class="product-gallery"><img src="/a.jpg"></div><div class="product-gallery"><img src="/b.jpg"></div>',url),e=>e.code==='NO_PRODUCT_DATA');
+});
+test('image scanner supplements structured product photos without assigning images to variants',()=>{
+ const url='https://store.example.com/item';
+ const html='<script type="application/ld+json">'+JSON.stringify({'@type':'Product',name:'Tênis',image:'/primary.jpg'})+'</script><h1>Tênis</h1><div class="product-gallery"><img data-src="/detail.webp"></div>';
+ const p=parseSupplierProduct(html,url);assert.deepEqual(p.photos,['https://store.example.com/primary.jpg','https://store.example.com/detail.webp']);assert.equal(p.variants[0].image_url,'https://store.example.com/primary.jpg');assert.equal(p.variants[0].reported_stock,null);
 });
