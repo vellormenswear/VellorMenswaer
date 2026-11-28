@@ -1,16 +1,26 @@
 import assert from 'node:assert/strict';
 import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import {spawn} from 'node:child_process';
+import {readFile} from 'node:fs/promises';
 import {chromium as playwright} from 'playwright-core';
 import chromium from '@sparticuz/chromium';
 if(process.env.VERCEL_ENV!=='preview'||process.env.VERCEL_GIT_COMMIT_REF!=='qa/cadastro-manual-disponibilidade-20261128'||!process.env.QA_MANUAL_DATABASE_URL)throw Error('Dedicated manual catalog QA required');
 process.env.DATABASE_URL=process.env.QA_MANUAL_DATABASE_URL;
-const {db,sql}=await import('../lib/db.js');
+const {db,sql,transaction}=await import('../lib/db.js');
 const {mutateSupplierListing,reviewSupplierListing,supplierListings}=await import('../lib/supplier-listings.js');
 const {quoteCart}=await import('../lib/commerce.js');
 const base='http://127.0.0.1:4182';let browser,server;
 try{
  const marks=(await sql("SELECT p.category_id,p.supplier_id,u.id AS admin,s.user_id AS supplier_user FROM products p JOIN suppliers s ON s.id=p.supplier_id CROSS JOIN users u WHERE p.slug='qa-vellor-homologacao-20261125' AND u.email='qa-vellor-20261125-admin@example.invalid' AND s.status='active'")).rows;assert.equal(marks.length,1,'QA marker absent');const m=marks[0];
+ const migration=await readFile(new URL('../db/027_manual_product_availability.sql',import.meta.url),'utf8');
+ await transaction(async c=>{
+  const before=(await c.query("SELECT v.id,v.sku,v.price_cents,v.supplier_available AND COALESCE(v.stock,0)>0 AS available FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.launch_archived_at IS NULL AND v.supplier_retired_at IS NULL AND v.stock_mode='quantity' ORDER BY v.id")).rows;
+  await c.query(migration);
+  const after=(await c.query("SELECT id,sku,price_cents,supplier_available AS available FROM product_variants WHERE id=ANY($1::uuid[]) ORDER BY id",[before.map(x=>x.id)])).rows;
+  assert.deepEqual(after,before);
+  assert.equal((await c.query("SELECT count(*)::int AS n FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.launch_archived_at IS NULL AND v.supplier_retired_at IS NULL AND v.stock_mode='quantity'")).rows[0].n,0);
+  console.log('[manual.qa] PASS legacy conversion, exact availability and identifiers preserved, rows='+before.length);
+ });
  const name='QA manual '+randomUUID(),supplier={id:m.supplier_id},user={id:m.supplier_user},admin={id:m.admin};
  const variant={key:randomUUID(),label:'Preto',sizes:['39'],cost_cents:6000,stock:null,stock_mode:'availability',supplier_available:true,reported_stock:999,preparation_days:2,delivery_days_min:5,delivery_days_max:15,image_url:'/product-images/sem-foto.svg'};
  const submit=await mutateSupplierListing(user,supplier,'submit',{name,description:'Manual QA',department:'masculino',category_id:m.category_id,request_id:randomUUID(),source_url:'https://example.invalid/no-external-call',variants:[variant,{...variant,key:randomUUID(),label:'Azul',sizes:['40'],supplier_available:false}]});
