@@ -210,8 +210,9 @@ async function refreshSelectedStock(slug,request){
   const rows=await pending;if(request!==stockRequest)return;
   const original=selected,originalSize=selectedSize,open=document.getElementById('product-modal').open;
   const fresh=rows.map(p=>({...p,image_url:p.image_url||p.image_data||null})).filter(available);
-  const rest=PRODUCTS.filter(p=>p.slug!==slug),at=PRODUCTS.findIndex(p=>p.slug===slug);
-  rest.splice(at<0?rest.length:Math.min(at,rest.length),0,...fresh);PRODUCTS=rest;indexCatalog(PRODUCTS);
+  const previous=productsBySlug.get(slug)||[],at=models.findIndex(p=>p.slug===slug);
+  for(const p of previous)productsBySku.delete(p.sku);
+  if(fresh.length){productsBySlug.set(slug,fresh);for(const p of fresh)productsBySku.set(p.sku,p);if(at<0)models.push(fresh.at(-1));else models.splice(at,1,fresh.at(-1));}else{productsBySlug.delete(slug);if(at>=0)models.splice(at,1);}
   if(selected?.slug===slug&&open){selected=fresh.find(p=>p.sku===original.sku)||fresh.find(p=>p.variant===original.variant&&sizesFor(p).includes(originalSize))||fresh.find(p=>p.variant===original.variant)||fresh[0]||{...original,stock_unavailable:true};selectedSize=selected.variant===original.variant&&sizesFor(selected).includes(originalSize)?originalSize:'';}
   render();
  }catch{}finally{if(request===stockRequest){stockPending=false;if(document.getElementById('product-modal').open&&selected?.slug===slug)renderModal();}}
