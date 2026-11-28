@@ -46,3 +46,13 @@ test('shared extractor uses documented endpoint and safely falls back on partial
  const partial=await readSupplierProduct(base,{fetchPage:async(url,opts)=>{if(opts.kind==='json')throw supplierHttpError(403);return {url,html:shopHtml}}});
  assert.equal(partial.product.variants_incomplete,true);assert.equal(partial.product.name,'Tênis & Cia');
 });
+
+test('single-axis options are imported without guessing the missing color or size',()=>{
+ const only={...shop,options:[{name:'Tamanho',position:1}],variants:[{options:['39'],available:true},{options:['40'],available:false}]};
+ const p=parseShopifyProduct(JSON.stringify(only),base+'.js',base);
+ assert.equal(p.variants_incomplete,true);
+ assert.deepEqual(p.variants.map(v=>[v.label,v.sizes[0],v.supplier_available]),[['','39',true],['','40',false]]);
+ const q=parseSupplierProduct('<script type="application/ld+json">'+JSON.stringify({'@type':'Product',name:'Tênis'})+'</script>',base);
+ assert.equal(q.variants_incomplete,true);
+ assert.deepEqual(combineShopifyProduct(q,p).variants,p.variants);
+});
