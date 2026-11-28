@@ -95,5 +95,48 @@ try{
   }
  }
  console.log('[grouped.qa] PASS desktop/mobile both roles, unique/color prices, one image per color, independent size availability, four preserved SKUs and real saves');
+ for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
+  const ctx=await browser.newContext({viewport,deviceScaleFactor:1});
+  await ctx.addCookies([{name:'pg_goston_sid',value:tokens.admin,url:base,httpOnly:true,sameSite:'Lax'}]);
+  const page=await ctx.newPage();
+  // Use an approved seasonal theme response, without changing real campaign configuration.
+  await page.route('**/api/store/campaign',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({campaign:{theme:'natal',decoration:true,intensity:'discreta'},revision:'qa'})}));
+  await page.goto(base+'/admin',{waitUntil:'domcontentloaded'});
+  await page.getByRole('button',{name:'Produtos',exact:true}).first().click();
+  await page.getByRole('button',{name:'Pendentes',exact:true}).click();
+  const name=tag+' supplier '+viewport.width;
+  const heading=page.getByText(name,{exact:true});
+  await heading.waitFor({state:'visible'});
+  const card=heading.locator('xpath=../..');
+  const groups=card.locator('[data-color-group]');
+  assert.equal(await groups.count(),2);
+  const black=groups.filter({has:page.getByText('Preto',{exact:true})});
+  const blue=groups.filter({has:page.getByText('Azul',{exact:true})});
+  assert.equal(await black.getByText('Indisponível',{exact:true}).count(),1);
+  assert.equal(await blue.getByText('Disponível',{exact:true}).count(),2);
+  const mode=card.getByRole('button',{name:'Preço único',exact:true});
+  await mode.waitFor({state:'visible'});
+  await page.waitForFunction(()=>document.querySelector('.vll-layout-content')?.dataset.season==='natal');
+  const gradient=await mode.evaluate(el=>getComputedStyle(el).backgroundImage);
+  assert.equal(gradient,'linear-gradient(90deg, rgb(16, 59, 44) 0%, rgb(48, 37, 42) 50%, rgb(102, 32, 43) 100%)');
+  await card.getByRole('textbox',{name:'Preço VELLOR (R$) — Todas as variações',exact:true}).fill('100,00');
+  await card.getByRole('button',{name:'Preço por variação',exact:true}).click();
+  await card.getByRole('textbox',{name:'Preço VELLOR (R$) — Azul',exact:true}).fill('110,00');
+  assert.equal(await black.getByRole('textbox',{name:'Preço VELLOR (R$) — Preto',exact:true}).inputValue(),'100,00');
+  for(const group of await groups.all()){const box=await group.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=viewport.width+1);}
+  const response=page.waitForResponse(r=>r.url().endsWith('/api/suppliers/admin-review')&&r.request().method()==='POST');
+  await card.getByRole('button',{name:'APROVAR E PUBLICAR',exact:true}).click();
+  const r=await response;assert.equal(r.status(),200,JSON.stringify(await r.json()).slice(0,400));
+  const product=(await sql('SELECT id,slug FROM products WHERE name=$1',[name])).rows[0];assert.ok(product);
+  const rows=(await sql('SELECT label,sizes,sku,price_cents,supplier_cost_cents,primary_image_url,supplier_available FROM product_variants WHERE product_id=$1',[product.id])).rows;
+  assert.equal(rows.length,4);assert.equal(new Set(rows.map(v=>v.sku)).size,4);
+  for(const v of rows){assert.equal(v.price_cents,v.label==='Preto'?10000:11000);assert.equal(v.supplier_cost_cents,v.label==='Preto'?6000:6500);assert.equal(v.primary_image_url,v.label==='Preto'?'https://example.invalid/qa-1.png':'https://example.invalid/qa-2.png');assert.equal(v.supplier_available,!(v.label==='Preto'&&v.sizes[0]==='40'));}
+  const catalog=await(await fetch(base+'/api/catalog?slug='+product.slug)).json();
+  assert.equal(catalog.products.length,3);assert.equal(new Set(catalog.products.map(v=>v.slug)).size,1);
+  console.log('[grouped.qa.review]',JSON.stringify({viewport,groups:2,variants:rows.length,publicModelCount:1,gradient}));
+  await ctx.close();
+ }
+ console.log('[grouped.qa] PASS real admin review and seasonal gradient in desktop/mobile, one published product');
+
 
 }finally{await browser?.close().catch(()=>{});server?.kill('SIGTERM');await db().end()}
