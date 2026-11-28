@@ -87,7 +87,7 @@ try{
    const actual=await panel.getByRole('button',{name:'Preço por variação',exact:true}).evaluate(el=>getComputedStyle(el).backgroundImage);assert.match(actual,/linear-gradient/);
    const request=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(role==='admin'?'/api/admin/product-listing':'/api/suppliers/submit'));
    await page.getByRole('button',{name:role==='admin'?'Salvar produto':'Enviar para aprovação',exact:true}).click();
-   const response=await request;assert.equal(response.status(),200,JSON.stringify(await response.json()).slice(0,500));const saved=await response.json();
+   const response=await request;assert.equal(response.status(),role==='admin'?200:201,JSON.stringify(await response.json()).slice(0,500));const saved=await response.json();
    const values=role==='admin'?(await sql('SELECT label,sizes,sku,primary_image_url AS image_url,supplier_cost_cents AS cost_cents,price_cents,supplier_available FROM product_variants WHERE product_id=$1',[saved.id])).rows:(await sql('SELECT variants FROM supplier_submissions WHERE id=$1',[saved.id])).rows[0].variants;
    assert.equal(values.length,4);assert.equal(new Set(values.map(v=>v.sku)).size,4);for(const v of values){assert.equal(v.image_url,v.label==='Preto'?'https://example.invalid/qa-1.png':'https://example.invalid/qa-2.png');assert.equal(v.cost_cents,v.label==='Preto'?6000:6500);assert.equal(v.supplier_available,!(v.label==='Preto'&&v.sizes[0]==='40'));if(role==='admin')assert.equal(v.price_cents,v.label==='Preto'?10000:11000);}
    console.log('[grouped.qa.visual]',JSON.stringify({role,viewport,groups:2,uploads:uploadCount,variants:values.length,gradient:actual}));
