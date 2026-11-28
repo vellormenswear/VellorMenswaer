@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/audit-launch-data.mjs && node --test tests/*.test.js && node --experimental-loader ./scripts/qa-listing-loader.mjs ./scripts/test-listing-qa.mjs && node scripts/migrate-support.mjs && next build && node scripts/cleanup-launch-data.mjs",
+    "build": "node scripts/audit-launch-data.mjs && node --test tests/*.test.js && node scripts/test-expanded-import-live.mjs && node --experimental-loader ./scripts/qa-listing-loader.mjs ./scripts/test-listing-qa.mjs && node scripts/migrate-support.mjs && next build && node scripts/cleanup-launch-data.mjs",
     "start": "next start",
     "db:migrate": "node scripts/migrate.mjs",
     "admin:bootstrap": "node scripts/bootstrap-admin.mjs",
