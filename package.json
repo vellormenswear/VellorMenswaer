@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/audit-launch-data.mjs && node --test tests/*.test.js && node --experimental-loader ./scripts/qa-listing-loader.mjs ./scripts/test-listing-qa.mjs && node scripts/migrate-support.mjs && next build && node scripts/cleanup-launch-data.mjs",
+    "build": "node --test tests/*.test.js && node scripts/test-cdp-marketplaces-qa.mjs && next build",
     "start": "next start",
     "db:migrate": "node scripts/migrate.mjs",
     "admin:bootstrap": "node scripts/bootstrap-admin.mjs",
@@ -24,6 +24,8 @@
   },
   "devDependencies": {
     "jsqr": "1.4.0",
-    "pngjs": "7.0.0"
+    "pngjs": "7.0.0",
+    "playwright-core": "1.56.1",
+    "@sparticuz/chromium": "141.0.0"
   }
 }
