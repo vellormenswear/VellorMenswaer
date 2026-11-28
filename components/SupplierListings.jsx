@@ -1,7 +1,5 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import ProductUrlImport from '@/components/ProductUrlImport';
-import {mergeImportedRows,matchedCategory} from '@/lib/supplier-import-form.mjs';
 import CategoryPicker from '@/components/CategoryPicker';
 import VariantGrid from '@/components/VariantGrid';
 import {expandVariantGrid,combinationKey} from '@/lib/variant-grid.mjs';
@@ -13,9 +11,9 @@ import styles from './SupplierListings.module.css';
 const statusLabel={pending:'Aguardando aprovação',approved:'Aprovado',rejected:'Rejeitado',inactive:'Inativo'};
 const money=n=>(Number(n||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const key=()=>globalThis.crypto.randomUUID();
-const variant=()=>({key:key(),id:null,label:'',sizes:[],sku:'',cost_cents:'',stock_mode:'availability',stock:null,reported_stock:null,supplier_available:true,image_url:'',preparation_days:'2',delivery_days_min:'5',delivery_days_max:'15'});
-const fresh=()=>({source_url:'',name:'',description:'',department:'',category_id:'',variants:[variant()]});
-const editing=a=>({...a,source_url:a.source_url||'',variants:(a.variants||[]).map(v=>({...v,key:v.key||key(),sizes:Array.isArray(v.sizes)?v.sizes:[],cost_cents:v.cost_cents==null?'':(Number(v.cost_cents)/100).toFixed(2).replace('.',','),...availabilityFields(v),expected_available:a.status==='approved'&&v.id?variantAvailable(v):undefined}))});
+const variant=()=>({key:key(),id:null,label:'',sizes:[],sku:'',cost_cents:'',stock_mode:'availability',stock:null,supplier_available:true,image_url:'',preparation_days:'2',delivery_days_min:'5',delivery_days_max:'15'});
+const fresh=()=>({name:'',description:'',department:'',category_id:'',variants:[variant()]});
+const editing=a=>({...a,variants:(a.variants||[]).map(v=>({...v,key:v.key||key(),sizes:Array.isArray(v.sizes)?v.sizes:[],cost_cents:v.cost_cents==null?'':(Number(v.cost_cents)/100).toFixed(2).replace('.',','),...availabilityFields(v),expected_available:a.status==='approved'&&v.id?variantAvailable(v):undefined}))});
 async function api(action,payload){
  const r=await fetch('/api/suppliers/'+action,{method:payload?'POST':'GET',headers:{'Content-Type':'application/json'},body:payload?JSON.stringify(payload):undefined,cache:'no-store'});
  const j=await r.json().catch(()=>({}));
@@ -34,20 +32,18 @@ export default function SupplierListings({categories,onChanged,refreshToken,list
  function close(){if(lock.current||uploads.current.size)return;setEditor(null);setErrors({});setNotice(null);}
  function change(k,v){setEditor(p=>p?{...p,[k]:v}:p);setErrors(old=>{const next={...old};delete next[k];return next;});}
  function changeVariant(id,k,v){setEditor(p=>p?{...p,variants:p.variants.map(row=>row.key===id?{...row,[k]:v}:row)}:p);setErrors(old=>{const next={...old};const i=editor?.variants.findIndex(row=>row.key===id);delete next['variants.'+i+'.'+k];return next;});}
- function applyImport(data){const next=mergeImportedRows(editor.variants,data.variants,{create:variant,limit:LISTING_LIMIT,photos:data.photos});setEditor(old=>({...old,name:old.name||data.name,description:old.description||data.description,category_id:old.category_id||matchedCategory(categories,data.category),variants:next}));setErrors({})}
- const importBusy=v=>{lock.current=v;setBusy(v)};
  function removeVariant(id){setEditor(p=>({...p,variants:p.variants.filter(v=>v.key!==id)}));setErrors({});}
  function generate(colors,sizes){try{const variants=expandVariantGrid(editor.variants,colors,sizes,{root,limit:LISTING_LIMIT,create:(seed,{color})=>({...variant(),cost_cents:seed?.cost_cents||'',preparation_days:seed?.preparation_days??'2',delivery_days_min:seed?.delivery_days_min??'5',delivery_days_max:seed?.delivery_days_max??'15',image_url:seed&&combinationKey(seed.label,'')===combinationKey(color,'')?seed.image_url||'':''})});setEditor(p=>({...p,variants}));setErrors({})}catch(e){setErrors({variants:e.message})}}
  function addVariant(){setEditor(p=>({...p,variants:[...p.variants,variant()]}));setErrors({});}
  function splitLegacy(row){
   // Confirmação individual para combinações legadas; não inferir disponibilidade por tamanho.
-  setEditor(p=>({...p,variants:p.variants.flatMap(v=>v.key!==row.key?[v]:v.sizes.map(size=>({...v,key:key(),id:null,sku:'',expected_available:undefined,sizes:[size],stock:null,reported_stock:null,supplier_available:false})))}));setErrors({});
+  setEditor(p=>({...p,variants:p.variants.flatMap(v=>v.key!==row.key?[v]:v.sizes.map(size=>({...v,key:key(),id:null,sku:'',expected_available:undefined,sizes:[size],stock:null,supplier_available:false})))}));setErrors({});
  }
  function focusFields(fields){setErrors(fields||{});const first=Object.keys(fields||{})[0];if(first)requestAnimationFrame(()=>{const el=Array.from(formRef.current?.querySelectorAll('[data-field]')||[]).find(e=>e.dataset.field===first);el?.scrollIntoView({block:'center',behavior:'smooth'});el?.querySelector('input,select,textarea,button')?.focus({preventScroll:true});});}
  async function upload(row,file,i){if(!file||lock.current||uploads.current.has(row.key))return;uploads.current.add(row.key);setUploading(o=>({...o,[row.key]:true}));try{const f=new FormData();f.set('file',file);const r=await fetch('/api/suppliers/upload',{method:'POST',body:f});const j=await r.json();if(!r.ok||!j.url)throw Error(j.error||'Falha no envio da foto.');setEditor(p=>p?{...p,variants:p.variants.map(v=>v.key===row.key||row.label&&combinationKey(v.label,'')===combinationKey(row.label,'')&&(!v.image_url||v.image_url===row.image_url)?{...v,image_url:j.url}:v)}:p);}catch(e){setErrors(o=>({...o,['variants.'+i+'.image_url']:e.message}));}finally{uploads.current.delete(row.key);setUploading(o=>({...o,[row.key]:false}));}}
  async function save(e){
   e.preventDefault();if(lock.current||uploads.current.size||!editor)return;
-  const payload={...editor,variants:editor.variants.map(v=>({...v,cost_cents:listingMoney(v.cost_cents)})),request_id:request.current};
+  const payload={...editor,variants:editor.variants.map(({reported_stock,stock,stock_mode,...v})=>({...v,stock_mode:'availability',stock:null,cost_cents:listingMoney(v.cost_cents)})),request_id:request.current};
   const checked=validateListing(payload,categoryRootSlug(categories,editor.category_id));
   if(Object.keys(checked.errors).length){focusFields(checked.errors);return;}
   lock.current=true;setBusy(true);setErrors({});setNotice(null);
@@ -74,7 +70,6 @@ export default function SupplierListings({categories,onChanged,refreshToken,list
   {editor?<form ref={formRef} onSubmit={save} noValidate>
    <h3>{editor.id?'Editar anúncio':'Novo anúncio'}</h3>
    <fieldset disabled={busy} className={styles.fields}>
-   <ProductUrlImport url={editor.source_url} onUrl={v=>change('source_url',v)} onImport={applyImport} onBusy={importBusy} disabled={disabled}/>
    <Field name="name" label="Nome do produto" error={errors.name}><input {...fieldAttrs('name')} value={editor.name} onChange={e=>change('name',e.target.value)} maxLength={220}/></Field>
    <Field name="description" label="Descrição" error={errors.description}><textarea {...fieldAttrs('description')} value={editor.description||''} onChange={e=>change('description',e.target.value)} maxLength={4000}/></Field>
    <Field name="department" label="Departamento" error={errors.department}><select {...fieldAttrs('department')} value={editor.department||''} onChange={e=>change('department',e.target.value)}><option value="">Selecione</option><option value="masculino">Masculino</option><option value="feminino">Feminino</option></select></Field>
@@ -93,7 +88,7 @@ export default function SupplierListings({categories,onChanged,refreshToken,list
       <Field name={prefix+'sizes'} label={root==='calcados'?'Numeração (BR)':'Tamanho'} error={errors[prefix+'sizes']}><input {...fieldAttrs(prefix+'sizes')} list={'sizes-'+v.key} readOnly={fixed||legacy} value={v.sizes.join(', ')} onChange={e=>changeVariant(v.key,'sizes',[e.target.value])} maxLength={30}/><datalist id={'sizes-'+v.key}>{sizes.map(x=><option value={x} key={x}/>)}</datalist>{!fixed&&!legacy&&<div className="vll-option-grid" role="group" aria-label={root==='calcados'?'Numerações de calçados':'Tamanhos disponíveis'}>{sizes.map(size=><button type="button" key={size} className="vll-option-chip vll-size-chip" aria-pressed={v.sizes.includes(size)} onClick={()=>changeVariant(v.key,'sizes',[size])}>{size}</button>)}</div>}</Field>
       {text('sku','SKU (opcional se novo)')}{text('cost_cents','Preço do fornecedor (R$)')}
       <Field name={prefix+'supplier_available'} label="Disponibilidade" error={errors[prefix+'supplier_available']}><select {...fieldAttrs(prefix+'supplier_available')} value={v.supplier_available==null?'':v.supplier_available!==false?'available':'unavailable'} onChange={e=>changeVariant(v.key,'supplier_available',e.target.value==='available')}>{v.supplier_available==null&&<option value="">Selecione</option>}<option value="available">Disponível</option><option value="unavailable">Indisponível</option></select></Field>
-      {text('reported_stock','Estoque','number')}{text('preparation_days','Preparação (dias úteis)','number')}{text('delivery_days_min','Entrega mínima (dias úteis)','number')}{text('delivery_days_max','Entrega máxima (dias úteis)','number')}{text('image_url','URL da imagem (opcional)')}
+      {text('preparation_days','Preparação (dias úteis)','number')}{text('delivery_days_min','Entrega mínima (dias úteis)','number')}{text('delivery_days_max','Entrega máxima (dias úteis)','number')}{text('image_url','URL da imagem (opcional)')}
       <div className="field"><label htmlFor={'upload-'+v.key}>Enviar foto</label><input id={'upload-'+v.key} type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(uploading[v.key])} onChange={e=>upload(v,e.target.files?.[0],i)}/>{uploading[v.key]&&<span role="status">Enviando foto...</span>}</div>
       {v.image_url&&<img className="app-variant-preview" src={v.image_url} alt={'Foto '+(v.label||'da variação')}/>}
      </div></div>;
@@ -105,7 +100,7 @@ export default function SupplierListings({categories,onChanged,refreshToken,list
    {loading?<p role="status">Carregando anúncios...</p>:filtered.length===0?<p>Nenhum anúncio encontrado.</p>:filtered.map(a=><article key={a.kind+':'+a.id} className={styles.variant}><div className={styles.head}><div><strong>{a.name}</strong><p className="small">{a.product_code||''} · {a.variants?.length||0} variação(ões)</p></div><span className={styles.status} data-status={a.status}>{statusLabel[a.status]||a.status}</span></div>
    {a.admin_note&&a.status==='rejected'&&<p className="small">{a.admin_note}</p>}
    <div className={styles.head}><button type="button" className="tiny" aria-expanded={!!expanded[a.id]} onClick={()=>setExpanded(o=>({...o,[a.id]:!o[a.id]}))}>{expanded[a.id]?'Ocultar':'Visualizar'}</button><button type="button" className="tiny" disabled={disabled} onClick={()=>open(a)}>Editar</button><button type="button" className="tiny" disabled={disabled} onClick={()=>action(a,a.status==='inactive'?'reactivate':'deactivate')}>{a.status==='inactive'?'Reativar':'Inativar'}</button><button type="button" className="tiny danger" disabled={disabled} onClick={()=>action(a,'delete')}>Excluir</button></div>
-   {expanded[a.id]&&<div className="tablewrap"><table><thead><tr><th>SKU</th><th>Cor / modelo</th><th>Tamanho</th><th>Fornecimento</th><th>Disponibilidade</th><th>Estoque</th></tr></thead><tbody>{a.variants?.map((v,i)=><tr key={v.id||v.key||i}><td>{v.sku||'—'}</td><td>{v.label}</td><td>{v.sizes?.join(', ')||'—'}</td><td>{money(v.cost_cents)}</td><td>{variantAvailable(v)?'Disponível':'Indisponível'}</td><td>{v.reported_stock??'—'}</td></tr>)}</tbody></table></div>}
+   {expanded[a.id]&&<div className="tablewrap"><table><thead><tr><th>SKU</th><th>Cor / modelo</th><th>Tamanho</th><th>Fornecimento</th><th>Disponibilidade</th></tr></thead><tbody>{a.variants?.map((v,i)=><tr key={v.id||v.key||i}><td>{v.sku||'—'}</td><td>{v.label}</td><td>{v.sizes?.join(', ')||'—'}</td><td>{money(v.cost_cents)}</td><td>{variantAvailable(v)?'Disponível':'Indisponível'}</td></tr>)}</tbody></table></div>}
    </article>)}
   </>}
  </section>;
