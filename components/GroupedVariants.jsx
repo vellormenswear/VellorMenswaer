@@ -27,7 +27,7 @@ export default function GroupedVariants({rows,fields,onPatch,onUpload,onRemove,c
   {groups.map(group=>{
    const first=group.rows[0],photo=sharedValue(group.rows,'image_url'),name=group.label||'Variação única';
    const photoErr=errors?.(group.rows,'image_url');
-   return <section className={styles.color} key={group.key} data-color-group={name}>
+   return <section className={styles.color} key={first.key} data-color-group={name}>
     <ColorHeading label={group.label} count={group.rows.length}/>
     <div className={styles.content}>
      <div className={styles.photo}>

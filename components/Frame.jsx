@@ -45,7 +45,7 @@ export default function Frame({children,user,logout}){
   {campaign&&(campaign.headline||campaign.message)&&<aside className="campaign-announcement" data-season={theme}><strong>{campaign.headline}</strong><small>{campaign.message}</small></aside>}
   <div className="vll-brand-top" aria-hidden="true"/>
   {logoutError&&<p className="notice error" role="alert">{logoutError}</p>}
-  <div className="vll-layout-content">{children}</div>
+  <div className="vll-layout-content" data-season={theme}>{children}</div>
   <footer className="vll-app-footer" data-season={theme} aria-label="Informações VELLOR">
    <div className="vll-footer-inner">
     <div className="vll-footer-top">
