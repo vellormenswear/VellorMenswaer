@@ -137,6 +137,50 @@ try{
   await ctx.close();
  }
  console.log('[grouped.qa] PASS real admin review and seasonal gradient in desktop/mobile, one published product');
+ const watchCat=(await sql("SELECT id,parent_id FROM categories WHERE slug='relogios-classicos' AND active")).rows[0];assert.ok(watchCat);
+ for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
+  for(const role of ['admin','supplier']){
+   const ctx=await browser.newContext({viewport});await ctx.addCookies([{name:'pg_goston_sid',value:tokens[role],url:base,httpOnly:true,sameSite:'Lax'}]);
+   const page=await ctx.newPage(),name=tag+' relogio '+role+' '+viewport.width;
+   await page.goto(base+(role==='admin'?'/admin':'/fornecedor'),{waitUntil:'domcontentloaded'});
+   if(role==='admin'){await page.getByRole('button',{name:'Produtos',exact:true}).first().click();await page.getByRole('button',{name:/Novo produto/i}).first().click();}
+   else await page.getByRole('button',{name:/Novo anúncio/i}).first().click();
+   await page.getByRole('textbox',{name:'Nome do produto',exact:true}).fill(name);
+   await (role==='admin'?page.locator('#product-department'):page.locator('#listing-department')).selectOption('masculino');
+   await page.locator('select').filter({has:page.locator('option[value="'+watchCat.parent_id+'"]')}).first().selectOption(watchCat.parent_id);
+   await page.locator('select').filter({has:page.locator('option[value="'+watchCat.id+'"]')}).last().selectOption(watchCat.id);
+   if(role==='admin'){const supplierName=(await sql('SELECT business_name FROM suppliers WHERE id=$1',[m.supplier_id])).rows[0].business_name;await page.getByRole('combobox',{name:'Fornecedor'}).click();await page.getByRole('option',{name:supplierName,exact:true}).click();}
+   const colors=page.getByRole('group',{name:'Selecionar várias cores'});await colors.getByRole('button',{name:'Prata',exact:true}).click();await colors.getByRole('button',{name:'Dourado',exact:true}).click();
+   assert.equal(await page.getByRole('group',{name:'Selecionar vários tamanhos'}).count(),0);
+   assert.equal(await page.getByRole('textbox',{name:'Outro tamanho',exact:true}).count(),0);
+   assert.equal(await colors.getByRole('button',{name:'Prata',exact:true}).evaluate(el=>getComputedStyle(el).backgroundImage),'none');
+   await page.getByRole('button',{name:'Gerar 2 variações',exact:true}).click();
+   const panel=page.locator('[data-grouped-variants]');assert.equal(await panel.locator('[data-color-group]').count(),2);
+   assert.equal(await panel.getByRole('button',{name:'Prata Único — Disponível',exact:true}).count(),1);
+   assert.equal(await panel.getByRole('button',{name:'Dourado Único — Disponível',exact:true}).count(),1);
+   assert.equal(await panel.locator('input[type=file]').count(),2);assert.equal(await panel.getByText('URL da imagem (opcional)',{exact:true}).count(),0);
+   const cost=role==='admin'?'Preço de custo (R$)':'Preço do fornecedor (R$)';
+   await panel.getByRole('textbox',{name:cost+' — Todas as variações',exact:true}).fill('70,00');
+   if(role==='admin')await panel.getByRole('textbox',{name:'Preço de venda (R$) — Todas as variações',exact:true}).fill('125,00');
+   // A fixture upload verifies the existing handler without using production storage.
+   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR9sAAAAASUVORK5CYII=','base64');
+   await page.route('**/api/'+(role==='admin'?'admin':'suppliers')+'/upload',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({url:'/product-images/sem-foto.svg'})}));
+   for(const color of ['Prata','Dourado']){await panel.getByLabel('Adicionar foto — '+color,{exact:true}).setInputFiles({name:'qa.png',mimeType:'image/png',buffer:png});await panel.getByAltText('Foto — '+color,{exact:true}).waitFor({state:'visible'});}
+   const response=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(role==='admin'?'/api/admin/product-listing':'/api/suppliers/submit'));
+   await page.getByRole('button',{name:role==='admin'?'Salvar produto':'Enviar para aprovação',exact:true}).click();
+   const r=await response;assert.equal(r.status(),role==='admin'?200:201,JSON.stringify(await r.json()).slice(0,500));const saved=await r.json();
+   const values=role==='admin'?(await sql('SELECT label,sizes,sku FROM product_variants WHERE product_id=$1',[saved.id])).rows:(await sql('SELECT variants FROM supplier_submissions WHERE id=$1',[saved.id])).rows[0].variants;
+   assert.equal(values.length,2);assert.ok(values.every(v=>v.sizes.length===1&&v.sizes[0]==='ÚNICO'));
+   let product=role==='admin'?(await sql('SELECT id,slug FROM products WHERE id=$1',[saved.id])).rows[0]:null;
+   if(role==='supplier'){await reviewSupplierListing(admin,{id:saved.id,revision:saved.revision,decision:'approved',prices:Object.fromEntries(values.map(v=>[v.sku,12500]))});product=(await sql('SELECT id,slug FROM products WHERE name=$1',[name])).rows[0];}
+   const catalog=await(await fetch(base+'/api/catalog?slug='+product.slug)).json();assert.equal(catalog.products.length,2);assert.equal(new Set(catalog.products.map(v=>v.slug)).size,1);
+   const quote=await quoteCart([{sku:values[0].sku,size:'ÚNICO',qty:1}]);assert.equal(quote.total_cents,12500);
+   console.log('[compact.qa.watch]',JSON.stringify({role,viewport,colors:values.map(v=>v.label),sizes:values.map(v=>v.sizes),publicModels:1,quote:quote.total_cents}));
+   await ctx.close();
+  }
+ }
+ console.log('[compact.qa] PASS watch-specific palette, unique size, both editors, actual persistence, approval and cart quote');
+
 
 
 }finally{await browser?.close().catch(()=>{});server?.kill('SIGTERM');await db().end()}
