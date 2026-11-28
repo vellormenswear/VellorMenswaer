@@ -35,6 +35,6 @@ test('floating support uses the official gradient on both storefront and account
  assert.ok(css.includes('background-image:var(--vll-brand-gradient,linear-gradient(90deg,#10362c 0%,#242326 50%,#401328 100%));'));
  assert.ok(css.includes('width:58px!important;height:58px!important'));
  assert.ok(css.includes('width:54px!important;height:54px!important'));
- for(const path of ['components/SupportWidget.jsx','public/vitrine.html'])assert.ok(read(path).includes('/vellor-support.css?v=20261128-borderless'));
+ for(const path of ['components/SupportWidget.jsx','public/vitrine.html'])assert.ok(read(path).includes('/vellor-support.css?v=20261128-support-retention'));
 });
 test('support button has no outer or inner border and retains keyboard focus indicator',()=>{const css=read('public/vellor-support.css');assert.match(css,/\.vellor-support-fab\{[^}]*border:0;color:#f9f2df/);assert.match(css,/\.vellor-support-fab-icon\{[^}]*border-radius:50%;border:0;/);assert.doesNotMatch(css,/\.vellor-support-fab:hover\{[^}]*border-color:/);assert.match(css,/\.vellor-support-fab:focus-visible\{outline:2px solid #ead19c/)});

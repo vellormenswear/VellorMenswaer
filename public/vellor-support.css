@@ -54,3 +54,21 @@
 @media(max-width:480px){.vellor-support-fab{width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important}.vellor-support-fab-icon{width:36px!important;height:36px!important}}
 
 .vellor-support-topics{display:flex;flex-wrap:wrap;gap:7px}.vellor-support-topics button{font:inherit;font-size:11px;padding:8px 10px;border:1px solid #d5e3d7;border-radius:18px;color:#092f25;background:#fff;cursor:pointer;text-align:left}.vellor-support-topics button:hover{background:#e8f1e9}.vellor-support-bubble{font-size:13px}
+
+/* Use exactly the existing official, theme-aware brand gradient. Only action colors change. */
+.vellor-support-head,.vellor-support-actions button,#vellor-support-form button,.vellor-support-rating-submit{background-image:var(--vll-brand-gradient,linear-gradient(90deg,#10362c 0%,#242326 50%,#401328 100%));background-size:100% 100%;color:#fff}
+.vellor-support-actions button{border-color:transparent}
+#vellor-support-input{border-color:#d3d9d0}
+#vellor-support-input:focus-visible{outline:2px solid #10362c;outline-offset:1px}
+.vellor-support-topics button{border-color:#d3d9d0}
+.vellor-support-actions:has(button[hidden]){display:none}
+.vellor-support-survey{border:1px solid #e2e5df;background:white;padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:9px;font-size:12px;line-height:1.5}
+.vellor-support-survey p{margin:0;color:#506759}
+.vellor-support-stars{display:flex;justify-content:center;gap:7px}
+.vellor-support-stars button{background:transparent;border:0;padding:3px;cursor:pointer;color:#9ca3af}
+.vellor-support-stars svg{width:30px;height:30px;display:block;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
+.vellor-support-stars button.chosen svg{fill:#D4AF37;stroke:#D4AF37}
+.vellor-support-stars button:focus-visible{outline:2px solid #10362c;outline-offset:2px}
+.vellor-support-survey textarea{width:100%;resize:vertical;border:1px solid #d3d9d0;border-radius:5px;padding:10px;font:12px Inter,Arial,sans-serif}
+.vellor-support-rating-submit{width:100%;border:0;font-size:12px;font-weight:bold;padding:9px;cursor:pointer;border-radius:4px}
+.vellor-support-rating-submit:disabled{opacity:.55;cursor:default}

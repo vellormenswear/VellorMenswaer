@@ -25,8 +25,8 @@ test('rodape aprovado inclui FAQ, pagamento sem bandeiras inventadas e contato h
  assert.ok(!html.includes('alt="Hipercard"'));
  assert.match(html,/Opções e condições de pagamento confirmadas no checkout da InfinitePay/);
  assert.match(html,/id="vellor-support-toggle"/);
- assert.match(html,/vellor-support\.js\?v=20261124-support-v2/);
- assert.match(html,/vellor-support\.css\?v=20261128-borderless/);
+ assert.match(html,/vellor-support\.js\?v=20261128-support-v3/);
+ assert.match(html,/vellor-support\.css\?v=20261128-support-retention/);
  assert.match(css,/\.vellor-footer-faq/);
  assert.ok(chatjs.includes('/api/support/chat'));
  assert.ok(fs.existsSync(path.join(root,'public/vellor-support.css')));
