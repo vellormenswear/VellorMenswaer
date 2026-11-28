@@ -2,6 +2,9 @@
 import {useEffect,useRef,useState} from 'react';
 import CategoryPicker from '@/components/CategoryPicker';
 import VariantGrid from '@/components/VariantGrid';
+import GroupedVariants from '@/components/GroupedVariants';
+import {patchRows} from '@/lib/grouped-variants.mjs';
+import groupedStyles from './GroupedVariants.module.css';
 import {expandVariantGrid,combinationKey} from '@/lib/variant-grid.mjs';
 import {availabilityFields,variantAvailable} from '@/lib/stock-availability.mjs';
 import {CLOTHING_COLORS,SHOE_SIZES,categoryRootSlug} from '@/lib/variant-options.mjs';
@@ -39,8 +42,11 @@ export default function SupplierListings({categories,onChanged,refreshToken,list
   // Confirmação individual para combinações legadas; não inferir disponibilidade por tamanho.
   setEditor(p=>({...p,variants:p.variants.flatMap(v=>v.key!==row.key?[v]:v.sizes.map(size=>({...v,key:key(),id:null,sku:'',expected_available:undefined,sizes:[size],stock:null,supplier_available:false})))}));setErrors({});
  }
- function focusFields(fields){setErrors(fields||{});const first=Object.keys(fields||{})[0];if(first)requestAnimationFrame(()=>{const el=Array.from(formRef.current?.querySelectorAll('[data-field]')||[]).find(e=>e.dataset.field===first);el?.scrollIntoView({block:'center',behavior:'smooth'});el?.querySelector('input,select,textarea,button')?.focus({preventScroll:true});});}
- async function upload(row,file,i){if(!file||lock.current||uploads.current.has(row.key))return;uploads.current.add(row.key);setUploading(o=>({...o,[row.key]:true}));try{const f=new FormData();f.set('file',file);const r=await fetch('/api/suppliers/upload',{method:'POST',body:f});const j=await r.json();if(!r.ok||!j.url)throw Error(j.error||'Falha no envio da foto.');setEditor(p=>p?{...p,variants:p.variants.map(v=>v.key===row.key||row.label&&combinationKey(v.label,'')===combinationKey(row.label,'')&&(!v.image_url||v.image_url===row.image_url)?{...v,image_url:j.url}:v)}:p);}catch(e){setErrors(o=>({...o,['variants.'+i+'.image_url']:e.message}));}finally{uploads.current.delete(row.key);setUploading(o=>({...o,[row.key]:false}));}}
+ function focusFields(fields){setErrors(fields||{});const first=Object.keys(fields||{})[0];if(first)requestAnimationFrame(()=>{const el=Array.from(formRef.current?.querySelectorAll('[data-field]')||[]).find(e=>e.dataset.field===first);if(el){for(let parent=el.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;}el?.scrollIntoView({block:'center',behavior:'smooth'});el?.querySelector('input,select,textarea,button')?.focus({preventScroll:true});});}
+ async function upload(rows,file){const first=rows[0];if(!file||lock.current||uploads.current.size)return;const keys=rows.map(v=>v.key),i=editor.variants.findIndex(v=>v.key===first.key);uploads.current.add(first.key);setUploading(o=>({...o,[first.key]:true}));try{const f=new FormData();f.set('file',file);const r=await fetch('/api/suppliers/upload',{method:'POST',body:f});const j=await r.json();if(!r.ok||!j.url)throw Error(j.error||'Falha no envio da foto.');setEditor(p=>p?{...p,variants:patchRows(p.variants,keys,{image_url:j.url})}:p);setErrors(old=>{const next={...old};for(const row of rows)delete next['variants.'+editor.variants.indexOf(row)+'.image_url'];return next});}catch(e){setErrors(o=>({...o,['variants.'+i+'.image_url']:e.message}));}finally{uploads.current.delete(first.key);setUploading(o=>({...o,[first.key]:false}));}}
+ function patchGroup(keys,patch){setEditor(p=>p?{...p,variants:patchRows(p.variants,keys,patch)}:p);setErrors(old=>{const next={...old};for(const [i,row] of editor.variants.entries())if(keys.includes(row.key))for(const k of Object.keys(patch))delete next['variants.'+i+'.'+k];return next;});}
+ function groupError(rows,field){for(const row of rows){const name='variants.'+editor.variants.indexOf(row)+'.'+field;if(errors[name])return {name,message:errors[name]};}return null;}
+
  async function save(e){
   e.preventDefault();if(lock.current||uploads.current.size||!editor)return;
   const payload={...editor,variants:editor.variants.map(({reported_stock,stock,stock_mode,...v})=>({...v,stock_mode:'availability',stock:null,cost_cents:listingMoney(v.cost_cents)})),request_id:request.current};
@@ -67,32 +73,28 @@ export default function SupplierListings({categories,onChanged,refreshToken,list
  return <section className={'card '+styles.panel}>
   <div className={styles.head}><h2>Meus anúncios</h2>{!editor&&<button type="button" className="btn gold" disabled={disabled} onClick={()=>open()}>+ Novo anúncio</button>}</div>
   {notice&&<p role={notice.error?'alert':'status'} aria-live="polite" className={'notice '+(notice.error?'error':'ok')}>{notice.text}</p>}
-  {editor?<form ref={formRef} onSubmit={save} noValidate>
+  {editor?<form ref={formRef} className={groupedStyles.scope} onSubmit={save} noValidate>
    <h3>{editor.id?'Editar anúncio':'Novo anúncio'}</h3>
-   <fieldset disabled={busy} className={styles.fields}>
+   <fieldset disabled={disabled} className={styles.fields}>
    <Field name="name" label="Nome do produto" error={errors.name}><input {...fieldAttrs('name')} value={editor.name} onChange={e=>change('name',e.target.value)} maxLength={220}/></Field>
    <Field name="description" label="Descrição" error={errors.description}><textarea {...fieldAttrs('description')} value={editor.description||''} onChange={e=>change('description',e.target.value)} maxLength={4000}/></Field>
    <Field name="department" label="Departamento" error={errors.department}><select {...fieldAttrs('department')} value={editor.department||''} onChange={e=>change('department',e.target.value)}><option value="">Selecione</option><option value="masculino">Masculino</option><option value="feminino">Feminino</option></select></Field>
    <div data-field="category_id" className={errors.category_id?styles.invalid:undefined}><CategoryPicker categories={categories} value={editor.category_id} onChange={v=>change('category_id',v)}/>{errors.category_id&&<p className={styles.error} role="alert">{errors.category_id}</p>}</div>
    <h3>Variações</h3><VariantGrid key={root} root={root} onGenerate={generate} disabled={disabled}/>
    {errors.variants&&<p className={styles.error} data-field="variants">{errors.variants}</p>}
-   {editor.variants.map((v,i)=>{
+   <GroupedVariants rows={editor.variants} fields={[{key:'cost_cents',label:'Preço do fornecedor (R$)'}]} onPatch={patchGroup} onUpload={upload} uploading={Object.values(uploading).some(Boolean)} errors={groupError} allowImageUrl canRemove={()=>editor.variants.length>1} onRemove={removeVariant} renderDetails={(v,i)=>{
     const prefix='variants.'+i+'.',legacy=v.sizes.length>1||v.id&&v.sizes.length!==1;
     const fixed=!!v.id&&!legacy;
     const sizes=root==='calcados'?SHOE_SIZES:root==='vestuario'?['PP','P','M','G','GG','XG','XXG','Único']:['Único','P','M','G'];
     const text=(name,label,type='text')=><Field key={name} name={prefix+name} label={label} error={errors[prefix+name]}><input {...fieldAttrs(prefix+name)} type={type} min={type==='number'?0:undefined} step={type==='number'?1:undefined} inputMode={name==='cost_cents'?'decimal':undefined} readOnly={name==='sku'&&!!v.id} value={v[name]??''} onChange={e=>changeVariant(v.key,name,e.target.value)}/></Field>;
-    return <div className={styles.variant} key={v.key}><div className={styles.head}><h4>Variação {i+1}{v.label?' — '+v.label:''}{v.sizes.length?' / '+v.sizes.join(', '):''}</h4><button type="button" className="tiny danger" disabled={disabled||editor.variants.length===1} onClick={()=>removeVariant(v.key)}>Remover</button></div>
-     {legacy&&<p className={styles.error}>Esta variação antiga precisa ser substituída por combinações individuais. {v.sizes.length>1&&<button type="button" className="tiny" disabled={disabled||editor.variants.length+v.sizes.length-1>LISTING_LIMIT} onClick={()=>splitLegacy(v)}>Separar tamanhos</button>}{v.sizes.length===0&&<button type="button" className="tiny" disabled={disabled} onClick={()=>{changeVariant(v.key,'id',null);changeVariant(v.key,'sku','');}}>Criar nova combinação</button>}</p>}
+    return <>     {legacy&&<p className={styles.error}>Esta variação antiga precisa ser substituída por combinações individuais. {v.sizes.length>1&&<button type="button" className="tiny" disabled={disabled||editor.variants.length+v.sizes.length-1>LISTING_LIMIT} onClick={()=>splitLegacy(v)}>Separar tamanhos</button>}{v.sizes.length===0&&<button type="button" className="tiny" disabled={disabled} onClick={()=>{changeVariant(v.key,'id',null);changeVariant(v.key,'sku','');}}>Criar nova combinação</button>}</p>}
      <div className={styles.grid}>
       <Field name={prefix+'label'} label="Cor / modelo" error={errors[prefix+'label']}><input {...fieldAttrs(prefix+'label')} list={'colors-'+v.key} readOnly={fixed} value={v.label} onChange={e=>changeVariant(v.key,'label',e.target.value)} maxLength={120}/><datalist id={'colors-'+v.key}>{CLOTHING_COLORS.map(([c])=><option value={c} key={c}/>)}</datalist>{!fixed&&<div className="vll-option-grid" role="group" aria-label="Cores disponíveis">{CLOTHING_COLORS.map(([name,hex])=><button type="button" key={name} className="vll-option-chip" aria-pressed={v.label===name} onClick={()=>changeVariant(v.key,'label',name)}>{hex&&<span className="vll-color-swatch" style={{backgroundColor:hex}} aria-hidden="true"/>}{name}</button>)}</div>}</Field>
       <Field name={prefix+'sizes'} label={root==='calcados'?'Numeração (BR)':'Tamanho'} error={errors[prefix+'sizes']}><input {...fieldAttrs(prefix+'sizes')} list={'sizes-'+v.key} readOnly={fixed||legacy} value={v.sizes.join(', ')} onChange={e=>changeVariant(v.key,'sizes',[e.target.value])} maxLength={30}/><datalist id={'sizes-'+v.key}>{sizes.map(x=><option value={x} key={x}/>)}</datalist>{!fixed&&!legacy&&<div className="vll-option-grid" role="group" aria-label={root==='calcados'?'Numerações de calçados':'Tamanhos disponíveis'}>{sizes.map(size=><button type="button" key={size} className="vll-option-chip vll-size-chip" aria-pressed={v.sizes.includes(size)} onClick={()=>changeVariant(v.key,'sizes',[size])}>{size}</button>)}</div>}</Field>
-      {text('sku','SKU (opcional se novo)')}{text('cost_cents','Preço do fornecedor (R$)')}
-      <Field name={prefix+'supplier_available'} label="Disponibilidade" error={errors[prefix+'supplier_available']}><select {...fieldAttrs(prefix+'supplier_available')} value={v.supplier_available==null?'':v.supplier_available!==false?'available':'unavailable'} onChange={e=>changeVariant(v.key,'supplier_available',e.target.value==='available')}>{v.supplier_available==null&&<option value="">Selecione</option>}<option value="available">Disponível</option><option value="unavailable">Indisponível</option></select></Field>
-      {text('preparation_days','Preparação (dias úteis)','number')}{text('delivery_days_min','Entrega mínima (dias úteis)','number')}{text('delivery_days_max','Entrega máxima (dias úteis)','number')}{text('image_url','URL da imagem (opcional)')}
-      <div className="field"><label htmlFor={'upload-'+v.key}>Enviar foto</label><input id={'upload-'+v.key} type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(uploading[v.key])} onChange={e=>upload(v,e.target.files?.[0],i)}/>{uploading[v.key]&&<span role="status">Enviando foto...</span>}</div>
-      {v.image_url&&<img className="app-variant-preview" src={v.image_url} alt={'Foto '+(v.label||'da variação')}/>}
-     </div></div>;
-   })}
+      {text('sku','SKU (opcional se novo)')}
+      {text('preparation_days','Preparação (dias úteis)','number')}{text('delivery_days_min','Entrega mínima (dias úteis)','number')}{text('delivery_days_max','Entrega máxima (dias úteis)','number')}
+     </div></>;
+   }}/>
    <div className={styles.head}><button type="button" className="btn ghost" disabled={disabled||editor.variants.length>=LISTING_LIMIT} onClick={addVariant}>+ Variação</button><button type="button" className="btn ghost" disabled={disabled} onClick={close}>Cancelar</button><button className="btn gold" disabled={disabled}>{busy?'Enviando...':editor.status==='inactive'?'Salvar alterações':'Enviar para aprovação'}</button></div>
    </fieldset>
   </form>:<>

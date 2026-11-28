@@ -34,7 +34,7 @@ test('aprovação exibe andamento, erro e confirmação junto ao produto analisa
  assert.match(admin,/setReviewNotice\(/);
  assert.match(admin,/reviewNotice\[s.id\]\.text/);
  assert.match(admin,/aria-live="polite"/);
- assert.match(admin,/Sem foto — imagem provisória/);
+ assert.match(admin,/<GroupedReview/);assert.match(readFileSync('components/GroupedReview.jsx','utf8'),/Sem foto — imagem provisória/);
 });
 
 test('catálogo continua exigindo imagem — placeholder garante visibilidade',()=>{
