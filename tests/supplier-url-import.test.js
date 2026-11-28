@@ -44,7 +44,7 @@ test('sync never zeros omitted sizes or updates legacy, inactive or ambiguous va
 test('protected routes, separate private source and existing editors; no financial columns changed by synchronization',()=>{
  const read=p=>readFileSync(p,'utf8');
  assert.match(read('app/api/product-import/route.js'),/requireRole\(req,\['admin','super_admin','supplier'\]\)/);
- assert.match(read('app/api/supplier-stock-sync/route.js'),/timingSafeEqual/);
+ assert.match(read('app/api/supplier-stock-sync/route.js'),/originGuard\(req\)/);assert.match(read('app/api/supplier-stock-sync/route.js'),/syncSelectedSupplierStock\(x.slug\)/);
  assert.match(read('db/025_supplier_product_sources.sql'),/REFERENCES supplier_submissions/);
  for(const p of ['components/ProductEditor.jsx','components/SupplierListings.jsx'])assert.match(read(p),/<ProductUrlImport/);
  assert.doesNotMatch(read('lib/supplier-stock-sync.js'),/price_cents|supplier_cost_cents/);
