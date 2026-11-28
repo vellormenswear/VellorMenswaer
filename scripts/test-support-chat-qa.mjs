@@ -86,6 +86,32 @@ try{
  const reviewed=(await api('/api/admin/support?id='+t.id,{role:'admin'})).data.thread;assert.equal(reviewed.rating,5);assert.equal(reviewed.rating_comment,'Muito bom QA');
  await chat('a',{action:'rating',thread_id:t.id,rating:4},409);
  console.log('[support.qa] PASS five SVG stars, button gradient, desktop/mobile, both storefront and account, one evaluation only');
+ await chat('b',{action:'request_human'});
+ await chat('b',{action:'message',message:'quero cancelar minha compra'});
+ const pending=(await api('/api/admin/support',{role:'admin'})).data.threads.find(x=>x.status==='waiting'&&x.title==='Cancelamento de pedido'&&x.customer_name==='Cliente QA b');assert.ok(pending);
+ for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
+  const context=await browser.newContext({viewport,deviceScaleFactor:1});
+  await context.addCookies([{name:'pg_goston_sid',value:tokens.admin,url:base,httpOnly:true,sameSite:'Lax'}]);
+  const page=await context.newPage();await page.goto(base+'/admin?tab=requests',{waitUntil:'domcontentloaded'});
+  const tabs=page.getByRole('group',{name:'Situação do atendimento'});
+  await tabs.waitFor({state:'visible'});
+  const inbox=page.locator('section.vll-request-chat').filter({has:tabs});
+  assert.equal(await tabs.getByRole('button').count(),3);
+  const pendingTab=tabs.getByRole('button',{name:/^Pendentes/}),activeTab=tabs.getByRole('button',{name:/^Em andamento/}),closedTab=tabs.getByRole('button',{name:/^Atendidas/});
+  await pendingTab.click();await inbox.getByRole('button',{name:/Cancelamento de pedido.*Cliente QA b/}).first().waitFor({state:'visible'});
+  const bounds=await tabs.boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=viewport.width+1);
+  const buttons=await tabs.getByRole('button').evaluateAll(es=>es.map(e=>{const b=e.getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom}}));assert.ok(buttons.every(b=>b.left>=0&&b.right<=viewport.width+1));
+  await activeTab.click();assert.equal(await activeTab.getAttribute('aria-pressed'),'true');
+  await closedTab.click();assert.equal(await closedTab.getAttribute('aria-pressed'),'true');
+  await inbox.getByRole('button',{name:/Problema com a entrega.*Cliente QA a/}).first().click();
+  await inbox.getByLabel('Avaliação do cliente').waitFor({state:'visible'});
+  assert.match(await inbox.getByLabel('Avaliação do cliente').innerText(),/5\/5 estrelas/);
+  await pendingTab.click();assert.equal(await pendingTab.getAttribute('aria-pressed'),'true');
+  console.log('[support.qa.admin.visual]',JSON.stringify({viewport,bounds,buttons}));
+  await context.close();
+ }
+ console.log('[support.qa] PASS admin three tabs, responsive layout, thread titles and stored rating');
+
  const expired=randomUUID(),fresh=randomUUID();
  await transaction(async c=>{
   await c.query("INSERT INTO support_ai_messages(customer_id,sender_kind,body,created_at) VALUES($1,'visitor','expired AI QA',now()-interval '25 hours'),($1,'visitor','valid AI QA',now()-interval '23 hours')",[ids.b]);

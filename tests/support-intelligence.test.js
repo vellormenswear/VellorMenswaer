@@ -35,3 +35,9 @@ test('retention deletes only chat records and dedicated notifications',async()=>
  assert.match(queries[3][0],/DELETE FROM support_messages.*30 days/);
  assert.ok(queries.every(([q])=>!/\b(orders|payments|customer_requests|customer_request_messages)\b/.test(q)));
 });
+
+test('daily support cleanup at 03:00 Brasília (06:00 UTC), without scheduling other operations',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const cfg=JSON.parse(await readFile('vercel.json','utf8'));
+ assert.deepEqual(cfg.crons.filter(x=>x.path==='/api/cron/support-retention'),[{path:'/api/cron/support-retention',schedule:'0 6 * * *'}]);
+});
