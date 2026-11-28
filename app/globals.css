@@ -295,3 +295,4 @@ body{background:#faf9f6;color:#15241e;font-size:14px}
 .vll-admin-app .navtabs button.active,.vll-admin-page .navtabs button.active,.vll-supplier-app .navtabs button.active,.vll-admin-app .app-order-filter-chip.active{background:var(--vll-brand-gradient);border-color:#401328;color:#fff}
 
 .vll-account-app .btn:not(.gold):not(.ghost):not(.danger){background:var(--vll-brand-gradient);border-color:#401328;color:#fff}
+.vll-account-app .vll-auth-tabs button.active{background:var(--vll-brand-gradient);color:#fff}

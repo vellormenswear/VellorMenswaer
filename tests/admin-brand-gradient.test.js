@@ -23,3 +23,17 @@ test('account profile and solid actions use approved gradient without changing s
  assert.match(account,/className="btn-small" href="\/admin"/);
  assert.match(account,/className="btn-small" href="\/fornecedor"/);
 });
+test('login, registration and recovery actions use the brand gradient without changing profile tabs',()=>{
+ const css=read('app/globals.css'),account=read('app/conta/page.jsx');
+ assert.match(css,/\.vll-account-app \.vll-auth-tabs button\.active\{background:var\(--vll-brand-gradient\);color:#fff\}/);
+ assert.match(account,/className="navtabs vll-auth-tabs"\>\{\[\['login','Entrar'\]/);
+ assert.match(account,/className="btn" type="submit" disabled=\{authBusy\}/);
+ assert.match(account,/className="navtabs"\>\{\[\['perfil','Dados pessoais'\]/);
+});
+test('floating support uses the official gradient on both storefront and account while retaining its circular icon',()=>{
+ const css=read('public/vellor-support.css');
+ assert.ok(css.includes('background-image:var(--vll-brand-gradient,linear-gradient(90deg,#10362c 0%,#242326 50%,#401328 100%));'));
+ assert.ok(css.includes('width:58px!important;height:58px!important'));
+ assert.ok(css.includes('width:54px!important;height:54px!important'));
+ for(const path of ['components/SupportWidget.jsx','public/vitrine.html'])assert.ok(read(path).includes('/vellor-support.css?v=20261127-gradient'));
+});
