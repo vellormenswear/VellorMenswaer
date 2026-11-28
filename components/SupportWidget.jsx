@@ -3,8 +3,8 @@ import {useEffect,useRef,useState} from 'react';
 const senderLabel=m=>m.sender_kind==='visitor'?'Você':m.sender_kind==='admin'?'Equipe VELLOR'+(m.sender_name?' · '+m.sender_name:''):'Assistente VELLOR';
 export default function SupportWidget(){
  const [open,setOpen]=useState(false),[messages,setMessages]=useState([]),[chatStatus,setChatStatus]=useState('bot'),[input,setInput]=useState(''),[notice,setNotice]=useState(''),[sending,setSending]=useState(false),[survey,setSurvey]=useState(null),[rating,setRating]=useState(0),[comment,setComment]=useState('');
- const loading=useRef(false),endRef=useRef(null),posting=useRef(false);
- function apply(d){setMessages(d.messages||[]);setChatStatus(d.status||'bot');setSurvey(d.survey||null);}
+ const loading=useRef(false),endRef=useRef(null),posting=useRef(false),signature=useRef('');
+ function apply(d){const next=JSON.stringify([d.messages||[],d.survey||null]);if(next!==signature.current){signature.current=next;setMessages(d.messages||[]);setSurvey(d.survey||null);}setChatStatus(d.status||'bot');}
  useEffect(()=>{setRating(0);setComment('')},[survey?.id]);
  async function load(){
   if(loading.current||posting.current)return;

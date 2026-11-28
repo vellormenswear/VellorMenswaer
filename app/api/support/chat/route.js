@@ -2,20 +2,19 @@ import {sql,transaction} from '@/lib/db';
 import {limitRequest} from '@/lib/rate-limit';
 import {getUser} from '@/lib/auth';
 import {randomToken,sha256} from '@/lib/security';
-import {ok,fail,body,originGuard,ensure,HttpError} from '@/lib/http';
+import {ok,fail,body,originGuard,ensure,uuid} from '@/lib/http';
 import {customerOrderLabel,customerPaymentLabel} from '@/lib/customer-order-status.mjs';
 import {supportReply,orderQuestion,orderNumber,humanQuestion,orderActionQuestion} from '@/lib/support-faq.mjs';
 import {SUMMARY_PROMPT,normalizeSupport,classifySupport,productIntent,productAnswer,orderContext} from '@/lib/support-intelligence.mjs';
 import {CATALOG_FROM,CATALOG_WHERE} from '@/lib/catalog-query.mjs';
 import {CAMPAIGN_JOIN,CAMPAIGN_PRICE} from '@/lib/campaign-pricing.mjs';
-import {purgeSupportHistory} from '@/lib/support-retention.mjs';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const COOKIE='vellor_support_session';
 const AGE=60*60*24*30;
 function tokenOf(req){const c=req.headers.get('cookie')||'';const t=c.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1)||'';return /^[A-Za-z0-9_-]{43}$/.test(t)?t:'';}
 const AI_OWNER="(customer_id=$1::uuid OR ($1::uuid IS NULL AND customer_id IS NULL AND visitor_token_hash=$2))";
-const HUMAN_OWNER="(t.customer_id=$1::uuid OR ($1::uuid IS NULL AND t.customer_id IS NULL AND COALESCE(t.guest_owner_hash,t.visitor_token_hash)=$2))";
+const HUMAN_OWNER="(t.customer_id=$1::uuid OR ($1::uuid IS NULL AND t.customer_id IS NULL AND t.guest_owner_hash=$2))";
 const HUMAN_VALID="t.status<>'bot' AND COALESCE(t.requested_at,t.created_at)>now()-interval '30 days'";
 function aiMessage(c,userId,hash,kind,body){return c.query('INSERT INTO support_ai_messages(customer_id,visitor_token_hash,sender_kind,body) VALUES($1,$2,$3,$4)',[userId,userId?null:hash,kind,body]);}
 async function snapshot(c,userId,hash){
@@ -33,7 +32,7 @@ async function snapshot(c,userId,hash){
 async function claimGuest(c,userId,hash){
  if(!userId||!hash)return;
  await c.query("UPDATE support_ai_messages SET customer_id=$1,visitor_token_hash=NULL WHERE customer_id IS NULL AND visitor_token_hash=$2 AND created_at>now()-interval '24 hours'",[userId,hash]);
- await c.query("UPDATE support_threads SET customer_id=$1,guest_owner_hash=NULL WHERE customer_id IS NULL AND COALESCE(guest_owner_hash,visitor_token_hash)=$2 AND status<>'bot'",[userId,hash]);
+ await c.query("UPDATE support_threads SET customer_id=$1,guest_owner_hash=NULL WHERE customer_id IS NULL AND guest_owner_hash=$2 AND status<>'bot'",[userId,hash]);
 }
 async function catalogReply(c,intent){
  const n=s=>"translate(lower("+s+"),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc')";
@@ -72,7 +71,7 @@ export async function POST(req){
   ensure(['message','request_human','rating'].includes(action),'Ação inválida.');
   const message=typeof x.message==='string'?x.message.trim():'';
   if(action==='message')ensure(message.length>0&&message.length<=1200,'A mensagem deve ter até 1.200 caracteres.');
-  if(action==='rating'){ensure(typeof x.thread_id==='string'&&/^[0-9a-f-]{36}$/i.test(x.thread_id)&&Number.isInteger(x.rating)&&x.rating>=1&&x.rating<=5,'Avaliação inválida.');ensure(message.length<=1200,'O comentário deve ter até 1.200 caracteres.');}
+  if(action==='rating'){ensure(uuid(x.thread_id)&&Number.isInteger(x.rating)&&x.rating>=1&&x.rating<=5,'Avaliação inválida.');ensure(message.length<=1200,'O comentário deve ter até 1.200 caracteres.');}
   const token=tokenOf(req)||randomToken(),hash=sha256(token),user=await getUser(req),userId=user?.id||null;
   await limitRequest(req,'support',{identity:userId});
   const data=await transaction(async c=>{
