@@ -1,12 +1,1 @@
-{
-  "framework": "nextjs",
-  "regions": [
-    "gru1"
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/support-retention",
-      "schedule": "* * * * *"
-    }
-  ]
-}
+{"framework":"nextjs","regions":["gru1"]}
