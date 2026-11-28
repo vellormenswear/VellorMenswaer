@@ -1,5 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
+import ProductUrlImport from '@/components/ProductUrlImport';
+import {mergeImportedRows,matchedCategory} from '@/lib/supplier-import-form.mjs';
 import CategoryPicker from '@/components/CategoryPicker';
 import VariantGrid from '@/components/VariantGrid';
 import {expandVariantGrid,combinationKey} from '@/lib/variant-grid.mjs';
@@ -12,8 +14,8 @@ const statusLabel={pending:'Aguardando aprovação',approved:'Aprovado',rejected
 const money=n=>(Number(n||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const key=()=>globalThis.crypto.randomUUID();
 const variant=()=>({key:key(),id:null,label:'',sizes:[],sku:'',cost_cents:'',stock_mode:'availability',stock:null,reported_stock:null,supplier_available:true,image_url:'',preparation_days:'2',delivery_days_min:'5',delivery_days_max:'15'});
-const fresh=()=>({name:'',description:'',department:'',category_id:'',variants:[variant()]});
-const editing=a=>({...a,variants:(a.variants||[]).map(v=>({...v,key:v.key||key(),sizes:Array.isArray(v.sizes)?v.sizes:[],cost_cents:v.cost_cents==null?'':(Number(v.cost_cents)/100).toFixed(2).replace('.',','),...availabilityFields(v),expected_available:a.status==='approved'&&v.id?variantAvailable(v):undefined}))});
+const fresh=()=>({source_url:'',name:'',description:'',department:'',category_id:'',variants:[variant()]});
+const editing=a=>({...a,source_url:a.source_url||'',variants:(a.variants||[]).map(v=>({...v,key:v.key||key(),sizes:Array.isArray(v.sizes)?v.sizes:[],cost_cents:v.cost_cents==null?'':(Number(v.cost_cents)/100).toFixed(2).replace('.',','),...availabilityFields(v),expected_available:a.status==='approved'&&v.id?variantAvailable(v):undefined}))});
 async function api(action,payload){
  const r=await fetch('/api/suppliers/'+action,{method:payload?'POST':'GET',headers:{'Content-Type':'application/json'},body:payload?JSON.stringify(payload):undefined,cache:'no-store'});
  const j=await r.json().catch(()=>({}));
@@ -32,6 +34,8 @@ export default function SupplierListings({categories,onChanged,refreshToken,list
  function close(){if(lock.current||uploads.current.size)return;setEditor(null);setErrors({});setNotice(null);}
  function change(k,v){setEditor(p=>p?{...p,[k]:v}:p);setErrors(old=>{const next={...old};delete next[k];return next;});}
  function changeVariant(id,k,v){setEditor(p=>p?{...p,variants:p.variants.map(row=>row.key===id?{...row,[k]:v}:row)}:p);setErrors(old=>{const next={...old};const i=editor?.variants.findIndex(row=>row.key===id);delete next['variants.'+i+'.'+k];return next;});}
+ function applyImport(data){const next=mergeImportedRows(editor.variants,data.variants,{create:variant,limit:LISTING_LIMIT,photos:data.photos});setEditor(old=>({...old,name:old.name||data.name,description:old.description||data.description,category_id:old.category_id||matchedCategory(categories,data.category),variants:next}));setErrors({})}
+ const importBusy=v=>{lock.current=v;setBusy(v)};
  function removeVariant(id){setEditor(p=>({...p,variants:p.variants.filter(v=>v.key!==id)}));setErrors({});}
  function generate(colors,sizes){try{const variants=expandVariantGrid(editor.variants,colors,sizes,{root,limit:LISTING_LIMIT,create:(seed,{color})=>({...variant(),cost_cents:seed?.cost_cents||'',preparation_days:seed?.preparation_days??'2',delivery_days_min:seed?.delivery_days_min??'5',delivery_days_max:seed?.delivery_days_max??'15',image_url:seed&&combinationKey(seed.label,'')===combinationKey(color,'')?seed.image_url||'':''})});setEditor(p=>({...p,variants}));setErrors({})}catch(e){setErrors({variants:e.message})}}
  function addVariant(){setEditor(p=>({...p,variants:[...p.variants,variant()]}));setErrors({});}
@@ -70,6 +74,7 @@ export default function SupplierListings({categories,onChanged,refreshToken,list
   {editor?<form ref={formRef} onSubmit={save} noValidate>
    <h3>{editor.id?'Editar anúncio':'Novo anúncio'}</h3>
    <fieldset disabled={busy} className={styles.fields}>
+   <ProductUrlImport url={editor.source_url} onUrl={v=>change('source_url',v)} onImport={applyImport} onBusy={importBusy} disabled={disabled}/>
    <Field name="name" label="Nome do produto" error={errors.name}><input {...fieldAttrs('name')} value={editor.name} onChange={e=>change('name',e.target.value)} maxLength={220}/></Field>
    <Field name="description" label="Descrição" error={errors.description}><textarea {...fieldAttrs('description')} value={editor.description||''} onChange={e=>change('description',e.target.value)} maxLength={4000}/></Field>
    <Field name="department" label="Departamento" error={errors.department}><select {...fieldAttrs('department')} value={editor.department||''} onChange={e=>change('department',e.target.value)}><option value="">Selecione</option><option value="masculino">Masculino</option><option value="feminino">Feminino</option></select></Field>
@@ -87,7 +92,7 @@ export default function SupplierListings({categories,onChanged,refreshToken,list
       <Field name={prefix+'label'} label="Cor / modelo" error={errors[prefix+'label']}><input {...fieldAttrs(prefix+'label')} list={'colors-'+v.key} readOnly={fixed} value={v.label} onChange={e=>changeVariant(v.key,'label',e.target.value)} maxLength={120}/><datalist id={'colors-'+v.key}>{CLOTHING_COLORS.map(([c])=><option value={c} key={c}/>)}</datalist>{!fixed&&<div className="vll-option-grid" role="group" aria-label="Cores disponíveis">{CLOTHING_COLORS.map(([name,hex])=><button type="button" key={name} className="vll-option-chip" aria-pressed={v.label===name} onClick={()=>changeVariant(v.key,'label',name)}>{hex&&<span className="vll-color-swatch" style={{backgroundColor:hex}} aria-hidden="true"/>}{name}</button>)}</div>}</Field>
       <Field name={prefix+'sizes'} label={root==='calcados'?'Numeração (BR)':'Tamanho'} error={errors[prefix+'sizes']}><input {...fieldAttrs(prefix+'sizes')} list={'sizes-'+v.key} readOnly={fixed||legacy} value={v.sizes.join(', ')} onChange={e=>changeVariant(v.key,'sizes',[e.target.value])} maxLength={30}/><datalist id={'sizes-'+v.key}>{sizes.map(x=><option value={x} key={x}/>)}</datalist>{!fixed&&!legacy&&<div className="vll-option-grid" role="group" aria-label={root==='calcados'?'Numerações de calçados':'Tamanhos disponíveis'}>{sizes.map(size=><button type="button" key={size} className="vll-option-chip vll-size-chip" aria-pressed={v.sizes.includes(size)} onClick={()=>changeVariant(v.key,'sizes',[size])}>{size}</button>)}</div>}</Field>
       {text('sku','SKU (opcional se novo)')}{text('cost_cents','Preço do fornecedor (R$)')}
-      <Field name={prefix+'supplier_available'} label="Disponibilidade" error={errors[prefix+'supplier_available']}><select {...fieldAttrs(prefix+'supplier_available')} value={v.supplier_available!==false?'available':'unavailable'} onChange={e=>changeVariant(v.key,'supplier_available',e.target.value==='available')}><option value="available">Disponível</option><option value="unavailable">Indisponível</option></select></Field>
+      <Field name={prefix+'supplier_available'} label="Disponibilidade" error={errors[prefix+'supplier_available']}><select {...fieldAttrs(prefix+'supplier_available')} value={v.supplier_available==null?'':v.supplier_available!==false?'available':'unavailable'} onChange={e=>changeVariant(v.key,'supplier_available',e.target.value==='available')}>{v.supplier_available==null&&<option value="">Selecione</option>}<option value="available">Disponível</option><option value="unavailable">Indisponível</option></select></Field>
       {text('reported_stock','Estoque','number')}{text('preparation_days','Preparação (dias úteis)','number')}{text('delivery_days_min','Entrega mínima (dias úteis)','number')}{text('delivery_days_max','Entrega máxima (dias úteis)','number')}{text('image_url','URL da imagem (opcional)')}
       <div className="field"><label htmlFor={'upload-'+v.key}>Enviar foto</label><input id={'upload-'+v.key} type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(uploading[v.key])} onChange={e=>upload(v,e.target.files?.[0],i)}/>{uploading[v.key]&&<span role="status">Enviando foto...</span>}</div>
       {v.image_url&&<img className="app-variant-preview" src={v.image_url} alt={'Foto '+(v.label||'da variação')}/>}
