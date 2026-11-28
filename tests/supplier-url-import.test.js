@@ -50,3 +50,22 @@ test('protected routes, separate private source and existing editors; no financi
  assert.doesNotMatch(read('lib/supplier-stock-sync.js'),/price_cents|supplier_cost_cents/);
  assert.match(read('lib/supplier-stock-sync.js'),/updated_at<=\$5::timestamptz/);
 });
+
+test('store opens integrated products only, preserves the manual flow and refreshes the existing modal',()=>{
+ const read=p=>readFileSync(p,'utf8');
+ const storefront=read('public/vellor-approved.js');
+ assert.match(storefront,/stockPending=selected\.stock_sync_enabled===true/);
+ assert.match(storefront,/if\(stockPending\)refreshSelectedStock\(slug,request\)/);
+ assert.match(storefront,/stockRequests\.get\(slug\)/);
+ assert.match(storefront,/if\(request!==stockRequest\)return/);
+ assert.match(storefront,/if\(stockPending\)return;const p=selected/);
+ assert.match(storefront,/stock_unavailable:true/);
+ const route=read('app/api/catalog/route.js');
+ assert.match(route,/EXISTS\(SELECT 1 FROM supplier_product_sources src WHERE src.product_id=p.id\) AS stock_sync_enabled/);
+ assert.doesNotMatch(route,/source_url/);
+ const sync=read('lib/supplier-stock-sync.js');
+ assert.match(sync,/p.slug=\$1/);
+ assert.match(sync,/last_checked_at<clock_timestamp\(\)-interval '15 seconds'/);
+ assert.match(sync,/if\(!remote\)return/);
+ assert.doesNotMatch(sync,/syncNextSupplierStock/);
+});
