@@ -3,7 +3,7 @@ import {chromium} from 'playwright-core';
 import serverChromium from '@sparticuz/chromium';
 import {captureRenderedProduct} from '../lib/supplier-rendered-dom.mjs';
 import {safeImportError} from '../lib/supplier-import-errors.mjs';
-if(process.env.VERCEL_ENV!=='preview'||process.env.VERCEL_GIT_COMMIT_REF!=='qa/importacao-cdp-20261127')throw Error('QA preview only');
+if(process.env.VERCEL_ENV!=='preview'||process.env.VERCEL_GIT_COMMIT_REF!=='qa/importacao-cdp-reteste-20261127')throw Error('QA preview only');
 const targets=[
  ['shopee','https://shopee.com.br/Camisa-Masculina-Social-Slim-Fit-Luxo-Pronta-Entrega-Manga-Longa-Anti-Suor-Tecnol%C3%B3gica-i.631628506.58211355781?extraParams=%7B%22display_model_id%22%3A139657020910%2C%22model_selection_logic%22%3A3%7D&image_ids=br-11134207-820mb-msx7wrzbwah240'],
  ['mercado_livre','https://produto.mercadolivre.com.br/MLB-5291857244-calca-jeans-feminina-wide-leg-pantalona-cintura-alta-algodo-_JM?searchVariation=186977075373#polycard_client=recommendations_home_navigation-recommendations&reco_backend=machinalis-homes-univb-equivalent-offer&reco_client=home_navigation-recommendations&reco_item_pos=5&reco_backend_type=function&reco_id=1c846d05-f265-44f4-a9f3-6100e6e44582&sid=recos&c_id=/home/navigation-recommendations/element&c_uid=462e47e1-5759-44aa-aa62-83bc0c3dcb64']
@@ -29,18 +29,45 @@ await withBrowser(async context=>{
  await assert.rejects(captureRenderedProduct(page,{status:200,expectedUrl:'https://fixture.example.com/product/other'}),e=>e.code==='RENDERED_PRODUCT_MISMATCH');
  console.log('[cdp.fixture] PASS: dynamic DOM, gallery photos, exact variants, explicit stock, no prices, HTTP refusal and product mismatch');
 });
+const results=[];
 for(const [name,url] of targets){
- let stage='browser',status=null;
+ let stage='browser',status=null,crashed=false,closed=false,requests=0,skipped=0,attempts=0;
+ const start=Date.now();
  try{
   await withBrowser(async context=>{
-   await context.route('**/*',r=>allowed(r.request().url())&&['GET','HEAD'].includes(r.request().method())?r.continue():r.abort());
-   const page=await context.newPage();stage='navigation';
+   await context.route('**/*',r=>{
+    requests++;
+    // Skip binary resources only: the DOM can expose their URLs without decoding them.
+    if(['image','media','font'].includes(r.request().resourceType())){skipped++;return r.abort();}
+    return allowed(r.request().url())&&['GET','HEAD'].includes(r.request().method())?r.continue():r.abort();
+   });
+   const page=await context.newPage();
+   page.on('crash',()=>{crashed=true});page.on('close',()=>{closed=true});
+   stage='navigation';
    const res=await page.goto(url,{waitUntil:'domcontentloaded',timeout:18000});status=res?.status()??null;
-   console.log('[cdp.navigation]',JSON.stringify({name,status,host:new URL(page.url()).hostname}));
+   console.log('[cdp.retest.navigation]',JSON.stringify({name,status,host:new URL(page.url()).hostname}));
    if(status!==200){await captureRenderedProduct(page,{status,expectedUrl:url});return;}
-   stage='render';await page.waitForSelector('h1, [itemtype*="schema.org/Product"], script[type="application/ld+json"]',{state:'attached',timeout:6500}).catch(()=>{});
-   stage='cdp';const x=await captureRenderedProduct(page,{status,expectedUrl:url});
-   console.log('[cdp.real]',JSON.stringify({name,status,title:x.product.name,descriptionLength:x.product.description.length,photos:x.product.photos.length,variants:x.product.variants.length,incomplete:x.product.variants_incomplete,knownStock:x.product.variants.filter(v=>v.reported_stock!=null).length,bytes:x.bytes}));
+   stage='cdp';let x,previousError;
+   const deadline=Date.now()+6500;
+   do{
+    attempts++;
+    try{x=await captureRenderedProduct(page,{status,expectedUrl:url});break;}
+    catch(e){previousError=e;if(e.code!=='NO_PRODUCT_DATA')throw e;}
+    await new Promise(r=>setTimeout(r,500));
+   }while(Date.now()<deadline);
+   if(!x)throw previousError;
+   const result={name,status,title:x.product.name,descriptionLength:x.product.description.length,photos:x.product.photos.length,variants:x.product.variants.length,incomplete:x.product.variants_incomplete,knownStock:x.product.variants.filter(v=>v.reported_stock!=null).length,bytes:x.bytes,attempts,requests,skipped,elapsedMs:Date.now()-start};
+   console.log('[cdp.retest.real]',JSON.stringify(result));
+   // Both title and images must be read from the actual listing; incomplete variants are not full validation.
+   const complete=Boolean(x.product.name&&x.product.description&&x.product.photos.length&&x.product.variants.length&&!x.product.variants_incomplete&&x.product.variants.every(v=>typeof v.supplier_available==='boolean'));
+   results.push({name,passed:complete});
   });
- }catch(e){console.log('[cdp.real.failure]',JSON.stringify({name,stage,status,...safeImportError(e),...(e?.code?{}:{runtimeError:String(e?.message||'').slice(0,180)})}));}
+ }catch(e){
+  const detail=safeImportError(e);
+  const closedError=crashed||closed&&/closed|crash/i.test(String(e.message));
+  console.log('[cdp.retest.failure]',JSON.stringify({name,stage,status,...detail,...(closedError&&detail.code==='UNKNOWN'?{code:'BROWSER_CLOSED',message:'A página ou o navegador encerrou durante a consulta.'}:{}),crashed,closed,attempts,requests,skipped,elapsedMs:Date.now()-start}));
+  results.push({name,passed:false});
+ }
 }
+console.log('[cdp.retest.gate]',JSON.stringify(results));
+if(results.length!==targets.length||results.some(x=>!x.passed))throw Error('Real listing validation incomplete: release gate failed.');
