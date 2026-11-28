@@ -1,6 +1,7 @@
 import {sql,transaction,audit} from '@/lib/db';import {ok,fail,body,originGuard,ensure,HttpError,email,txt} from '@/lib/http';
 import {sha256,passwordHash,passwordVerify,randomToken} from '@/lib/security';
 import {limitRequest} from '@/lib/rate-limit';
+import {generateRecoveryCode,validRecoveryCode,validRecoveryChallenge,recoveryCodeHash,recoveryEmail} from '@/lib/password-recovery.mjs';
 import {getUser,requireUser,publicUser,issueSession,revoke} from '@/lib/auth';import {sendMail,emailConfigured} from '@/lib/email';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 export async function GET(req,{params}){try{const {action}=await params;if(action!=='me')throw new HttpError(404,'Não encontrado.');return ok({user:publicUser(await getUser(req))})}catch(e){return fail(e)}}
@@ -18,13 +19,26 @@ export async function POST(req,{params}){try{originGuard(req);const {action}=awa
  }
  if(action==='logout'){const res=ok({ok:true});await revoke(req,res);return res}
  if(action==='forgot'){
- const mail=email(x.email);await limitRequest(req,'forgot',{identity:mail});const token=randomToken();
- const issued=emailConfigured()?await transaction(async c=>{const result=await c.query('SELECT id FROM users WHERE email=$1 AND suspended_at IS NULL AND launch_archived_at IS NULL FOR UPDATE',[mail]);if(!result.rowCount)return false;await c.query("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval'30 minutes')",[result.rows[0].id,sha256(token)]);return true}):false;
- if(issued){const url=new URL('/conta?reset='+encodeURIComponent(token),process.env.SITE_URL||new URL(req.url).origin);await sendMail(mail,'VellorWear — redefinição de senha',`<p>Você solicitou a redefinição da senha.</p><p><a href="${url}">Redefinir senha (30 minutos)</a></p><p>Se não foi você, ignore esta mensagem.</p>`)}
- return ok({message:'Se o e-mail existir e o envio estiver configurado, enviaremos as instruções.'});
+ const mail=email(x.email);await limitRequest(req,'forgot',{identity:mail});ensure(/^\S+@\S+\.\S+$/.test(mail),'E-mail inválido.');
+ if(!emailConfigured())throw new HttpError(503,'Recuperação temporariamente indisponível. Tente novamente mais tarde.');
+ const challenge=randomToken(),code=generateRecoveryCode(),tokenHash=recoveryCodeHash(mail,challenge,code);
+ const issued=await transaction(async c=>{const result=await c.query('SELECT id,email FROM users WHERE email=$1 AND suspended_at IS NULL AND launch_archived_at IS NULL FOR UPDATE',[mail]);if(!result.rowCount)return null;await c.query("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval'30 minutes')",[result.rows[0].id,tokenHash]);return result.rows[0]});
+ if(issued){try{await sendMail(issued.email,'VellorWear — código de recuperação de senha',recoveryEmail(code))}catch{console.error('Vellor password recovery: email delivery failed');}}
+ return ok({challenge,message:'Se o e-mail estiver cadastrado, você receberá um código de 6 dígitos.'});
  }
  if(action==='reset'){
- await limitRequest(req,'reset');const token=txt(x.token,200);ensure(/^[A-Za-z0-9_-]{43}$/.test(token),'Token inválido.');ensure(typeof x.password==='string'&&x.password.length>=12&&x.password.length<=128,'Senha deve conter entre 12 e 128 caracteres.');const tokenHash=sha256(token);const candidate=await sql('SELECT user_id FROM password_reset_tokens WHERE token_hash=$1 AND used_at IS NULL AND expires_at>now()',[tokenHash]);ensure(candidate.rowCount,'Link inválido ou expirado.',400);const hash=await passwordHash(x.password);const userId=candidate.rows[0].user_id;await transaction(async c=>{const owner=await c.query('SELECT id FROM users WHERE id=$1 AND suspended_at IS NULL AND launch_archived_at IS NULL FOR UPDATE',[userId]);ensure(owner.rowCount,'Link inválido ou expirado.',400);const t=await c.query('SELECT id FROM password_reset_tokens WHERE token_hash=$1 AND user_id=$2 AND used_at IS NULL AND expires_at>now() FOR UPDATE',[tokenHash,userId]);ensure(t.rowCount,'Link inválido ou expirado.',400);await c.query('UPDATE users SET password_hash=$1,updated_at=now() WHERE id=$2',[hash,userId]);await c.query('UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL',[userId]);await c.query('DELETE FROM sessions WHERE user_id=$1',[userId]);});return ok({message:'Senha atualizada. Faça login novamente.'});
+ const mail=email(x.email),legacy=typeof x.token==='string'&&!x.challenge&&!x.code;
+ await limitRequest(req,'reset',{identity:legacy?undefined:mail});
+ const invalid='Código inválido ou expirado.';
+ let tokenHash;
+ if(legacy){const token=txt(x.token,200);ensure(validRecoveryChallenge(token),'Link inválido ou expirado.');tokenHash=sha256(token);}
+ else{ensure(validRecoveryCode(x.code)&&validRecoveryChallenge(x.challenge)&&/^\S+@\S+\.\S+$/.test(mail),invalid);if(!emailConfigured())throw new HttpError(503,'Recuperação temporariamente indisponível.');tokenHash=recoveryCodeHash(mail,x.challenge,x.code);}
+ ensure(typeof x.password==='string'&&x.password.length>=12&&x.password.length<=128,'Senha deve conter entre 12 e 128 caracteres.');
+ const candidate=await sql('SELECT t.user_id FROM password_reset_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.used_at IS NULL AND t.expires_at>now() AND ($2::text IS NULL OR u.email=$2) AND u.suspended_at IS NULL AND u.launch_archived_at IS NULL',[tokenHash,legacy?null:mail]);
+ ensure(candidate.rowCount,legacy?'Link inválido ou expirado.':invalid,400);
+ const hash=await passwordHash(x.password);const userId=candidate.rows[0].user_id;
+ await transaction(async c=>{const owner=await c.query('SELECT id,email FROM users WHERE id=$1 AND suspended_at IS NULL AND launch_archived_at IS NULL FOR UPDATE',[userId]);ensure(owner.rowCount&&(legacy||owner.rows[0].email===mail),invalid,400);const t=await c.query('SELECT id FROM password_reset_tokens WHERE token_hash=$1 AND user_id=$2 AND used_at IS NULL AND expires_at>now() FOR UPDATE',[tokenHash,userId]);ensure(t.rowCount,invalid,400);await c.query('UPDATE users SET password_hash=$1,updated_at=now() WHERE id=$2',[hash,userId]);await c.query('UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL',[userId]);await c.query('DELETE FROM sessions WHERE user_id=$1',[userId]);});
+ return ok({message:'Senha atualizada. Faça login novamente.'});
  }
  if(action==='profile'){
  const user=await requireUser(req);const full_name=txt(x.name,120),phone=txt(x.phone,24);ensure(full_name.length>=3,'Nome inválido.');await sql('UPDATE users SET full_name=$1,phone=$2,updated_at=now() WHERE id=$3',[full_name,phone,user.id]);return ok({updated:true});
