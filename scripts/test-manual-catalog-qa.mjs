@@ -48,7 +48,7 @@ try{
    await grid.getByRole('button',{name:'Preto',exact:true}).click();await grid.getByRole('button',{name:'Azul',exact:true}).click();
    const sizes=page.getByRole('group',{name:'Selecionar vários tamanhos'});await sizes.getByRole('button',{name:'P',exact:true}).click();await sizes.getByRole('button',{name:'M',exact:true}).click();await page.getByRole('button',{name:'Gerar 4 variações'}).click();
    const box=await grid.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=viewport.width+1);
-   assert.ok(await page.getByText('Disponibilidade',{exact:true}).count()>=1);
+   const availability=page.locator('select').filter({has:page.locator('option[value="available"]')}).first();await availability.waitFor({state:'visible'});assert.deepEqual(await availability.locator('option').allTextContents(),['Disponível','Indisponível']);await availability.selectOption('unavailable');assert.equal(await availability.inputValue(),'unavailable');
    console.log('[manual.qa.visual]',JSON.stringify({role,viewport,grid:box}));
    await ctx.close();
   }
